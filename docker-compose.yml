@@ -1,0 +1,139 @@
+name: cngokzapi
+
+# ---------------------------------------------------------------------------
+# CNGOKZAPI - full stack
+#
+#   docker compose up -d --build     start everything
+#   docker compose logs -f           follow logs
+#   docker compose down              stop (volumes are kept)
+#
+# Configuration is read from `.env` (copy `.env.example`).
+# ---------------------------------------------------------------------------
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cngokz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cngokz}
+      POSTGRES_DB: ${POSTGRES_DB:-cngokzapi}
+      TZ: UTC
+    volumes:
+      # PostgreSQL 18 keeps PGDATA inside /var/lib/postgresql/<major>/docker,
+      # so the volume mounts the parent directory for upgrade safety.
+      - postgres-data:/var/lib/postgresql
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    # Bound to the loopback interface only: databases are internal services.
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - backend
+    logging: *default-logging
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    volumes:
+      - redis-data:/data
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    # Loopback only; the API reaches Redis through the compose network.
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - backend
+    logging: *default-logging
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Internal service names, never localhost.
+      DATABASE_URL: postgres://${POSTGRES_USER:-cngokz}:${POSTGRES_PASSWORD:-cngokz}@postgres:5432/${POSTGRES_DB:-cngokzapi}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS:-1}
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-cngokz}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      HEALTH_CHECK_TIMEOUT_MS: ${HEALTH_CHECK_TIMEOUT_MS:-2000}
+    ports:
+      # Direct API access (Swagger UI / debugging) from the host only.
+      - '127.0.0.1:${API_PORT:-8080}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8080/health/ready']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - backend
+    logging: *default-logging
+
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      WEB_PORT: 5173
+      # The static server proxies /api, /health, /swagger-ui and /api-docs here.
+      API_UPSTREAM: http://api:8080
+    ports:
+      - '${WEB_PORT:-5173}:5173'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+    name: cngokzapi-postgres-data
+  redis-data:
+    name: cngokzapi-redis-data
+
+networks:
+  backend:
+    name: cngokzapi-backend

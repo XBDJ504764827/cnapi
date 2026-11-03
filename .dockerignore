@@ -1,0 +1,23 @@
+# Build artifacts and local state that must not enter the build context.
+target/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+.git/
+.github/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Local service data
+infrastructure/postgres/data/
+infrastructure/redis/data/
+
+# Not needed by the Rust/Node builds
+docs/
+apps/api/tests/
+apps/api/*.log

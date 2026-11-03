@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-ssr/
+build/
+apps/api/target/
+target/
+*.tsbuildinfo
+
+# Local env files (only .env.example is tracked)
+.env
+.env.*
+!.env.example
+!apps/web/.env.example
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+apps/api/*.log
+.history/
+
+# Docker local data (volumes are managed by docker, this is a safety net)
+infrastructure/postgres/data/
+infrastructure/redis/data/

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+target/
+docs/openapi.json
+pnpm-lock.yaml
+apps/api/

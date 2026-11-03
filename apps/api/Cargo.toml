@@ -1,0 +1,44 @@
+[package]
+name = "cngokz-api"
+description = "CNGOKZAPI backend service (Axum + PostgreSQL + Redis)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "cngokz_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cngokz-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "dump-openapi"
+path = "src/bin/dump_openapi.rs"
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+dotenvy.workspace = true
+redis.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+utoipa.workspace = true
+utoipa-swagger-ui.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower.workspace = true
+

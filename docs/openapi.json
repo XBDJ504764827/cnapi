@@ -1,0 +1,767 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CNGOKZAPI",
+    "description": "API of the CNGOKZAPI platform for the CS:GO / CS2 KZ community.\n\nAll endpoints are versioned under `/api/v1` (except health probes and documentation). Successful responses use the `{ success, data, message }` envelope, failures use `{ success, error, message }` with a proper HTTP status code.",
+    "license": {
+      "name": "MIT"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/system/events": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Recent system events",
+        "description": "Most recent system events. A fresh installation has an empty list.",
+        "operationId": "events",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of events to return (1-100, default 20).",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent system events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SystemEventsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/info": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "System information",
+        "description": "Version, environment, start time and uptime of the running API instance.",
+        "operationId": "info",
+        "responses": {
+          "200": {
+            "description": "System information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SystemInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/status": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "System status",
+        "description": "Real, per-request connectivity status of PostgreSQL and Redis together with uptime information.",
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "Current system status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SystemStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "API health",
+        "description": "Returns `ok` when the process can serve HTTP requests. Dependencies are not checked, use `/health/ready` for that.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "API is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Process liveness",
+        "description": "Returns `alive` while the process is running. Intended for orchestrator liveness probes.",
+        "operationId": "liveness",
+        "responses": {
+          "200": {
+            "description": "Process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LivenessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Dependency readiness",
+        "description": "Probes PostgreSQL and Redis. Responds 503 with sanitized check details when any dependency is unavailable.",
+        "operationId": "readiness",
+        "responses": {
+          "200": {
+            "description": "All dependencies are reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one dependency is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiErrorBody": {
+        "type": "object",
+        "description": "Envelope used by every failed response.",
+        "required": [
+          "success",
+          "error",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiErrorDetail": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "details": {}
+        }
+      },
+      "ApiResponse_HealthResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /health`.",
+            "required": [
+              "status",
+              "version",
+              "timestamp"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "description": "`ok` when the process is able to serve HTTP requests."
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_LivenessResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /health/live`.",
+            "required": [
+              "status",
+              "uptime_seconds"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "description": "Always `alive` when the process responds."
+              },
+              "uptime_seconds": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_ReadinessResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /health/ready`.",
+            "required": [
+              "status",
+              "version",
+              "checks"
+            ],
+            "properties": {
+              "checks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DependencyStatusDto"
+                }
+              },
+              "status": {
+                "type": "string",
+                "description": "`ready` when every dependency is reachable, otherwise `not_ready`."
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SystemEventsResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /api/v1/system/events`.",
+            "required": [
+              "items",
+              "count",
+              "limit"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SystemEventResponse"
+                }
+              },
+              "limit": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SystemInfoResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /api/v1/system/info`.",
+            "required": [
+              "name",
+              "version",
+              "environment",
+              "api_version",
+              "started_at",
+              "uptime_seconds"
+            ],
+            "properties": {
+              "api_version": {
+                "type": "string",
+                "description": "API version prefix currently served, e.g. `v1`."
+              },
+              "environment": {
+                "type": "string",
+                "description": "`development`, `test` or `production`."
+              },
+              "name": {
+                "type": "string"
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "uptime_seconds": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SystemStatusResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /api/v1/system/status`.\n\nContains the real state of every dependency, probed on each request.",
+            "required": [
+              "status",
+              "version",
+              "environment",
+              "started_at",
+              "uptime_seconds",
+              "checks",
+              "checked_at"
+            ],
+            "properties": {
+              "checked_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DependencyStatusDto"
+                }
+              },
+              "environment": {
+                "type": "string"
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "type": "string",
+                "description": "`healthy` when every dependency is up, otherwise `degraded`."
+              },
+              "uptime_seconds": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DependencyStatusDto": {
+        "type": "object",
+        "description": "Sanitized state of a single dependency.",
+        "required": [
+          "name",
+          "status",
+          "latency_ms"
+        ],
+        "properties": {
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable reason when the dependency is down (`timeout`, `connection_failed`, ...)."
+          },
+          "latency_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "`postgresql` or `redis`."
+          },
+          "status": {
+            "type": "string",
+            "description": "`up` or `down`."
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Stable, machine readable error codes. Clients should branch on these instead\nof parsing `message`.",
+        "enum": [
+          "validation_error",
+          "unauthorized",
+          "forbidden",
+          "not_found",
+          "database_error",
+          "redis_error",
+          "dependency_unavailable",
+          "not_ready",
+          "internal_error"
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "description": "Response of `GET /health`.",
+        "required": [
+          "status",
+          "version",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`ok` when the process is able to serve HTTP requests."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "LivenessResponse": {
+        "type": "object",
+        "description": "Response of `GET /health/live`.",
+        "required": [
+          "status",
+          "uptime_seconds"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Always `alive` when the process responds."
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "description": "Response of `GET /health/ready`.",
+        "required": [
+          "status",
+          "version",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DependencyStatusDto"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "`ready` when every dependency is reachable, otherwise `not_ready`."
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "RecentEventsQuery": {
+        "type": "object",
+        "description": "Query parameters of `GET /api/v1/system/events`.",
+        "properties": {
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Maximum number of events to return (1-100, default 20).",
+            "minimum": 0
+          }
+        }
+      },
+      "SystemEventResponse": {
+        "type": "object",
+        "description": "A single system event.",
+        "required": [
+          "id",
+          "event_type",
+          "severity",
+          "message",
+          "metadata",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Dotted event name, e.g. `api.started`."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string"
+          },
+          "metadata": {},
+          "severity": {
+            "type": "string",
+            "description": "`info`, `warning` or `error`."
+          }
+        }
+      },
+      "SystemEventsResponse": {
+        "type": "object",
+        "description": "Response of `GET /api/v1/system/events`.",
+        "required": [
+          "items",
+          "count",
+          "limit"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemEventResponse"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "SystemInfoResponse": {
+        "type": "object",
+        "description": "Response of `GET /api/v1/system/info`.",
+        "required": [
+          "name",
+          "version",
+          "environment",
+          "api_version",
+          "started_at",
+          "uptime_seconds"
+        ],
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "description": "API version prefix currently served, e.g. `v1`."
+          },
+          "environment": {
+            "type": "string",
+            "description": "`development`, `test` or `production`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "SystemStatusResponse": {
+        "type": "object",
+        "description": "Response of `GET /api/v1/system/status`.\n\nContains the real state of every dependency, probed on each request.",
+        "required": [
+          "status",
+          "version",
+          "environment",
+          "started_at",
+          "uptime_seconds",
+          "checks",
+          "checked_at"
+        ],
+        "properties": {
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DependencyStatusDto"
+            }
+          },
+          "environment": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`healthy` when every dependency is up, otherwise `degraded`."
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness and readiness probes"
+    },
+    {
+      "name": "system",
+      "description": "System information, status and events"
+    }
+  ]
+}
