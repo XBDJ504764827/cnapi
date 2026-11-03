@@ -25,6 +25,7 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(handlers::health::router())
         .nest("/api/v1", handlers::system::router())
+        .nest("/api/v1/public", handlers::public::router())
         .merge(swagger)
         .fallback(not_found)
         .layer(middleware::trace_layer())

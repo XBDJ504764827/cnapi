@@ -1,5 +1,4 @@
 import {
-  Activity,
   Ban,
   FileCode2,
   Film,
@@ -8,60 +7,167 @@ import {
   KeyRound,
   LayoutDashboard,
   Map,
+  ScrollText,
   Server,
   Settings,
   Timer,
   Trophy,
   Users,
+  ListFilter,
 } from 'lucide-react';
 
 import type { NavItem, NavSection } from '@/types';
 
 /**
- * Single source of truth for the sidebar and the top bar title.
+ * Single source of truth for the sidebar, breadcrumbs and the command menu.
  * Routes are registered in `src/router/index.tsx`.
  */
 export const navSections: NavSection[] = [
   {
-    label: '仪表盘',
-    items: [{ label: '系统概览', to: '/dashboard', icon: LayoutDashboard }],
-  },
-  {
-    label: 'KZ 管理',
+    id: 'overview',
+    label: '总览',
     items: [
-      { label: '玩家管理', to: '/kz/players', icon: Users },
-      { label: '地图管理', to: '/kz/maps', icon: Map },
-      { label: '成绩管理', to: '/kz/records', icon: Timer },
-      { label: '排行榜', to: '/kz/leaderboard', icon: Trophy },
+      {
+        label: '仪表盘',
+        to: '/dashboard',
+        icon: LayoutDashboard,
+        description: '平台运行概览与关键指标',
+        keywords: ['dashboard', 'overview', 'home'],
+      },
+      {
+        label: '系统状态',
+        to: '/system/status',
+        icon: HeartPulse,
+        description: 'API、PostgreSQL、Redis 实时健康状态',
+        keywords: ['health', 'status', 'healthz', 'postgres', 'redis'],
+      },
     ],
   },
   {
+    id: 'players',
+    label: '玩家管理',
+    items: [
+      {
+        label: '玩家列表',
+        to: '/players',
+        icon: Users,
+        description: '搜索玩家、查看积分与最近活动',
+        keywords: ['player', 'steam', 'steamid', 'users'],
+      },
+    ],
+  },
+  {
+    id: 'kz',
+    label: 'KZ 数据',
+    items: [
+      {
+        label: '地图管理',
+        to: '/maps',
+        icon: Map,
+        description: '地图、Workshop、难度与审核状态',
+        keywords: ['map', 'workshop', 'course', 'tier'],
+      },
+      {
+        label: '成绩管理',
+        to: '/records',
+        icon: Timer,
+        description: '成绩审核、TP/PRO 与提交来源',
+        keywords: ['record', 'run', 'time', 'tp', 'pro'],
+      },
+      {
+        label: '全球排行榜',
+        to: '/leaderboard',
+        icon: Trophy,
+        description: '全球与地图榜单',
+        keywords: ['leaderboard', 'rank', 'ranking', 'top'],
+      },
+      {
+        label: 'Jumpstats',
+        to: '/jumpstats',
+        icon: Gauge,
+        description: '跳跃数据与距离榜单',
+        keywords: ['jump', 'jumpstats', 'lj', 'bhop'],
+      },
+      {
+        label: 'Replay',
+        to: '/replays',
+        icon: Film,
+        description: 'Replay 元数据与对象存储',
+        keywords: ['replay', 'r2', 'record'],
+      },
+    ],
+  },
+  {
+    id: 'servers',
     label: '服务器管理',
     items: [
-      { label: '服务器列表', to: '/servers', icon: Server },
-      { label: '服务器状态', to: '/servers/status', icon: Activity },
+      {
+        label: '服务器列表',
+        to: '/servers',
+        icon: Server,
+        description: '服务器注册、在线状态与插件版本',
+        keywords: ['server', 'servers', 'heartbeat', 'plugin'],
+      },
     ],
   },
   {
-    label: '数据管理',
+    id: 'security',
+    label: '安全管理',
     items: [
-      { label: 'Jumpstats', to: '/data/jumpstats', icon: Gauge },
-      { label: 'Replay', to: '/data/replays', icon: Film },
-      { label: '封禁记录', to: '/data/bans', icon: Ban },
+      {
+        label: '封禁记录',
+        to: '/bans',
+        icon: Ban,
+        description: '封禁、解封与审计',
+        keywords: ['ban', 'bans', 'moderation'],
+      },
+      {
+        label: 'API 密钥',
+        to: '/developer/api-keys',
+        icon: KeyRound,
+        description: '服务器与插件访问凭据',
+        keywords: ['api key', 'token', 'credential'],
+      },
+      {
+        label: '操作日志',
+        to: '/audit-logs',
+        icon: ScrollText,
+        description: '管理员与系统操作审计',
+        keywords: ['audit', 'log', 'history'],
+      },
     ],
   },
   {
+    id: 'developer',
     label: '开发者',
     items: [
-      { label: 'API 文档', to: '/developer/api-docs', icon: FileCode2 },
-      { label: 'API 密钥', to: '/developer/api-keys', icon: KeyRound, badge: '预留' },
+      {
+        label: 'API 文档',
+        to: '/developer/api-docs',
+        icon: FileCode2,
+        description: 'Swagger UI 与 OpenAPI 契约',
+        keywords: ['api', 'docs', 'swagger', 'openapi'],
+      },
+      {
+        label: 'API 请求日志',
+        to: '/developer/request-logs',
+        icon: ListFilter,
+        description: '接口调用、状态码与延迟',
+        keywords: ['request', 'logs', 'http', 'latency'],
+      },
     ],
   },
   {
+    id: 'system',
     label: '系统',
     items: [
-      { label: '系统设置', to: '/system/settings', icon: Settings },
-      { label: '系统状态', to: '/system/status', icon: HeartPulse },
+      {
+        label: '系统设置',
+        to: '/system/settings',
+        icon: Settings,
+        description: '外观、界面与平台信息',
+        keywords: ['settings', 'theme', 'appearance', 'preferences'],
+      },
     ],
   },
 ];
@@ -74,4 +180,27 @@ export function findNavItem(pathname: string): NavItem | undefined {
     .filter((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
     .sort((a, b) => b.to.length - a.to.length)
     .at(0);
+}
+
+/** Section that owns a pathname, used by breadcrumbs. */
+export function findNavSection(pathname: string): NavSection | undefined {
+  const item = findNavItem(pathname);
+  if (!item) return undefined;
+  return navSections.find((section) => section.items.some((candidate) => candidate.to === item.to));
+}
+
+/** Case-insensitive navigation search for the command menu. */
+export function searchNavItems(query: string): Array<NavItem & { sectionLabel: string }> {
+  const normalized = query.trim().toLowerCase();
+  return navSections.flatMap((section) =>
+    section.items
+      .filter((item) => {
+        if (!normalized) return true;
+        const haystack = [item.label, item.to, item.description ?? '', ...(item.keywords ?? [])]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(normalized);
+      })
+      .map((item) => ({ ...item, sectionLabel: section.label })),
+  );
 }

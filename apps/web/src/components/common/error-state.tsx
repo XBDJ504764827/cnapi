@@ -1,6 +1,7 @@
-import { CircleAlert, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { cn } from '@/lib/utils';
 
 interface ErrorStateProps {
@@ -12,26 +13,19 @@ interface ErrorStateProps {
 
 export function ErrorState({ title, description, onRetry, className }: ErrorStateProps) {
   return (
-    <div
-      role="alert"
-      className={cn(
-        'flex flex-col gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between',
-        className,
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
-        <div className="space-y-1">
-          <p className="text-sm font-medium">{title}</p>
-          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-        </div>
-      </div>
-      {onRetry ? (
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RefreshCw />
-          重试
-        </Button>
-      ) : null}
-    </div>
+    <Callout
+      variant="danger"
+      title={title}
+      description={description}
+      className={cn('items-center', className)}
+      action={
+        onRetry ? (
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RefreshCw />
+            重试
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

@@ -1,4 +1,5 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
+import { Check } from 'lucide-react';
 import type * as React from 'react';
 
 import { cn } from '@/lib/utils';
@@ -21,7 +22,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-40 animate-zoom-in overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
+          'z-50 min-w-44 animate-zoom-in overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg',
           className,
         )}
         {...props}
@@ -34,7 +35,9 @@ export function DropdownMenuItem({ className, ...props }: React.ComponentProps<t
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        'relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] outline-none select-none',
+        'focus:bg-surface-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        '[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         className,
       )}
       {...props}
@@ -45,7 +48,7 @@ export function DropdownMenuItem({ className, ...props }: React.ComponentProps<t
 export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn('px-2 py-1.5 text-xs font-medium text-muted-foreground', className)}
+      className={cn('px-2 py-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', className)}
       {...props}
     />
   );
@@ -70,11 +73,18 @@ export function DropdownMenuRadioItem({
   return (
     <DropdownMenuPrimitive.RadioItem
       className={cn(
-        'relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none focus:bg-accent focus:text-accent-foreground',
+        'relative flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-[13px] outline-none select-none',
+        'focus:bg-surface-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        '[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         className,
       )}
       {...props}
     >
+      <span className="absolute left-1.5 flex size-4 items-center justify-center">
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Check className="size-3.5 text-primary" />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
       {children}
     </DropdownMenuPrimitive.RadioItem>
   );

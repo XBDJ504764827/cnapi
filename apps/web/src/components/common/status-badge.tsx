@@ -2,9 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { StatusTone } from '@/types';
 
-const toneConfig: Record<StatusTone, { label: string; variant: 'success' | 'destructive' | 'outline'; dot: string }> = {
+const toneConfig: Record<StatusTone, { label: string; variant: 'success' | 'danger' | 'outline'; dot: string }> = {
   up: { label: '正常', variant: 'success', dot: 'bg-success' },
-  down: { label: '不可用', variant: 'destructive', dot: 'bg-destructive' },
+  down: { label: '不可用', variant: 'danger', dot: 'bg-danger' },
   unknown: { label: '未知', variant: 'outline', dot: 'bg-muted-foreground' },
 };
 

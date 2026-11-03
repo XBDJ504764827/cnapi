@@ -1,152 +1,225 @@
 import type { ApiClientError } from '@cngokz/api-client';
-import { Database, RefreshCw, Server, Timer, Trophy, Users, Waypoints } from 'lucide-react';
+import { API_VERSION } from '@cngokz/shared-types';
+import {
+  Activity,
+  ArrowRight,
+  ChartNoAxesColumn,
+  Database,
+  RefreshCw,
+  Server,
+  Trophy,
+  Users,
+  Waypoints,
+} from 'lucide-react';
+import { Link } from 'react-router';
 
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
-import { StatusBadge } from '@/components/common/status-badge';
-import { DependencyStatusCard } from '@/components/dashboard/dependency-status-card';
 import { RecentEventsCard } from '@/components/dashboard/recent-events-card';
+import { ServiceStatusRow } from '@/components/dashboard/service-status-row';
 import { StatCard } from '@/components/dashboard/stat-card';
-import { SystemInfoCard } from '@/components/dashboard/system-info-card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Callout } from '@/components/ui/callout';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EmptyState } from '@/components/common/empty-state';
 import { useSystemEvents } from '@/hooks/use-system-events';
-import { useSystemInfo } from '@/hooks/use-system-info';
 import { useSystemStatus } from '@/hooks/use-system-status';
-import { formatDateTime } from '@/lib/format';
-import { toneFromStatus } from '@/lib/status';
+import { formatDateTime, formatUptime } from '@/lib/format';
 
 /**
- * System overview. Every value on this page comes from the API; cards for
- * endpoints that do not exist yet show `—` instead of invented numbers.
+ * Dashboard. Every number is either real API data or an explicit placeholder;
+ * no metric is invented while the statistics endpoints are missing.
  */
 export function DashboardPage() {
   const statusQuery = useSystemStatus();
-  const infoQuery = useSystemInfo();
   const eventsQuery = useSystemEvents(10);
-
-  const refreshAll = () => {
-    void statusQuery.refetch();
-    void infoQuery.refetch();
-    void eventsQuery.refetch();
-  };
 
   const status = statusQuery.data;
   const checks = status?.checks ?? [];
   const findCheck = (name: string) => checks.find((check) => check.name === name);
   const statusError = statusQuery.error as ApiClientError | null;
 
+  const refreshAll = () => {
+    void statusQuery.refetch();
+    void eventsQuery.refetch();
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="系统概览"
-        description="CNGOKZAPI 平台运行状态与基础服务健康检查。数据来自后端实时探测接口。"
+        title="仪表盘"
+        description="CNGOKZAPI 平台运行概览。系统健康状态来自后端实时探测接口，业务统计接口尚未接入。"
         meta={
           <>
-            <span>最近检查：{formatDateTime(status?.checked_at)}</span>
-            <span className="text-muted-foreground/60">·</span>
+            <span>最近检查 {formatDateTime(status?.checked_at)}</span>
+            <span className="text-border-strong">·</span>
             <span>每 15 秒自动刷新</span>
           </>
         }
         actions={
-          <Button variant="outline" size="sm" onClick={refreshAll} disabled={statusQuery.isFetching}>
-            <RefreshCw className={statusQuery.isFetching ? 'animate-spin' : undefined} />
-            刷新
-          </Button>
+          <>
+            <div className="flex items-center gap-1.5">
+              <Select value="24h" disabled>
+                <SelectTrigger className="w-28" aria-label="时间范围（统计接口未接入）">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">最近 24 小时</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="hidden text-[11px] text-muted-foreground sm:inline">需统计接口</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAll}
+              loading={statusQuery.isFetching || eventsQuery.isFetching}
+            >
+              <RefreshCw />
+              刷新
+            </Button>
+          </>
         }
       />
 
       {statusQuery.isError ? (
         <ErrorState
           title="无法获取系统状态"
-          description={statusError?.message ?? '请检查后端服务是否已启动，以及 API 地址配置是否正确。'}
+          description={statusError?.message ?? '请确认后端服务已启动，且 API 地址配置正确。'}
           onRetry={() => void statusQuery.refetch()}
         />
       ) : null}
 
       {status?.status === 'degraded' ? (
-        <div role="status" className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
-          检测到部分基础服务不可用，请查看下方依赖状态与系统日志。
-        </div>
+        <Callout
+          variant="warning"
+          title="部分基础服务不可用"
+          description="系统处于降级状态，请查看系统状态页中的依赖探测结果。"
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/system/status">查看详情</Link>
+            </Button>
+          }
+        />
       ) : null}
 
-      <section aria-label="业务统计" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="玩家数量" value="—" icon={Users} hint="统计接口将在后续阶段接入" />
-        <StatCard label="服务器数量" value="—" icon={Server} hint="统计接口将在后续阶段接入" />
-        <StatCard label="地图数量" value="—" icon={Waypoints} hint="统计接口将在后续阶段接入" />
-        <StatCard label="成绩数量" value="—" icon={Trophy} hint="统计接口将在后续阶段接入" />
+      <section aria-label="业务统计" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="玩家总数" value="—" icon={Users} unavailable hint="玩家统计接口尚未接入" />
+        <StatCard label="地图总数" value="—" icon={Waypoints} unavailable hint="地图统计接口尚未接入" />
+        <StatCard label="成绩总数" value="—" icon={Trophy} unavailable hint="成绩统计接口尚未接入" />
+        <StatCard label="在线服务器" value="—" icon={Server} unavailable hint="服务器心跳接口尚未接入" />
       </section>
 
-      <section aria-label="基础服务状态" className="grid gap-4 lg:grid-cols-3">
-        <Card className="gap-3 py-4">
-          <CardHeader className="flex-row items-start justify-between gap-2 space-y-0 px-4">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Timer className="size-4" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">API 服务</p>
-                <p className="truncate text-[11px] text-muted-foreground">HTTP /api/v1</p>
-              </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle>API 请求趋势</CardTitle>
+              <CardDescription>最近 24 小时的接口调用量与延迟</CardDescription>
             </div>
-            {statusQuery.isLoading ? (
-              <Skeleton className="h-5 w-14 rounded-md" />
-            ) : (
-              <StatusBadge tone={statusQuery.isError ? 'down' : toneFromStatus(status?.status)} />
-            )}
+            <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              接口未接入
+            </span>
           </CardHeader>
-          <CardContent className="px-4">
-            <dl className="grid grid-cols-2 gap-2 text-xs">
-              <div className="space-y-0.5">
-                <dt className="text-muted-foreground">服务版本</dt>
-                <dd className="font-mono font-medium">
-                  {statusQuery.isLoading ? (
-                    <Skeleton className="h-4 w-12" />
-                  ) : (
-                    (status?.version ?? infoQuery.data?.version ?? '—')
-                  )}
-                </dd>
-              </div>
-              <div className="space-y-0.5">
-                <dt className="text-muted-foreground">运行环境</dt>
-                <dd className="font-mono font-medium">{status?.environment ?? infoQuery.data?.environment ?? '—'}</dd>
-              </div>
-            </dl>
+          <CardContent>
+            <EmptyState
+              icon={ChartNoAxesColumn}
+              title="暂无请求指标"
+              description="请求统计接口尚未实现。接入后此处展示调用量、错误率与延迟趋势，当前不展示任何模拟数据。"
+              className="min-h-56 [&_p:last-child]:max-w-lg"
+            />
           </CardContent>
         </Card>
 
-        <DependencyStatusCard
-          title="PostgreSQL"
-          description="主数据库"
-          icon={Database}
-          check={findCheck('postgresql')}
-          isLoading={statusQuery.isLoading}
-        />
-        <DependencyStatusCard
-          title="Redis"
-          description="缓存与临时数据"
-          icon={Server}
-          check={findCheck('redis')}
-          isLoading={statusQuery.isLoading}
-        />
-      </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>系统服务</CardTitle>
+            <CardDescription>API / PostgreSQL / Redis 实时状态</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-1">
+            <div className="divide-y divide-border/70">
+              <ServiceStatusRow
+                name="API 服务"
+                description={`/api/${API_VERSION}`}
+                icon={Activity}
+                status={status?.status}
+                fallbackDown={statusQuery.isError}
+                detail={statusQuery.isError ? '不可达' : '可达'}
+                isLoading={statusQuery.isLoading}
+              />
+              <ServiceStatusRow
+                name="PostgreSQL"
+                description="主数据库"
+                icon={Database}
+                status={findCheck('postgresql')?.status}
+                latencyMs={findCheck('postgresql')?.latency_ms}
+                detail={findCheck('postgresql')?.detail}
+                isLoading={statusQuery.isLoading}
+              />
+              <ServiceStatusRow
+                name="Redis"
+                description="缓存与临时数据"
+                icon={Server}
+                status={findCheck('redis')?.status}
+                latencyMs={findCheck('redis')?.latency_ms}
+                detail={findCheck('redis')?.detail}
+                isLoading={statusQuery.isLoading}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="justify-between text-[11px] text-muted-foreground">
+            <span>
+              版本 {status?.version ?? '—'}
+              {status ? ` · 运行 ${formatUptime(status.uptime_seconds)}` : ''}
+            </span>
+            <Link to="/system/status" className="inline-flex items-center gap-1 text-primary hover:underline">
+              系统状态
+              <ArrowRight className="size-3" />
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SystemInfoCard info={infoQuery.data} isLoading={infoQuery.isLoading} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>服务器在线状态</CardTitle>
+            <CardDescription>在线 / 总服务器数</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md border border-border/70 bg-surface-elevated/30 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">在线</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums">—</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-surface-elevated/30 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">总数</p>
+                <p className="mt-1 text-lg font-semibold tabular-nums">—</p>
+              </div>
+            </div>
+            <EmptyState
+              compact
+              icon={Server}
+              title="服务器监控未接入"
+              description="心跳与在线玩家接口尚未实现，无法展示真实状态。"
+              action={
+                <Button variant="outline" size="xs" asChild>
+                  <Link to="/servers">服务器列表</Link>
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+
         <RecentEventsCard
+          className="lg:col-span-2"
           events={eventsQuery.data}
           isLoading={eventsQuery.isLoading}
           errorMessage={(eventsQuery.error as ApiClientError | null)?.message}
           onRetry={() => void eventsQuery.refetch()}
         />
       </div>
-
-      <Separator />
-      <p className="text-xs text-muted-foreground">
-        提示：本页不包含任何模拟数据。统计卡片保留为占位，接入对应查询接口后会自动展示真实数值。
-      </p>
     </div>
   );
 }

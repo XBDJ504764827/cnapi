@@ -4,9 +4,13 @@
 //! multiplexed connection is created lazily on first use and re-created once if
 //! it breaks, so a temporary Redis outage does not require an API restart.
 
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use redis::{Client, aio::ConnectionManager};
+use redis::{Client, ErrorKind, aio::ConnectionManager, aio::ConnectionManagerConfig};
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -14,6 +18,9 @@ use tracing::warn;
 pub struct RedisClient {
     client: Client,
     connection: Arc<Mutex<Option<ConnectionManager>>>,
+    /// Fast-fail window after a connection failure, so a Redis outage does not
+    /// add a connection timeout to every request.
+    failed_until: Arc<Mutex<Option<Instant>>>,
     key_prefix: Arc<str>,
 }
 
@@ -24,6 +31,7 @@ impl RedisClient {
         Ok(Self {
             client,
             connection: Arc::new(Mutex::new(None)),
+            failed_until: Arc::new(Mutex::new(None)),
             key_prefix: Arc::from(key_prefix.into()),
         })
     }
@@ -54,9 +62,70 @@ impl RedisClient {
         }
     }
 
-    /// Drops the cached connection, forcing a reconnect on the next command.
+    /// Drops the cached connection and the failure window, forcing a reconnect
+    /// on the next command.
     pub async fn reset(&self) {
         self.invalidate().await;
+        *self.failed_until.lock().await = None;
+    }
+
+    /// Reads a UTF-8 string value.
+    pub async fn get(&self, key: &str) -> Result<Option<String>, redis::RedisError> {
+        let mut connection = self.connection().await?;
+        match redis::cmd("GET")
+            .arg(key)
+            .query_async::<Option<String>>(&mut connection)
+            .await
+        {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                warn!(error = %error, key, "redis GET failed; dropping pooled connection");
+                self.invalidate().await;
+                Err(error)
+            }
+        }
+    }
+
+    /// Writes a UTF-8 string value with a TTL (seconds).
+    pub async fn set_ex(
+        &self,
+        key: &str,
+        value: &str,
+        ttl_seconds: u64,
+    ) -> Result<(), redis::RedisError> {
+        let mut connection = self.connection().await?;
+        match redis::cmd("SET")
+            .arg(key)
+            .arg(value)
+            .arg("EX")
+            .arg(ttl_seconds)
+            .query_async::<()>(&mut connection)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                warn!(error = %error, key, "redis SETEX failed; dropping pooled connection");
+                self.invalidate().await;
+                Err(error)
+            }
+        }
+    }
+
+    /// Atomically increments a counter and returns the new value.
+    pub async fn incr(&self, key: &str) -> Result<i64, redis::RedisError> {
+        let mut connection = self.connection().await?;
+        match redis::cmd("INCR")
+            .arg(key)
+            .query_async::<i64>(&mut connection)
+            .await
+        {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                warn!(error = %error, key, "redis INCR failed; dropping pooled connection");
+                self.invalidate().await;
+                Err(error)
+            }
+        }
     }
 
     /// Currently cached connection, if any. Used by diagnostics.
@@ -65,13 +134,39 @@ impl RedisClient {
     }
 
     async fn connection(&self) -> Result<ConnectionManager, redis::RedisError> {
+        {
+            let failed_until = self.failed_until.lock().await;
+            if let Some(until) = *failed_until
+                && until > Instant::now()
+            {
+                return Err(redis::RedisError::from((
+                    ErrorKind::Io,
+                    "redis recently unavailable",
+                )));
+            }
+        }
+
         let mut guard = self.connection.lock().await;
         if let Some(manager) = guard.as_ref() {
             return Ok(manager.clone());
         }
-        let manager = ConnectionManager::new(self.client.clone()).await?;
-        *guard = Some(manager.clone());
-        Ok(manager)
+
+        let config = ConnectionManagerConfig::new()
+            .set_number_of_retries(0)
+            .set_connection_timeout(Some(Duration::from_millis(300)))
+            .set_response_timeout(Some(Duration::from_millis(300)));
+
+        match ConnectionManager::new_with_config(self.client.clone(), config).await {
+            Ok(manager) => {
+                *guard = Some(manager.clone());
+                *self.failed_until.lock().await = None;
+                Ok(manager)
+            }
+            Err(error) => {
+                *self.failed_until.lock().await = Some(Instant::now() + Duration::from_secs(5));
+                Err(error)
+            }
+        }
     }
 
     async fn invalidate(&self) {

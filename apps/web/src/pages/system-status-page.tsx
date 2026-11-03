@@ -1,23 +1,24 @@
 import type { ApiClientError } from '@cngokz/api-client';
-import { Database, RefreshCw, Server, Timer } from 'lucide-react';
+import { Database, ExternalLink, HeartPulse, RefreshCw, Server } from 'lucide-react';
 
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
-import { StatusBadge } from '@/components/common/status-badge';
 import { DependencyStatusCard } from '@/components/dashboard/dependency-status-card';
 import { SystemInfoCard } from '@/components/dashboard/system-info-card';
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusIndicator } from '@/components/ui/status-indicator';
 import { useSystemInfo } from '@/hooks/use-system-info';
 import { useSystemStatus } from '@/hooks/use-system-status';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatUptime } from '@/lib/format';
 import { toneFromStatus } from '@/lib/status';
 
 const healthEndpoints = [
-  { path: '/health', label: '基础健康检查' },
-  { path: '/health/live', label: '存活检查' },
-  { path: '/health/ready', label: '就绪检查' },
+  { path: '/health', label: '基础健康检查', description: '进程可响应 HTTP 请求即返回 200，不探测依赖。' },
+  { path: '/health/live', label: '存活检查', description: '用于容器 liveness probe，返回进程运行时长。' },
+  { path: '/health/ready', label: '就绪检查', description: '探测 PostgreSQL 与 Redis，任一不可用返回 503。' },
 ];
 
 /** Detailed dependency and endpoint status. */
@@ -29,21 +30,22 @@ export function SystemStatusPage() {
   const checks = status?.checks ?? [];
   const findCheck = (name: string) => checks.find((check) => check.name === name);
   const statusError = statusQuery.error as ApiClientError | null;
+  const tone = statusQuery.isError ? 'down' : toneFromStatus(status?.status);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="系统状态"
-        description="查看 API、PostgreSQL 与 Redis 的实时探测结果。所有状态均由后端在每次请求时重新检查。"
-        meta={<span>最近检查：{formatDateTime(status?.checked_at)}</span>}
+        description="API、PostgreSQL 与 Redis 的实时探测结果。每次请求都会重新检查依赖，不使用缓存或模拟状态。"
+        meta={<span>最近检查 {formatDateTime(status?.checked_at)}</span>}
         actions={
           <Button
             variant="outline"
             size="sm"
             onClick={() => void statusQuery.refetch()}
-            disabled={statusQuery.isFetching}
+            loading={statusQuery.isFetching}
           >
-            <RefreshCw className={statusQuery.isFetching ? 'animate-spin' : undefined} />
+            <RefreshCw />
             重新检查
           </Button>
         }
@@ -57,29 +59,58 @@ export function SystemStatusPage() {
         />
       ) : null}
 
-      <section aria-label="依赖状态" className="grid gap-4 lg:grid-cols-3">
-        <Card className="gap-3 py-4">
-          <CardHeader className="flex-row items-start justify-between gap-2 space-y-0 px-4">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Timer className="size-4" aria-hidden="true" />
-              </span>
-              <div>
-                <p className="text-sm font-medium">API 服务</p>
-                <p className="text-[11px] text-muted-foreground">整体状态</p>
-              </div>
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-lg border border-border bg-surface-elevated text-muted-foreground">
+              <HeartPulse className="size-5" aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              {statusQuery.isLoading ? (
+                <Skeleton className="h-6 w-32" />
+              ) : (
+                <StatusIndicator
+                  tone={tone}
+                  label={
+                    statusQuery.isError ? 'API 不可达' : status?.status === 'healthy' ? '所有服务正常' : '服务降级'
+                  }
+                  className="text-base"
+                  pulse={statusQuery.isLoading}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {status ? `环境 ${status.environment} · 版本 ${status.version}` : '等待后端响应'}
+              </p>
             </div>
-            {statusQuery.isLoading ? (
-              <Skeleton className="h-5 w-14" />
-            ) : (
-              <StatusBadge tone={toneFromStatus(status?.status)} />
-            )}
-          </CardHeader>
-          <CardContent className="px-4 text-xs text-muted-foreground">
-            {status ? `环境：${status.environment} · 版本：${status.version}` : '—'}
-          </CardContent>
-        </Card>
+          </div>
 
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs sm:grid-cols-3">
+            <div>
+              <dt className="text-muted-foreground">运行时长</dt>
+              <dd className="mt-0.5 font-mono">{status ? formatUptime(status.uptime_seconds) : '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">启动时间</dt>
+              <dd className="mt-0.5 font-mono">{formatDateTime(status?.started_at)}</dd>
+            </div>
+            <div className="hidden sm:block">
+              <dt className="text-muted-foreground">检查时间</dt>
+              <dd className="mt-0.5 font-mono">{formatDateTime(status?.checked_at)}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
+      <section aria-label="依赖状态" className="grid gap-3 lg:grid-cols-3">
+        <DependencyStatusCard
+          title="API 服务"
+          description="HTTP /api/v1"
+          icon={HeartPulse}
+          status={statusQuery.isError ? 'down' : status?.status}
+          detail={statusQuery.isError ? '不可达' : '可达'}
+          isLoading={statusQuery.isLoading}
+          className={statusQuery.isError ? 'ring-1 ring-danger/20' : undefined}
+        />
         <DependencyStatusCard
           title="PostgreSQL"
           description="主数据库连接池"
@@ -96,25 +127,35 @@ export function SystemStatusPage() {
         />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {status?.status === 'degraded' ? (
+        <Callout
+          variant="warning"
+          title="检测到依赖不可用"
+          description="请查看上方各依赖的探测详情，探测详情字段只包含稳定错误分类，不会暴露连接串或 SQL。"
+        />
+      ) : null}
+
+      <div className="grid gap-3 lg:grid-cols-2">
         <SystemInfoCard info={infoQuery.data} isLoading={infoQuery.isLoading} />
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">健康检查端点</CardTitle>
-            <CardDescription>可直接访问，用于负载均衡或监控系统探活。</CardDescription>
+            <CardTitle>健康检查端点</CardTitle>
+            <CardDescription>可直接访问，用于负载均衡或监控系统探活</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y">
+            <ul className="divide-y divide-border/70">
               {healthEndpoints.map((endpoint) => (
-                <li key={endpoint.path} className="flex items-center justify-between gap-3 py-4 first:pt-0 last:pb-0">
+                <li key={endpoint.path} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">{endpoint.label}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{endpoint.path}</p>
+                    <p className="text-[13px] font-medium">{endpoint.label}</p>
+                    <p className="font-mono text-[11px] text-muted-foreground">{endpoint.path}</p>
+                    <p className="mt-0.5 hidden text-[11px] text-muted-foreground sm:block">{endpoint.description}</p>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="xs" asChild>
                     <a href={endpoint.path} target="_blank" rel="noreferrer">
-                      查看
+                      打开
+                      <ExternalLink className="size-3" />
                     </a>
                   </Button>
                 </li>

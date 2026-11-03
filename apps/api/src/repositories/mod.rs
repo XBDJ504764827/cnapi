@@ -2,6 +2,7 @@
 //! [`crate::models`]; business rules live in `services`.
 
 pub mod health_repository;
+pub mod public;
 pub mod system_event_repository;
 
 pub use health_repository as health;

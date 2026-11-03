@@ -14,6 +14,7 @@ export default defineConfig({
       '@': path.resolve(rootDir, 'src'),
       '@cngokz/shared-types': path.resolve(rootDir, '../../packages/shared-types/src'),
       '@cngokz/api-client': path.resolve(rootDir, '../../packages/api-client/src'),
+      '@cngokz/ui/styles.css': path.resolve(rootDir, '../../packages/ui/src/design-system.css'),
     },
   },
   test: {

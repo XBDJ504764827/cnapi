@@ -18,6 +18,300 @@
 
 ---
 
+## 2026年11月04日 00时15分55秒 首页改版：移除营销式 Hero 与口号，改为数据优先布局
+
+**背景**
+
+公开门户首页使用了大段顶部留白（`pt-12 sm:pt-16`）、径向光晕 Hero、`CS:GO / CS2 · KZ DATA` 眉标与“KZ 数据，一目了然。”口号，视觉上偏营销模板，且与数据平台定位不符。需要改为更克制、数据优先的入口，并保留搜索与快捷入口。
+
+**变更内容**
+
+- 删除首页 `hero-panel` 整块（含径向渐变、`border-b` 分隔、超大上边距、眉标与口号）。
+- 新的页面头部直接复用站点页头下方的常规内容区（`px-4 py-8 sm:px-6 lg:px-8`）：
+  - 标题改为事实性的“数据概览”；
+  - 说明改为“全球 KZ 排行榜、玩家进度、地图完成情况与最近上传成绩。数据来自公开数据库。”；
+  - 右侧为玩家/地图搜索框与 `/`、`⌘K` 提示，搜索结果使用绝对定位下拉面板，不再撑开页面；
+  - 操作按钮改为“排行榜 / 玩家目录 / 地图列表”。
+- 全站统计改为移动端 2 列、桌面 4 列；在线服务器卡片提示改为“心跳 2 分钟内”。
+- `RecordTable` 的空/错误/加载三态重构：空状态与错误态移到横向滚动容器之外，修复移动端“最近成绩”空状态被裁切的问题（成绩行仍可横向滚动）。
+- 删除不再使用的 `hero-panel`、`mask-fade-bottom` CSS；更新公开门户设计系统/页面文档中关于 Hero 的描述。
+
+**涉及文件**
+
+- 修改：`apps/public/src/pages/home-page.tsx`
+- 修改：`apps/public/src/components/records/record-table.tsx`
+- 修改：`apps/public/src/styles/index.css`
+- 修改：`docs/public-portal/design-system.md`、`docs/public-portal/pages.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+无。仅前端布局与空状态渲染调整。
+
+**测试与结果**
+
+- `pnpm -r lint`、`pnpm -r typecheck`、`pnpm -r format:check`：通过。
+- `pnpm -r test`：管理后台 21 + 公开门户 5 = **26 个通过**。
+- `pnpm -r build`：两个应用构建成功，sitemap/robots 正常生成。
+- Playwright 最终检查 **9/9** 通过、0 控制台错误：首页标题为“数据概览”、页面不再包含“一目了然”、1440/375 无横向溢出、首页搜索面板可打开、移动端统计 2 列、成绩空状态完整可见、`/admin` 入口正常。
+- **未执行**：Docker 构建/Compose（环境无 docker）。
+
+## 2026年11月04日 00时07分26秒 统一入口：公开门户 `/` + 管理后台 `/admin`（单端口）
+
+**背景**
+
+第四阶段将公开门户与管理后台拆分为两个对外端口（5173/5174）。实际使用中希望**同一 IP、同一端口**：公开门户作为默认首页，管理后台通过后缀访问。本次调整统一入口，避免用户记忆/开放两个端口，同时保留两个独立应用与独立构建。
+
+**变更内容**
+
+- 入口约定：`http://<host>:5173/` 公开门户；`http://<host>:5173/admin` 管理后台；API/文档仍为同源 `/api`、`/health`、`/swagger-ui`、`/api-docs`。
+- **管理后台**
+  - Vite `base` 改为 `/admin/`；React Router 使用 `basename: '/admin'`，因此所有 `Link`/`Navigate`/面包屑自动带 `/admin` 前缀。
+  - 开发端口改为 `ADMIN_PORT`（默认 5174），仅作为 public 开发服务器的内部代理目标，不对外暴露。
+  - 管理后台静态服务器支持 `/admin` 前缀：去掉前缀后提供 `dist` 资源；`/admin` 308 重定向到 `/admin/`；SPA 回退正常。
+  - 用户菜单新增“公开门户”链接（`href="/"`，位于 basename 之外）。
+- **公开门户**
+  - 作为默认站点运行在 5173（`PORTAL_PORT`），新增 `/admin` 开发代理（含 HMR WebSocket，`ws: true`）与生产代理。
+  - 生产静态服务器升级为**唯一对外入口**：`/` 提供 public 构建，`/admin/*` 代理到内部 web 容器，`/api` 等仍代理到 API；`/healthz` 供容器健康检查。
+  - 页脚新增“管理后台”链接。
+- **开发与部署**
+  - 根 `pnpm dev` 并行启动 web（5174，base `/admin/`）与 public（5173）；保留 `dev:admin` / `dev:public`。
+  - `docker-compose.yml`：web 容器只 `expose 5173`，public 容器发布 `${PORTAL_PORT:-5173}:5173`，设置 `ADMIN_UPSTREAM=http://web:5173`，并依赖 web 健康。
+  - `.env.example`：新增 `PORTAL_PORT`、`ADMIN_PORT`、`VITE_SITE_URL=http://localhost:5173`；移除对外 `WEB_PORT`/`PUBLIC_PORT` 语义；CORS 默认仅 5173。
+  - `public.Dockerfile` 默认端口改为 5173，新增 `ADMIN_UPSTREAM`；sitemap/robots 默认站点 URL 改为 `http://localhost:5173`。
+  - 文档更新：README、architecture、development、deployment、public-portal/architecture；新增 `apps/public/.env.example` 并更新 `apps/web/.env.example`（ADMIN_PORT）。
+- **更正**：`2026年11月03日 23时54分18秒 第四阶段…` 记录中的“公开门户 5174 / 管理后台 5173 独立端口”安排已被本记录取代；历史条目保留原样。旧后台路径（如 `/dashboard`、`/players`）现在属于公开门户，后台需访问 `/admin/...`。
+
+**涉及文件**
+
+- 修改：`apps/web/vite.config.ts`、`apps/web/src/router/index.tsx`、`apps/web/server/static-server.mjs`、`apps/web/src/components/layout/user-menu.tsx`、`apps/web/.env.example`
+- 修改：`apps/public/vite.config.ts`、`apps/public/server/static-server.mjs`、`apps/public/scripts/generate-seo.mjs`、`apps/public/src/components/layout/site-footer.tsx`
+- 新增：`apps/public/.env.example`
+- 修改：`package.json`（`dev` 并行启动）、`.env.example`、`docker-compose.yml`、`infrastructure/docker/public.Dockerfile`
+- 修改：`README.md`、`docs/architecture.md`、`docs/development.md`、`docs/deployment.md`、`docs/public-portal/architecture.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+无。未修改数据库、迁移、公开 API 或管理 API；仅调整前端 base/路由、开发端口与容器入口。
+
+**测试与结果**
+
+- `pnpm -r lint`、`pnpm -r typecheck`、`pnpm -r test`（管理后台 21 + 门户 5 = 26 个）、`pnpm -r build` 全部通过。
+- 开发入口（Playwright，1440/375）13/13 通过：`/` 公开门户、`/admin/` 自动跳转 `/admin/dashboard`、后台导航保持 `/admin` 前缀、深链接、公开/后台主题互不影响（独立 localStorage key）、后台移动抽屉、0 控制台错误（含 `/admin` HMR WebSocket 代理）。
+- 生产静态入口验证：构建后在 4180（public 网关）+ 4181（内部 web）运行，`/`、`/players`、`/admin/`、`/admin/dashboard`、`/admin/players`、`/api/v1/public/statistics`、`/sitemap.xml`、`/robots.txt` 均 200；`/admin` 308 → `/admin/`；`/admin/assets/*.js` 与 `/assets/*.js` 均 200；Playwright 打开 `/admin/` 正常渲染仪表盘并访问真实健康状态，0 控制台错误。
+- **未执行**：Docker 镜像构建/Compose 启动（环境无 `docker`）；`/admin` 在多副本/反向代理后的部署未验证。
+
+## 2026年11月03日 23时54分18秒 第四阶段：公开玩家门户与 /api/v1/public 只读数据接口
+
+**背景**
+
+管理后台与核心数据模型已经就绪，但没有面向 KZ 玩家的公开查询入口。本阶段新增独立公开门户（排行榜、玩家资料/地图进度、比较、地图、成绩、服务器），并补齐真实只读 API、SQL 聚合与 Redis 缓存；不修改既有数据库结构与后台功能。
+
+**变更内容**
+
+- **共享设计 Token**：将颜色/字体/圆角/动效/基础层抽取到 `packages/ui/src/design-system.css`（`@cngokz/ui/styles.css`），管理后台与公开门户共同引用；管理后台构建/测试保持通过。
+- **公开门户 `apps/public`（独立 Vite 应用，端口 5174）**
+  - 顶部横向导航（首页/排行榜/玩家/地图/成绩/服务器）、移动端抽屉、主题（默认深色、持久化）、Steam 登录占位 Dialog。
+  - 全局搜索 Dialog（⌘K/Ctrl+K）：按玩家昵称、SteamID64、地图名搜索，结果分组并可跳转。
+  - 首页：真实全站统计、模式 Tab Top10、最近 20 条上传成绩、最近 WR、本周活跃玩家、在线服务器、数据口径说明。
+  - 排行榜：模式与 TP/PRO 过滤、分页；明确说明积分算法未定义，按完成地图数排序。
+  - 玩家目录：搜索、模式/排序筛选、分页。
+  - 玩家详情：资料头、8 项综合统计、模式卡片、动态难度进度、地图完成/未完成（主线完成定义 + Bonus 单独统计）、成绩历史、成绩详情 Dialog。
+  - 玩家比较：双玩家搜索选择/交换/排行榜快速选择、综合表、模式与难度对比、逐地图对比（双方/单方/未完成/A 更快/B 更快）、分页。
+  - 地图列表/详情：难度、课程、完成玩家/成绩数、WR、课程表、成绩分布、课程/模式/TP-PRO 排行榜、分页。
+  - 成绩查询：玩家、地图、模式、TP/PRO、难度、WR、上传日期范围、排序、分页、成绩详情。
+  - 服务器列表：在线状态（2 分钟心跳推导）、当前地图、插件版本；玩家数/模式等未采集字段显示 `—`。
+  - SEO：每页独立 title/description/OG/Twitter/canonical；构建时生成 `sitemap.xml`、`robots.txt`；404 noindex；`VITE_SITE_URL` 配置站点地址。
+  - 生产静态服务器：SPA 回退、`/api`、`/health`、`/swagger-ui`、`/api-docs` 同源代理、`/healthz`。
+- **后端公开 API（`/api/v1/public`，20 个端点）**
+  - 统计、模式、排行榜、玩家目录/活跃/比较、玩家详情/地图进度/成绩、地图列表/详情/排行榜/统计、成绩列表/最近/世界纪录/详情、服务器列表/详情、全局搜索。
+  - 统一响应信封与错误结构；分页上限 100；参数校验（page/page_size/time_type/tier/日期/搜索长度/排序白名单/compare 双玩家不同）；全部纳入 OpenAPI（26 paths / 99 schemas）。
+  - SQL 以聚合为主：`RANK() OVER` 排行榜；`LEFT JOIN LATERAL` 取每张地图/每个课程最佳成绩；`count(DISTINCT ...) FILTER` 统计完成与 PRO/NUB；对比页 SQL 侧筛选与计数；避免“先取全量再在 Rust 循环”。
+  - **数据准确性**：完成地图 = 指定模式主线课程（stage 0）approved 成绩；Bonus 单独计数；完成率分母为支持该模式的已上线地图；完成时间（跑图时长）与上传时间（created_at）严格区分；WR 仅当前指针。
+  - **积分缺口**：CNGOKZAPI 尚无积分算法，公开响应 `points/rating = null`、`points_available=false`，排行榜以 `completed_maps` 为指标；不伪造 Points/Rating。
+- **Redis 缓存**
+  - 统计 30s、排行榜 60s、最近成绩 15s、玩家/地图 30–120s、服务器 15s、搜索 30s；Key 包含 `public:version`，`INCR` 可一次性失效；阶段 5 写入路径可调用 `invalidate_cache`。
+  - `RedisClient` 增加 get/set_ex/incr；连接配置 0 重试、300ms 超时、失败后 5 秒快速失败，Redis 故障时公开接口直接回源 PostgreSQL（不会让每个请求等待连接超时）。
+- **部署**
+  - `infrastructure/docker/public.Dockerfile`（Node 多阶段 + 静态服务器）；compose 新增 `public` 服务（5174，依赖 API 健康，`/healthz` 健康检查），`VITE_SITE_URL` 作为构建参数；`.env.example` 增加 `PUBLIC_PORT`、`VITE_SITE_URL`，CORS 默认加入 5174；CI 增加 public 构建与镜像构建；`scripts/gen-api.sh` 增加 public 类型检查。
+- **文档**
+  - 新增 `docs/public-portal/{architecture,pages,api-requirements,design-system}.md`；更新 README、architecture、development、deployment、design-system。
+
+**涉及文件**
+
+- 新增：`apps/public/**`（package/tsconfig/vite/vitest/eslint/prettier、src/{components,layouts,pages,hooks,services,stores,router,seo,styles,lib,types,test}、server/static-server.mjs、scripts/generate-seo.mjs）
+- 新增：`apps/api/src/dto/public/**`、`repositories/public/**`、`services/public/**`、`handlers/public.rs`
+- 修改：`apps/api/src/{dto,repositories,services,handlers}/mod.rs`、`routes/mod.rs`、`routes/openapi.rs`、`state/redis_client.rs`、`errors/mod.rs`
+- 新增：`apps/api/tests/public_api.rs`
+- 新增：`packages/ui/{package.json,src/design-system.css}`；修改 `apps/web/src/styles/index.css`、`apps/web/{package.json,vite.config.ts,vitest.config.ts}`
+- 修改：`packages/api-client/src/{client,index}.ts`、`packages/shared-types/src/api-contract.ts`（公开 payload 别名 + TimeType）
+- 修改：`pnpm-workspace.yaml`、`package.json`、`.env.example`、`docker-compose.yml`、`infrastructure/docker/{web,public}.Dockerfile`、`scripts/gen-api.sh`、`.github/workflows/ci.yml`
+- 新增：`docs/public-portal/{architecture,pages,api-requirements,design-system}.md`；修改 README、`docs/{architecture,development,deployment,design-system,changelog}.md`
+- 生成物更新：`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`
+
+**数据库与 API 变化**
+
+- 数据库：**无迁移、无表结构变更**；公开接口只读。
+- API：新增 `/api/v1/public/*` 20 个端点；管理后台接口与行为不变；OpenAPI 从 6 个 path 扩展到 26 个 path（含既有 health/system）。
+- 缓存：新增公开缓存命名空间与 TTL；未改变现有 health/system 接口语义。
+- 第一阶段 Docker 服务保持不变；新增 `public` 服务。
+
+**测试与结果**
+
+- 后端：`cargo fmt --check` / `cargo clippy -D warnings` 通过；`cargo test` **54 个通过**（29 单元 + 10 HTTP + 1 公开 API 端到端 + 11 schema + 3 真实依赖集成），0 失败。公开 API 测试使用临时数据库 + migrations + 真实 fixtures，覆盖统计/排行榜/玩家详情/地图完成与未完成/比较/地图详情/榜/统计/成绩筛选/最近排序/活跃/服务器/搜索/详情/参数校验/404。
+- 前端：`pnpm -r lint`、`pnpm -r typecheck`、`pnpm -r format:check` 通过；管理后台 6 文件/21 用例、公开门户 2 文件/5 用例，共 **26 个通过**；`pnpm -r build` 两个应用均构建成功（公开门户构建时生成 sitemap/robots）。
+- OpenAPI：重新生成后与提交文件一致（26 paths / 99 schemas）。
+- 浏览器端到端（Playwright headless Chromium）：
+  - 公开门户 **36/36** 断言通过：首页真实统计/排行榜/最近成绩、模式 Tab、全局搜索、玩家详情地图进度与未完成筛选、玩家搜索、地图与地图榜、成绩与 WR 筛选、服务器、比较、主题持久化、1440/375 无横向溢出、移动菜单与导航；**0 控制台错误**。
+  - 管理后台回归 **38/38** 断言通过（真实健康状态、主题、侧边栏、导航、弹窗、筛选、响应式），0 控制台错误。
+- **未执行**：Docker 构建/Compose 一键启动（当前环境无 `docker` 命令）；SSR/预渲染（当前采用 SPA + 动态 meta，已记录限制）；Firefox/Safari 实机。
+- 空数据库验证：公开门户首页/玩家/地图/排行榜/成绩/服务器/比较 7/7 页面显示明确空状态，0 控制台错误；管理后台在空数据库下仍为 38/38 通过。
+- 说明：验证使用临时 fixture 数据库（仅测试/截图用，验证后已删除），未向项目提交任何模拟玩家/地图/成绩数据；当前运行环境已切回干净的 `cngokzapi_phase2` 数据库。
+
+## 2026年11月03日 22时46分45秒 第三阶段：Design System 建立与管理后台 UI/UX 重构
+
+**背景**
+
+前两阶段完成了基础架构与核心数据模型，但前端仍是最小可用后台：视觉语言不统一、导航与页面结构分散、缺少表格/分页/弹窗等标准交互，也没有明确的设计规范。第三阶段目标是在**不重建项目、不修改后端/数据库/Docker** 的前提下，建立完整设计系统并把全部页面升级为统一、专业的管理平台。
+
+**变更内容**
+
+- **设计系统与主题**
+  - 重写 `styles/index.css`：新增 `surface / surface-elevated / surface-hover / border-strong / info / danger` 等语义 token，深色改为默认主题（深灰 `oklch(0.168)`，避免纯黑），浅色完整定义。
+  - 自托管 Inter Variable（`@fontsource-variable/inter`），统一字号层级（页面标题 22px、卡片 14px、正文 13px、表格头 11px、数字 26px + tabular-nums）。
+  - 统一圆角（8px 基础）、间距、阴影、滚动条与焦点环；新增 `page-enter`、`zoom-in`、`slide-in-left`、`pulse-soft` 动效并支持 `prefers-reduced-motion`。
+  - `index.html` 首屏前应用主题且默认深色；`ui-store` 默认主题改为 `dark`，主题与侧边栏折叠持久化。
+- **基础组件**
+  - 新增：`Select`、`Dialog`、`Tabs`、`Popover`、`Avatar`、`Switch`、`Pagination`、`StatusIndicator`、`SearchInput`、`Callout`、`Kbd`、`DataTable`。
+  - 重构：`Button`（6 变体/5 尺寸/loading/asChild）、`Card`、`Badge`（语义色）、`Input`、`Table`（表头/行高）、`Tooltip`、`DropdownMenu`（Check 指示）、`Sheet`、`Skeleton`。
+  - 组合组件：`ListPanel` + `FilterBar`（列表页统一工具栏/分页）、`CodeBlock`（真实复制）、`ServerCard`、`ServiceStatusRow`、`DependencyStatusCard`、`StatCard`。
+- **布局与导航**
+  - 导航重构为 7 个分组 / 15 个入口：总览、玩家管理、KZ 数据、服务器管理、安全管理、开发者、系统；`nav-config` 同时驱动侧边栏、面包屑与 ⌘K 搜索。
+  - 侧边栏：240px ↔ 64px 折叠、激活态左侧色条、分组分隔、图标 tooltip、底部显示**真实**系统状态（`useSystemStatus`）与环境/版本（`useSystemInfo`）。
+  - 顶栏：面包屑、全局页面搜索（⌘K/Ctrl+K，键盘上下/回车/ESC）、通知 Popover（空状态）、主题菜单、账号菜单与"关于"Dialog。
+  - 移动端抽屉、跳过主内容链接、页面切换淡入动画；内容区最大宽度 1500px。
+- **页面（全部重写）**
+  - 仪表盘：真实 API/PG/Redis 状态与延迟、运行时长、系统事件；4 个统计卡片明确标注"接口未接入"；API 请求趋势与服务器在线状态为空状态；时间范围选择禁用并注明需统计接口。
+  - 系统状态：整体状态、依赖卡片、系统信息、健康检查端点外链、刷新；降级/错误提示。
+  - 玩家列表 + 玩家详情（Tabs：资料/成绩/Jumpstats/封禁）；地图、成绩（工具条排序 + 5 个筛选）、排行榜（Tabs + 模式/Style/TP-PRO）、Jumpstats、Replay、服务器列表（列表/卡片视图切换）+ 服务器详情、封禁、操作日志。
+  - API 密钥：创建 Dialog（含一次性密钥安全说明，提交禁用并注明接口未接入）、请求统计空状态；API 文档：真实端点表 + 复制示例；API 请求日志。
+  - 系统设置：主题卡片（真实生效并可持久化）、折叠侧边栏 Switch、平台信息（真实 `/system/info`）、快捷入口、认证未启用提示。
+  - 404 与路由错误页重设计。
+- **路由**
+  - 新路径：`/players`、`/maps`、`/records`、`/leaderboard`、`/jumpstats`、`/replays`、`/bans`、`/audit-logs`、`/servers/:serverId`、`/players/:playerId`、`/developer/request-logs` 等。
+  - 旧路径兼容重定向：`/kz/*`、`/data/*`、`/servers/status`。
+- **测试与文档**
+  - 新增前端测试：分页交互、导航搜索/面包屑、默认深色主题与侧边栏切换；更新仪表盘测试（真实状态、占位、错误态）。
+  - 新增 `docs/design-system.md`（token/字体/间距/组件/布局/响应式/动效/可访问性/文件索引）；更新 README、architecture、development。
+- **明确不做假数据**：没有读取接口的页面统一显示 `Callout` + `EmptyState`；分页/筛选/排序状态可交互但结果为 0；弹窗中的"创建"按钮禁用并说明接口未接入。
+
+**涉及文件**
+
+- 修改：`apps/web/package.json`、`pnpm-lock.yaml`（新增 Inter 字体）
+- 修改：`apps/web/index.html`、`src/main.tsx`、`src/styles/index.css`、`src/stores/ui-store.ts`
+- 新增：`src/components/ui/{select,dialog,tabs,popover,avatar,switch,pagination,status-indicator,search-input,callout,kbd,data-table}.tsx`
+- 修改：`src/components/ui/{button,card,badge,input,table,tooltip,dropdown-menu,sheet,skeleton}.tsx`
+- 新增：`src/components/common/{list-panel,code-block}.tsx`；删除：`src/components/common/module-placeholder.tsx`
+- 新增：`src/components/layout/{command-menu,notifications-menu,user-menu}.tsx`；修改：`sidebar.tsx`、`topbar.tsx`、`nav-config.ts`
+- 修改：`src/layouts/app-layout.tsx`、`src/types/index.ts`、`src/router/index.tsx`
+- 新增：`src/hooks/use-table-state.ts`、`src/lib/kz-constants.ts`、`src/components/servers/server-card.tsx`、`src/components/dashboard/service-status-row.tsx`
+- 修改：`src/components/dashboard/{stat-card,dependency-status-card,system-info-card,recent-events-card}.tsx`、`src/components/common/{empty-state,error-state,page-header,page-loading,status-badge}.tsx`
+- 重写页面：`dashboard-page`、`system-status-page`、`players-page`、`maps-page`、`records-page`、`leaderboard-page`、`jumpstats-page`、`replays-page`、`servers-page`、`bans-page`、`api-keys-page`、`api-docs-page`、`settings-page`、`not-found-page`、`route-error-page`
+- 新增页面：`player-detail-page`、`server-detail-page`、`audit-logs-page`、`request-logs-page`；删除：`server-status-page`
+- 新增测试：`src/components/ui/pagination.test.tsx`、`src/components/layout/nav-config.test.ts`、`src/stores/ui-store.test.ts`
+- 修改测试：`src/pages/dashboard-page.test.tsx`
+- 新增文档：`docs/design-system.md`；修改：`README.md`、`docs/architecture.md`、`docs/development.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+- 无。未修改 `apps/api`、迁移、Dockerfile、compose 文件；`docs/openapi.json` 重新生成后与原文件一致。
+- 前端仅消费既有接口：`/health`、`/api/v1/system/info`、`/status`、`/events`。
+
+**测试与结果**
+
+- `pnpm install --frozen-lockfile`：通过。
+- `pnpm -r lint`（`--max-warnings 0`）：通过；`pnpm -r typecheck`：通过。
+- `pnpm -r test`：6 个测试文件 / **21 个用例通过**（格式化、状态徽章、仪表盘、分页、导航搜索、主题 store）。
+- `pnpm --filter @cngokz/web build`：通过（仍有主 chunk >500 kB 的提示性警告，未处理）。
+- **Playwright（Chromium 156，playwright 1.64.1）**：
+  - 主流程 38 项断言全部通过：默认深色、真实 PG/Redis 状态、主题切换与刷新持久化、侧边栏 240→64px、导航、⌘K 搜索跳转、通知空状态、关于弹窗、搜索/重置、分页禁用、API Key 弹窗、服务器卡片视图、设置页主题切换、1920/1440/1280/768/375 无横向溢出、移动抽屉开合与跳转。
+  - 20 组视口/页面组合（1920/1440/1280/768/375 × dashboard/records/servers/settings）：**横向溢出 0**。
+  - 交互补充 9 项通过：Tooltip 显示、Select 筛选、排序 Select、15 个侧边栏链接全部可解析、4 个旧路径重定向、API 故障时降级到错误状态。
+  - 正常流程 **0 个控制台错误**；仅在"模拟 API 断网"用例中出现 2 条预期的 `net::ERR_FAILED` 资源错误。
+- 后端回归：`cargo fmt --check`、`cargo clippy -D warnings` 通过；`cargo test` **53 个通过**；`/health`、`/health/ready`、`/api/v1/system/status` 均 200。
+- **未执行**：Docker 重建/Compose 启动（本阶段未修改基础设施）、Firefox/Safari 实机、人工视觉走查（使用 headless Chromium 截图与断言替代）、业务读取接口联调（接口尚不存在）。
+
+## 2026年11月03日 22时17分28秒 第二阶段：核心数据库架构、Rust 模型与 GlobalAPI 兼容性分析
+
+**背景**
+
+第一阶段只有系统表；第二阶段需要研究 GOKZ / cs2kz / GlobalAPI 的真实数据结构，设计 CNGOKZAPI 自己的核心数据模型，为玩家、地图、成绩、排行榜、服务器、Jumpstats、Replay 和封禁打基础。要求保留第一阶段代码与 Docker 配置，不实现完整业务接口，不提前引入复杂分区/微服务。
+
+**研究过程（基于真实源码，未修改上游）**
+
+- 克隆并阅读 `KZGlobalTeam/gokz`（tag 3.8.0 / `3a601e1`）、`KZGlobalTeam/cs2kz-api`（`c938925`）、`KZGlobalTeam/csgo-legacy-globalapi-plugin`（`bec212c`）。
+- 依据：GOKZ `gokz-localdb/db/sql.sp`、`include/gokz/{core,jumpstats,global}.inc`、`gokz-replays`、`include/GlobalAPI.inc` + `responses.inc`；cs2kz `0001_initial.up.sql` 及 0002–0006、`mode.rs`/`styles.rs`/`jumpstats/jump_type.rs`/`maps/state.rs`/`records.rs`；legacy `GlobalAPI-Core.sp`、`records.sp`、`bans.sp`、`server.sp`。
+- 明确记录了研究局限：GlobalAPI v2 服务端实现不在仓库中（POST 字段由 native 参数反推）、KZTimer 源码未获取、GOKZ 只有 `Style_Normal` 而 cs2kz 的 `styles` 是服务器设置位掩码而非移动风格。
+
+**变更内容**
+
+- 新增 8 个迁移（`0002`–`0009`），创建 20 张新表（17 张业务表 + 3 张引用表）：
+  - 引用数据：`movement_modes`、`movement_styles`、`jump_types`（含 GOKZ/cs2kz 枚举映射列 + 种子数据）。
+  - Accounts：`accounts`（SteamID64 `NUMERIC(20,0)` + uint64 CHECK、软删除部分唯一索引）、`player_profiles`、`player_mode_stats`、`player_identities`。
+  - Maps：`maps`、`map_versions`、`map_courses`（stage 0 主线 / 1.. bonus，复合唯一 `(id, map_id)`）、`map_modes`、`course_tiers`（NUB/PRO 1–10 + ranked 状态）。
+  - Servers：`servers`（API Key 哈希/前缀/轮换时间、插件版本、当前地图、在线状态、心跳）。
+  - Records：`records`（`time_ns BIGINT` 纳秒、TP/PRO CHECK、tickrate、来源、审核、`submission_id`/`external_ref` 幂等键、复合外键保证 map/course 一致）、`record_history`、`course_world_records`（WR 条件 upsert）。
+  - Jumpstats：`jumpstats`（距离 `NUMERIC`、sync%、airtime、block、msl、绑定标记、`raw_metrics` JSON 保留未确认指标）+ 幂等索引。
+  - Replays：`replays`（R2 bucket/object_key、size、SHA-256、格式版本、状态、保留期）。
+  - Moderation：`bans`（执行者可为管理员或服务器、过期时间推导、不可软删除）、`ban_revocations`。
+- 新增共享 `set_updated_at()` 触发器函数，并在所有带 `updated_at` 的表上安装触发器。
+- 新增 Rust models：`models/{account,map,server,movement,record,jumpstat,replay,moderation}.rs`；状态/来源枚举与 SQL CHECK 一一对应（`sqlx::Type`）。
+- 新增第三阶段读取契约（DTO，暂未注册到 OpenAPI）：`dto/{account,map,record,server,jumpstat,replay,moderation}.rs`。
+- 新增 `apps/api/build.rs`：`cargo:rerun-if-changed=migrations`，解决新增迁移文件不会触发 `sqlx::migrate!` 重新编译的问题。
+- 新增 `apps/api/tests/schema_integration.rs`（11 个事务回滚测试）。
+- 扩展 `tests/service_integration.rs` 的全新数据库迁移断言（新表 + 引用数据种子）。
+- 新增文档：`docs/database/` 下 9 个文件（overview + 7 个模块 + ER 图）、`docs/globalapi-compatibility.md`；更新 `README.md`、`docs/architecture.md`、`docs/development.md`。
+- `Cargo.toml` 为 SQLx 启用 `bigdecimal`、`ipnetwork` feature（SteamID64 用 `BigDecimal`，IP 用 `INET`）。
+
+**涉及文件**
+
+- 新增：`apps/api/migrations/20261103000002_kz_reference_data.sql`
+- 新增：`apps/api/migrations/20261103000003_accounts.sql`
+- 新增：`apps/api/migrations/20261103000004_maps.sql`
+- 新增：`apps/api/migrations/20261103000005_servers.sql`
+- 新增：`apps/api/migrations/20261103000006_records.sql`
+- 新增：`apps/api/migrations/20261103000007_jumpstats.sql`
+- 新增：`apps/api/migrations/20261103000008_replays.sql`
+- 新增：`apps/api/migrations/20261103000009_moderation.sql`
+- 新增：`apps/api/build.rs`
+- 新增：`apps/api/src/models/{account,map,server,movement,record,jumpstat,replay,moderation}.rs`
+- 修改：`apps/api/src/models/mod.rs`（模块/重导出/enum `IngestionSource`）
+- 新增：`apps/api/src/dto/{account,map,record,server,jumpstat,replay,moderation}.rs`
+- 修改：`apps/api/src/dto/mod.rs`
+- 新增：`apps/api/tests/schema_integration.rs`
+- 修改：`apps/api/tests/service_integration.rs`
+- 修改：`Cargo.toml`、`Cargo.lock`
+- 新增：`docs/database/{overview,accounts,maps,records,servers,jumpstats,replays,moderation,er-diagram}.md`
+- 新增：`docs/globalapi-compatibility.md`
+- 修改：`README.md`、`docs/architecture.md`、`docs/development.md`、`docs/changelog.md`（本记录）
+
+**数据库与 API 变化**
+
+- 数据库：新增 20 张表、引用数据种子（4 个移动模式、1 个风格、12 个跳跃类型）、多个部分唯一索引/CHECK/触发器。阶段 1 的 `system_events`、`app_settings` 未修改。
+- API：**无变化**。未新增 HTTP 路由，`docs/openapi.json` 重新生成后与提交版本完全一致。
+- 兼容性：GlobalAPI 字段映射、类型差异、枚举差异、转换规则和兼容接口建议记录在 `docs/globalapi-compatibility.md`；CNGOKZAPI 未复制 GlobalAPI 表结构。
+
+**测试与结果**
+
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --all-targets --all-features -- -D warnings`：通过（新增 `build.rs`、模型、DTO 无告警）。
+- `DATABASE_URL=...cngokzapi_phase2 REDIS_URL=... cargo test`：**53 个测试通过**（29 单元 + 10 HTTP + 11 schema 集成 + 3 真实依赖集成），0 失败。
+- 迁移在本地 PostgreSQL 18.6 上从零执行成功；重启 API 后 `_sqlx_migrations` 保持 9 条（幂等）。
+- 手工验证：uint64 上限 SteamID64 写入成功、超上限被 CHECK 拒绝；PRO/NUB 与 teleports 不一致被拒绝；重复 `submission_id` 被唯一索引拒绝；慢成绩不能覆盖 WR；软删除后可用同一 SteamID64 重新注册。
+- 阶段 1 回归：`/health`、`/health/ready`（PG+Redis 正常时 200）、`/api/v1/system/info`、`/status`、`/events` 均 200，OpenAPI 文档无差异。
+- 前端回归：`pnpm -r typecheck`、`pnpm -r test`（13 个）、`pnpm -r format:check` 全部通过（无前端代码改动）。
+- Mermaid ER 图：使用 `mermaid@11` + jsdom 调用 `mermaid.parse()` 解析通过（diagram type: `er`）。
+- **未执行**：Docker 构建/Compose 启动（本环境无 `docker` 命令）；浏览器页面验证（本阶段无 UI 改动）；GlobalAPI 真实接口联调（兼容层尚未实现）。
+
 ## 2026年11月03日 19时43分15秒 第一阶段验收：构建、测试与运行时验证
 
 **背景**

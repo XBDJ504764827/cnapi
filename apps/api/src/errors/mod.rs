@@ -152,9 +152,9 @@ impl IntoResponse for AppError {
 
         // Log the full cause; the client only sees the sanitized message.
         if status.is_server_error() {
-            error!(error = %self, error_code = code.as_str(), status = status.as_u16(), "request failed");
+            error!(error = ?self, error_code = code.as_str(), status = status.as_u16(), "request failed");
         } else {
-            warn!(error = %self, error_code = code.as_str(), status = status.as_u16(), "request rejected");
+            warn!(error = ?self, error_code = code.as_str(), status = status.as_u16(), "request rejected");
         }
 
         let body = ApiErrorBody {

@@ -17,23 +17,25 @@ const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080';
  *   same prefixes to `API_UPSTREAM`
  */
 export default defineConfig({
+  base: '/admin/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(rootDir, 'src'),
       '@cngokz/shared-types': path.resolve(rootDir, '../../packages/shared-types/src'),
       '@cngokz/api-client': path.resolve(rootDir, '../../packages/api-client/src'),
+      '@cngokz/ui/styles.css': path.resolve(rootDir, '../../packages/ui/src/design-system.css'),
     },
   },
   server: {
     host: true,
-    port: Number(process.env.WEB_PORT ?? 5173),
-    strictPort: false,
+    port: Number(process.env.ADMIN_PORT ?? 5174),
+    strictPort: true,
     proxy: proxyTo(apiTarget),
   },
   preview: {
     host: true,
-    port: Number(process.env.WEB_PORT ?? 5173),
+    port: Number(process.env.ADMIN_PORT ?? 5174),
     proxy: proxyTo(apiTarget),
   },
   build: {

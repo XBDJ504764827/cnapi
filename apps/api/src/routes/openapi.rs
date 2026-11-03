@@ -3,6 +3,26 @@
 
 use utoipa::OpenApi;
 
+use crate::dto::public as public_dto;
+use crate::dto::public::leaderboards::{LeaderboardEntry, LeaderboardQuery, LeaderboardResponse};
+use crate::dto::public::maps::{
+    MapCourseDto, MapDetailQuery, MapDetailResponse, MapLeaderboardQuery, MapLeaderboardResponse,
+    MapListQuery, MapListResponse, MapStatistics, MapSummary, ModeCount, TimeTypeCount,
+};
+use crate::dto::public::players::{
+    CompareBest, CompareMapRow, ComparePlayerSide, CompareQuery, CompareResponse, CompareTier,
+    PlayerDetailQuery, PlayerDetailResponse, PlayerListQuery, PlayerListResponse,
+    PlayerMapProgress, PlayerMapsQuery, PlayerMapsResponse, PlayerModeStatsDto, PlayerOverallStats,
+    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerSummary, TierProgressDto,
+};
+use crate::dto::public::records::{
+    ActivePlayer, ActivePlayersQuery, ActivePlayersResponse, RecentRecordsQuery,
+    RecentRecordsResponse, RecentWorldRecordsQuery, RecordDetailResponse, RecordListResponse,
+    RecordQuery, RecordSummary, ServerRef, WorldRecordEntry,
+};
+use crate::dto::public::search::{SearchQuery, SearchResponse};
+use crate::dto::public::servers::{ServerListResponse, ServerQuery, ServerSummary};
+use crate::dto::public::stats::{PublicMode, PublicModesResponse, PublicStatistics};
 use crate::dto::{
     ApiErrorBody, ApiErrorDetail, ErrorCode,
     health::{DependencyStatusDto, HealthResponse, LivenessResponse, ReadinessResponse},
@@ -12,7 +32,7 @@ use crate::dto::{
         SystemStatusResponse,
     },
 };
-use crate::handlers::{health, system};
+use crate::handlers::{health, public, system};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -29,6 +49,26 @@ use crate::handlers::{health, system};
         system::info,
         system::status,
         system::events,
+        public::statistics,
+        public::modes,
+        public::leaderboard,
+        public::records,
+        public::recent_records,
+        public::recent_world_records,
+        public::record_detail,
+        public::players,
+        public::active_players,
+        public::compare,
+        public::player_detail,
+        public::player_records,
+        public::player_maps,
+        public::maps,
+        public::map_detail,
+        public::map_leaderboard,
+        public::map_statistics,
+        public::servers,
+        public::server_detail,
+        public::search,
     ),
     components(schemas(
         ApiResponse<HealthResponse>,
@@ -49,10 +89,92 @@ use crate::handlers::{health, system};
         SystemEventResponse,
         SystemEventsResponse,
         RecentEventsQuery,
+        // Public portal
+        public_dto::PageMeta,
+        public_dto::PlayerRef,
+        public_dto::MapRef,
+        public_dto::CourseRef,
+        public_dto::ModeRef,
+        public_dto::StyleRef,
+        PublicMode,
+        PublicStatistics,
+        PublicModesResponse,
+        LeaderboardQuery,
+        LeaderboardEntry,
+        LeaderboardResponse,
+        RecordSummary,
+        RecordListResponse,
+        RecentRecordsQuery,
+        RecentRecordsResponse,
+        RecentWorldRecordsQuery,
+        RecordDetailResponse,
+        ServerRef,
+        WorldRecordEntry,
+        ActivePlayer,
+        ActivePlayersQuery,
+        ActivePlayersResponse,
+        RecordQuery,
+        PlayerListQuery,
+        PlayerSummary,
+        PlayerListResponse,
+        PlayerDetailQuery,
+        PlayerProfileDto,
+        PlayerOverallStats,
+        PlayerModeStatsDto,
+        TierProgressDto,
+        PlayerDetailResponse,
+        PlayerMapsQuery,
+        PlayerMapProgress,
+        PlayerMapsResponse,
+        PlayerRecordsQuery,
+        PlayerRecordsResponse,
+        CompareQuery,
+        CompareBest,
+        ComparePlayerSide,
+        CompareTier,
+        CompareMapRow,
+        CompareResponse,
+        MapListQuery,
+        MapSummary,
+        MapListResponse,
+        MapDetailQuery,
+        MapCourseDto,
+        ModeCount,
+        TimeTypeCount,
+        MapStatistics,
+        MapDetailResponse,
+        MapLeaderboardQuery,
+        MapLeaderboardResponse,
+        ServerQuery,
+        ServerSummary,
+        ServerListResponse,
+        SearchQuery,
+        SearchResponse,
+        ApiResponse<PublicStatistics>,
+        ApiResponse<PublicModesResponse>,
+        ApiResponse<LeaderboardResponse>,
+        ApiResponse<RecordListResponse>,
+        ApiResponse<RecentRecordsResponse>,
+        ApiResponse<Vec<WorldRecordEntry>>,
+        ApiResponse<RecordDetailResponse>,
+        ApiResponse<PlayerListResponse>,
+        ApiResponse<ActivePlayersResponse>,
+        ApiResponse<CompareResponse>,
+        ApiResponse<PlayerDetailResponse>,
+        ApiResponse<PlayerRecordsResponse>,
+        ApiResponse<PlayerMapsResponse>,
+        ApiResponse<MapListResponse>,
+        ApiResponse<MapDetailResponse>,
+        ApiResponse<MapLeaderboardResponse>,
+        ApiResponse<MapStatistics>,
+        ApiResponse<ServerListResponse>,
+        ApiResponse<ServerSummary>,
+        ApiResponse<SearchResponse>,
     )),
     tags(
         (name = "health", description = "Liveness and readiness probes"),
-        (name = "system", description = "System information, status and events")
+        (name = "system", description = "System information, status and events"),
+        (name = "public", description = "Public portal read-only data (players, maps, records, leaderboards, servers)")
     )
 )]
 pub struct ApiDoc;

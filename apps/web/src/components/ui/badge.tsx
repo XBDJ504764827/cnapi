@@ -4,16 +4,19 @@ import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap [&_svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap [&_svg]:size-3',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary/10 text-primary',
-        secondary: 'border-transparent bg-secondary text-secondary-foreground',
-        outline: 'border-border text-muted-foreground',
-        destructive: 'border-transparent bg-destructive/10 text-destructive',
-        success: 'border-transparent bg-success/12 text-success',
-        warning: 'border-transparent bg-warning/15 text-warning',
+        default: 'border-border bg-secondary text-secondary-foreground',
+        secondary: 'border-border bg-secondary text-secondary-foreground',
+        primary: 'border-primary/25 bg-primary/12 text-primary',
+        outline: 'border-border bg-transparent text-muted-foreground',
+        success: 'border-success/25 bg-success/12 text-success',
+        warning: 'border-warning/25 bg-warning/12 text-warning',
+        danger: 'border-danger/25 bg-danger/12 text-danger',
+        destructive: 'border-danger/25 bg-danger/12 text-danger',
+        info: 'border-info/25 bg-info/12 text-info',
       },
     },
     defaultVariants: {

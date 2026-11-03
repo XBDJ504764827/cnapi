@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export function TooltipProvider({
-  delayDuration = 200,
+  delayDuration = 150,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return <TooltipPrimitive.Provider delayDuration={delayDuration} {...props} />;
@@ -20,7 +20,7 @@ export function TooltipTrigger(props: React.ComponentProps<typeof TooltipPrimiti
 
 export function TooltipContent({
   className,
-  sideOffset = 8,
+  sideOffset = 6,
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
@@ -29,7 +29,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'z-50 max-w-64 animate-fade-in rounded-md border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md',
+          'z-50 max-w-64 animate-fade-in rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md',
           className,
         )}
         {...props}

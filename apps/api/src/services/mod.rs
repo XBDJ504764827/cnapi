@@ -2,4 +2,5 @@
 //! into [`crate::errors::AppError`].
 
 pub mod health;
+pub mod public;
 pub mod system;

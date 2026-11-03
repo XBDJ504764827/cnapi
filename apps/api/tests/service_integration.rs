@@ -105,14 +105,34 @@ async fn migrations_apply_to_a_fresh_database() {
         .await
         .expect("table list");
 
-        assert!(
-            tables.contains(&"system_events".to_owned()),
-            "tables: {tables:?}"
-        );
-        assert!(
-            tables.contains(&"app_settings".to_owned()),
-            "tables: {tables:?}"
-        );
+        for expected in [
+            "system_events",
+            "app_settings",
+            "accounts",
+            "map_courses",
+            "records",
+            "jumpstats",
+            "replays",
+            "bans",
+        ] {
+            assert!(
+                tables.contains(&expected.to_owned()),
+                "missing table {expected}; tables: {tables:?}"
+            );
+        }
+
+        // Phase 2 reference data must be seeded by the migrations.
+        let modes: i64 = sqlx::query_scalar("SELECT count(*) FROM movement_modes")
+            .fetch_one(&pool)
+            .await
+            .expect("movement modes");
+        assert_eq!(modes, 4);
+
+        let jump_types: i64 = sqlx::query_scalar("SELECT count(*) FROM jump_types")
+            .fetch_one(&pool)
+            .await
+            .expect("jump types");
+        assert_eq!(jump_types, 12);
     }
     .await;
 

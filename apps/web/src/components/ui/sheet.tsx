@@ -25,17 +25,19 @@ export function SheetContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & { side?: 'left' | 'right' }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/45" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/60 backdrop-blur-[1px]" />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 z-50 flex h-full w-72 flex-col bg-background shadow-xl outline-none',
-          side === 'left' ? 'left-0 animate-slide-in-left border-r' : 'right-0 border-l',
+          'fixed inset-y-0 z-50 flex h-full w-72 flex-col bg-sidebar shadow-2xl outline-none',
+          side === 'left'
+            ? 'left-0 animate-slide-in-left border-r border-sidebar-border'
+            : 'right-0 border-l border-border',
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:outline-none">
+        <DialogPrimitive.Close className="absolute top-4 right-3 rounded-sm p-1 text-muted-foreground opacity-80 transition-opacity hover:bg-surface-hover hover:opacity-100">
           <X className="size-4" />
           <span className="sr-only">关闭</span>
         </DialogPrimitive.Close>
@@ -45,9 +47,9 @@ export function SheetContent({
 }
 
 export function SheetTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn('text-base font-semibold', className)} {...props} />;
+  return <DialogPrimitive.Title className={cn('text-sm font-semibold', className)} {...props} />;
 }
 
 export function SheetDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description className={cn('text-sm text-muted-foreground', className)} {...props} />;
+  return <DialogPrimitive.Description className={cn('text-xs text-muted-foreground', className)} {...props} />;
 }

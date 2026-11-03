@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMocks = vi.hoisted(() => ({
@@ -27,7 +28,9 @@ function renderDashboard() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <DashboardPage />
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -67,17 +70,20 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('PostgreSQL')).toBeInTheDocument();
     expect(await screen.findByText('Redis')).toBeInTheDocument();
     expect(await screen.findByText('3 ms')).toBeInTheDocument();
-    expect(await screen.findByText('1 分 30 秒')).toBeInTheDocument();
-    expect((await screen.findAllByText('0.3.1')).length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByText(/1 分 30 秒/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/0\.3\.1/)).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText('暂无系统事件')).toBeInTheDocument();
   });
 
   it('keeps aggregate cards empty instead of inventing numbers', async () => {
     renderDashboard();
 
-    expect(await screen.findByText('玩家数量')).toBeInTheDocument();
+    expect(await screen.findByText('玩家总数')).toBeInTheDocument();
+    expect(screen.getByText('地图总数')).toBeInTheDocument();
+    expect(screen.getByText('成绩总数')).toBeInTheDocument();
+    expect(screen.getByText('在线服务器')).toBeInTheDocument();
+    expect(screen.getAllByText('接口未接入').length).toBeGreaterThanOrEqual(4);
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4);
-    expect(screen.getAllByText('统计接口将在后续阶段接入')).toHaveLength(4);
   });
 
   it('shows an error state when the API is unreachable', async () => {

@@ -1,0 +1,190 @@
+import { useQuery } from '@tanstack/react-query';
+import { FilterX, Search, Server as ServerIcon } from 'lucide-react';
+import { useState } from 'react';
+
+import { EmptyState } from '@/components/common/empty-state';
+import { PageHeader } from '@/components/common/page-header';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
+import { Card } from '@/components/ui/card';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/ui/pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { StatusIndicator } from '@/components/ui/status-indicator';
+import { useListParams } from '@/hooks/use-list-params';
+import { formatDateTime } from '@/lib/format';
+import { publicQueries } from '@/services/public-service';
+import { usePageMeta } from '@/seo/use-page-meta';
+import type { ServerSummaryPayload } from '@cngokz/shared-types';
+
+export function ServersPage() {
+  usePageMeta({
+    title: '服务器列表',
+    description: '查看已接入 CNGOKZAPI 的 KZ 服务器：在线状态、当前地图、插件版本与最近心跳。',
+    path: '/servers',
+  });
+
+  const list = useListParams();
+  const online = list.read('online', 'all');
+  const search = list.read('search');
+  const [draft, setDraft] = useState(search);
+
+  const query = useQuery(
+    publicQueries.servers({
+      search: search || undefined,
+      online: online === 'all' ? undefined : online === 'true',
+      page: list.page,
+      page_size: list.pageSize,
+    }),
+  );
+
+  const columns: DataTableColumn<ServerSummaryPayload>[] = [
+    {
+      id: 'server',
+      header: '服务器',
+      cell: (row) => (
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-surface-elevated text-muted-foreground">
+            <ServerIcon className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium">{row.name}</p>
+            <p className="truncate font-mono text-[10px] text-muted-foreground">
+              {row.ip}:{row.port}
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    { id: 'community', header: '社区', cell: (row) => <span className="text-xs">{row.community ?? '—'}</span> },
+    {
+      id: 'status',
+      header: '状态',
+      cell: (row) => <StatusIndicator tone={row.online ? 'up' : 'unknown'} label={row.online ? '在线' : '离线'} />,
+    },
+    {
+      id: 'map',
+      header: '当前地图',
+      cell: (row) => <span className="truncate font-mono text-xs">{row.current_map_name ?? '—'}</span>,
+    },
+    {
+      id: 'players',
+      header: '玩家',
+      className: 'text-right',
+      cell: (row) => <span className="text-xs tabular-nums">{row.players ?? '—'}</span>,
+    },
+    { id: 'mode', header: '模式', cell: (row) => <Badge variant="outline">{row.mode ?? '—'}</Badge> },
+    {
+      id: 'plugin',
+      header: '插件版本',
+      cell: (row) => (
+        <Badge variant="outline" className="font-mono">
+          {row.plugin_version ?? '—'}
+        </Badge>
+      ),
+    },
+    {
+      id: 'heartbeat',
+      header: '最近心跳',
+      cell: (row) => <span className="text-[11px] text-muted-foreground">{formatDateTime(row.last_heartbeat_at)}</span>,
+    },
+  ];
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    list.setFilter('search', draft.trim());
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="服务器列表"
+        description="服务器主动上报或后端采集的公开信息。播放器数量、最大人数与服务器模式尚未采集。"
+        meta={query.data ? <span>共 {query.data.meta.total.toLocaleString('zh-CN')} 台服务器</span> : null}
+      />
+
+      <Callout
+        variant="neutral"
+        title="数据来源与缺失字段"
+        description="在线状态根据最近心跳（2 分钟内）推导；当前玩家数、最大人数与服务器级模式尚未入库，显示为 “—”。"
+      />
+
+      <Card className="overflow-hidden">
+        <form
+          onSubmit={submit}
+          className="flex flex-col gap-2 border-b border-border/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-60">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="搜索服务器名称或地址…"
+                className="pl-8"
+                aria-label="搜索服务器"
+              />
+            </div>
+            <Button type="submit" size="sm" variant="secondary">
+              搜索
+            </Button>
+            <Select value={online} onValueChange={(value) => list.setFilter('online', value, 'all')}>
+              <SelectTrigger className="w-28" aria-label="在线状态">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="true">在线</SelectItem>
+                <SelectItem value="false">离线</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDraft('');
+                list.reset();
+              }}
+              disabled={!search && online === 'all' && list.page === 1}
+            >
+              <FilterX />
+              重置
+            </Button>
+          </div>
+        </form>
+
+        <DataTable
+          columns={columns}
+          rows={query.data?.items ?? []}
+          getRowKey={(row) => row.id}
+          isLoading={query.isLoading}
+          error={
+            query.isError
+              ? { title: '无法加载服务器', description: query.error.message, onRetry: () => void query.refetch() }
+              : null
+          }
+          minWidthClass="min-w-[980px]"
+          empty={
+            <EmptyState
+              icon={ServerIcon}
+              title={search ? '没有匹配的服务器' : '暂无服务器数据'}
+              description={search ? '换一个名称或地址再试。' : '还没有服务器注册或上报心跳。'}
+            />
+          }
+        />
+        <div className="border-t border-border/70 px-4 py-3">
+          <Pagination
+            page={query.data?.meta.page ?? list.page}
+            pageSize={query.data?.meta.page_size ?? list.pageSize}
+            total={query.data?.meta.total ?? 0}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
+          />
+        </div>
+      </Card>
+    </div>
+  );
+}

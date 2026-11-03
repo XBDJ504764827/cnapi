@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @cngokz/web dev",
+    "dev": "pnpm --parallel --filter @cngokz/web --filter @cngokz/public dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format",
@@ -19,7 +19,11 @@
     "gen:api-types": "pnpm --filter @cngokz/shared-types gen:api",
     "docker:up": "docker compose up -d --build",
     "docker:logs": "docker compose logs -f",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "dev:admin": "pnpm --filter @cngokz/web dev",
+    "dev:public": "pnpm --filter @cngokz/public dev",
+    "build:admin": "pnpm --filter @cngokz/web build",
+    "build:public": "pnpm --filter @cngokz/public build"
   },
   "devDependencies": {
     "prettier": "3.9.10",

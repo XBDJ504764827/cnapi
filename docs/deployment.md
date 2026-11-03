@@ -1,6 +1,6 @@
 # 部署指南
 
-第一阶段使用 Docker Compose 部署四个服务：PostgreSQL、Redis、Rust API、React Web。生产环境不需要额外的 Nginx 即可运行；如需统一域名/TLS，可在后续阶段前置反向代理。
+使用 Docker Compose 部署五个服务：PostgreSQL、Redis、Rust API、React Web。生产环境不需要额外的 Nginx 即可运行；如需统一域名/TLS，可在后续阶段前置反向代理。
 
 ## 1. 前置条件
 
@@ -24,7 +24,10 @@ cp .env.example .env
 | `LOG_LEVEL` | `info`（排障时临时 `debug`） |
 | `CORS_ALLOWED_ORIGINS` | 若浏览器只经 Web 访问 API，可留空；如直连 API 则填前端域名 |
 | `POSTGRES_PORT` / `REDIS_PORT` | 生产环境可注释掉端口映射（见"安全基线"） |
-| `WEB_PORT` | 对外暴露的管理后台端口 |
+| `PORTAL_PORT` | 对外唯一端口：`/` 公开门户 + `/admin` 管理后台 |
+| `PORTAL_PORT` | 对外暴露的唯一门户端口（默认 5173；`/` 公开站，`/admin` 管理后台） |
+| `VITE_SITE_URL` | 公开门户 canonical/sitemap 的站点地址（默认 `http://localhost:5173`）；更改后需重建 public 镜像 |
+| `ADMIN_PORT` | 仅本地开发的管理后台内部端口（默认 5174） |
 
 > compose 默认把 PostgreSQL/Redis/API 端口绑定在 `127.0.0.1`，只有 Web 监听 `0.0.0.0`。
 
@@ -42,17 +45,19 @@ docker compose logs -f
 
 ```bash
 curl -fsS http://localhost:5173/health | jq                # 经 Web 代理
-curl -fsS http://localhost:5173/api/v1/system/status | jq  # 依赖状态
+curl -fsS http://localhost:5173/admin/api 2>/dev/null || true
+curl -fsS http://localhost:5173/api/v1/system/status | jq  # 依赖状态（同源）
 curl -fsS http://localhost:8080/health/ready | jq          # 宿主机直连 API
 ```
 
-浏览器访问 `http://<host>:5173`，仪表盘应显示 API / PostgreSQL / Redis 状态为"正常"，且统计卡片显示 `—`（尚未实现）。
+浏览器访问 `http://<host>:5173`（公开门户，默认）与 `http://<host>:5173/admin`（管理后台）。两者共用同一后端；管理后台仪表盘显示真实的 API / PostgreSQL / Redis 状态，公开门户的统计、排行榜、成绩来自同一数据库。
 
 ## 3. 服务与端口
 
 | 服务 | 容器端口 | 宿主机默认 | 暴露范围 |
 | --- | --- | --- | --- |
-| web | 5173 | 5173 | `0.0.0.0` |
+| public（单入口） | 5173 | 5173 | `0.0.0.0` |
+| web（内部，管理后台） | 5173 | — | 仅 compose 内部 |
 | api | 8080 | 8080 | `127.0.0.1` |
 | postgres | 5432 | 5432 | `127.0.0.1` |
 | redis | 6379 | 6379 | `127.0.0.1` |
@@ -148,7 +153,9 @@ server {
 | PostgreSQL 健康检查失败 | 首次启动数据目录权限、卷残留都可能导致；确认卷属于空目录初始化（必要时先备份） |
 | 构建 Rust 镜像极慢/内存不足 | 构建阶段需要编译全部依赖；增加内存或使用 CI 缓存 |
 | 端口被占用 | 修改 `.env` 中对应 `*_PORT`，或 `docker compose down` 释放 |
-| 页面能开但数据不更新 | 浏览器请求的 `/api` 是否命中代理；查看 Web 容器日志中的 `[proxy] ... failed` |
+| 页面能开但数据不更新 | 浏览器请求的 `/api` 是否命中代理；查看 Web/Public 容器日志中的 `[proxy] ... failed` |
+| 公开门户站点 URL 错误 | 修改 `.env` 的 `VITE_SITE_URL` 后执行 `docker compose build public && docker compose up -d public` |
+| `/admin` 502 | public 容器依赖 web 容器健康；检查 `docker compose ps web` 与 `ADMIN_UPSTREAM` |
 | 重启后数据丢失 | 是否使用了 `docker compose down -v`；检查卷 `docker volume ls | grep cngokzapi` |
 
 查看容器内 API 的实时状态：

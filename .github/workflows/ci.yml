@@ -79,6 +79,7 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm -r test
       - run: pnpm --filter @cngokz/web build
+      - run: pnpm --filter @cngokz/public build
 
   docker:
     name: Docker images
@@ -95,3 +96,6 @@ jobs:
 
       - name: Build web image
         run: docker build -f infrastructure/docker/web.Dockerfile -t cngokzapi-web:ci .
+
+      - name: Build public portal image
+        run: docker build -f infrastructure/docker/public.Dockerfile -t cngokzapi-public:ci .

@@ -109,10 +109,44 @@ services:
       WEB_PORT: 5173
       # The static server proxies /api, /health, /swagger-ui and /api-docs here.
       API_UPSTREAM: http://api:8080
-    ports:
-      - '${WEB_PORT:-5173}:5173'
+    # Internal only: the public portal gateway serves this app under /admin/.
+    expose:
+      - '5173'
     depends_on:
       api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5173/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend
+    logging: *default-logging
+
+  public:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/public.Dockerfile
+      args:
+        VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost:5174}
+    restart: unless-stopped
+    environment:
+      PUBLIC_PORT: 5173
+      # Same-origin proxies: API + admin UI under /admin/.
+      API_UPSTREAM: http://api:8080
+      ADMIN_UPSTREAM: http://web:5173
+    ports:
+      - '${PORTAL_PORT:-5173}:5173'
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
         condition: service_healthy
     healthcheck:
       test:

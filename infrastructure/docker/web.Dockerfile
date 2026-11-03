@@ -14,8 +14,10 @@ WORKDIR /src
 # Install workspace dependencies with a frozen lockfile.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
+COPY apps/public/package.json ./apps/public/package.json
 COPY packages/api-client/package.json ./packages/api-client/package.json
 COPY packages/shared-types/package.json ./packages/shared-types/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
 
 RUN pnpm install --frozen-lockfile
 

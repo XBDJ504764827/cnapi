@@ -53,7 +53,20 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  serveStatic(response, url.pathname);
+  // The admin app is served under /admin/ (public portal gateway proxies with
+  // the prefix preserved). Strip it before resolving files from dist/.
+  const pathname =
+    url.pathname === '/admin' || url.pathname.startsWith('/admin/')
+      ? url.pathname.slice('/admin'.length) || '/'
+      : url.pathname;
+
+  if (url.pathname === '/admin') {
+    response.writeHead(308, { location: '/admin/' });
+    response.end();
+    return;
+  }
+
+  serveStatic(response, pathname);
 });
 
 function serveStatic(response, pathname) {

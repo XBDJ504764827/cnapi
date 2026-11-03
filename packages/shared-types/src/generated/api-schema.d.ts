@@ -4,485 +4,2570 @@
  */
 
 export interface paths {
-  "/api/v1/system/events": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/leaderboards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mode leaderboard
+         * @description Ranked by completed main-course maps. Points are not computed yet.
+         */
+        get: operations["leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Recent system events
-     * @description Most recent system events. A fresh installation has an empty list.
-     */
-    get: operations["events"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/system/info": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Map directory */
+        get: operations["maps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * System information
-     * @description Version, environment, start time and uptime of the running API instance.
-     */
-    get: operations["info"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/system/status": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/maps/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Map detail */
+        get: operations["map_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * System status
-     * @description Real, per-request connectivity status of PostgreSQL and Redis together with uptime information.
-     */
-    get: operations["status"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/maps/{slug}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Map course leaderboard */
+        get: operations["map_leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * API health
-     * @description Returns `ok` when the process can serve HTTP requests. Dependencies are not checked, use `/health/ready` for that.
-     */
-    get: operations["health"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/health/live": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/maps/{slug}/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Map completion statistics */
+        get: operations["map_statistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Process liveness
-     * @description Returns `alive` while the process is running. Intended for orchestrator liveness probes.
-     */
-    get: operations["liveness"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/health/ready": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/public/modes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List movement modes */
+        get: operations["modes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Dependency readiness
-     * @description Probes PostgreSQL and Redis. Responds 503 with sanitized check details when any dependency is unavailable.
-     */
-    get: operations["readiness"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/api/v1/public/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player directory */
+        get: operations["players"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Most active players */
+        get: operations["active_players"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare two players */
+        get: operations["compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/{steamid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player profile and statistics */
+        get: operations["player_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/{steamid}/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player map progress (completed and uncompleted) */
+        get: operations["player_maps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/{steamid}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player records */
+        get: operations["player_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search approved records */
+        get: operations["records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/records/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent uploads */
+        get: operations["recent_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/records/world-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent world records */
+        get: operations["recent_world_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/records/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Record detail */
+        get: operations["record_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global player/map search */
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server list */
+        get: operations["servers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/servers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server detail */
+        get: operations["server_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public aggregate statistics */
+        get: operations["statistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent system events
+         * @description Most recent system events. A fresh installation has an empty list.
+         */
+        get: operations["events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System information
+         * @description Version, environment, start time and uptime of the running API instance.
+         */
+        get: operations["info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System status
+         * @description Real, per-request connectivity status of PostgreSQL and Redis together with uptime information.
+         */
+        get: operations["status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API health
+         * @description Returns `ok` when the process can serve HTTP requests. Dependencies are not checked, use `/health/ready` for that.
+         */
+        get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Process liveness
+         * @description Returns `alive` while the process is running. Intended for orchestrator liveness probes.
+         */
+        get: operations["liveness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dependency readiness
+         * @description Probes PostgreSQL and Redis. Responds 503 with sanitized check details when any dependency is unavailable.
+         */
+        get: operations["readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @description Envelope used by every failed response. */
-    ApiErrorBody: {
-      error: components["schemas"]["ApiErrorDetail"];
-      message: string;
-      success: boolean;
+    schemas: {
+        ActivePlayer: {
+            /** Format: date-time */
+            last_record_at?: string | null;
+            player: components["schemas"]["PlayerRef"];
+            /** Format: int64 */
+            records: number;
+        };
+        ActivePlayersQuery: {
+            /**
+             * Format: int32
+             * @description Lookback window in days (1-30, default 7).
+             */
+            days?: number | null;
+            /** Format: int32 */
+            limit?: number | null;
+        };
+        ActivePlayersResponse: {
+            /** Format: int32 */
+            days: number;
+            items: components["schemas"]["ActivePlayer"][];
+        };
+        /** @description Envelope used by every failed response. */
+        ApiErrorBody: {
+            error: components["schemas"]["ApiErrorDetail"];
+            message: string;
+            success: boolean;
+        };
+        ApiErrorDetail: {
+            code: components["schemas"]["ErrorCode"];
+            details?: unknown;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ActivePlayersResponse: {
+            data: {
+                /** Format: int32 */
+                days: number;
+                items: components["schemas"]["ActivePlayer"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_CompareResponse: {
+            data: {
+                filter: string;
+                left: components["schemas"]["ComparePlayerSide"];
+                maps: components["schemas"]["CompareMapRow"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ModeRef"];
+                points_available: boolean;
+                ranking_metric: string;
+                right: components["schemas"]["ComparePlayerSide"];
+                tiers: components["schemas"]["CompareTier"][];
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_HealthResponse: {
+            /** @description Response of `GET /health`. */
+            data: {
+                /** @description `ok` when the process is able to serve HTTP requests. */
+                status: string;
+                /** Format: date-time */
+                timestamp: string;
+                version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_LeaderboardResponse: {
+            data: {
+                items: components["schemas"]["LeaderboardEntry"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ModeRef"];
+                points_available: boolean;
+                /** @description Metric used for ordering: `completed_maps`. */
+                ranking_metric: string;
+                /** @description `all`, `nub` or `pro`. */
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_LivenessResponse: {
+            /** @description Response of `GET /health/live`. */
+            data: {
+                /** @description Always `alive` when the process responds. */
+                status: string;
+                /** Format: int64 */
+                uptime_seconds: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_MapDetailResponse: {
+            data: {
+                /** @description Always `null` — the schema has no mapper table yet. */
+                authors?: string[] | null;
+                courses: components["schemas"]["MapCourseDto"][];
+                map: components["schemas"]["MapSummary"];
+                statistics: components["schemas"]["MapStatistics"];
+                supported_modes: components["schemas"]["ModeRef"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_MapLeaderboardResponse: {
+            data: {
+                course: components["schemas"]["CourseRef"];
+                items: components["schemas"]["RecordSummary"][];
+                map: components["schemas"]["MapRef"];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ModeRef"];
+                style: components["schemas"]["StyleRef"];
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_MapListResponse: {
+            data: {
+                items: components["schemas"]["MapSummary"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ModeRef"];
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_MapStatistics: {
+            data: {
+                /**
+                 * Format: int64
+                 * @description Distinct players with a main-course record for the selected mode.
+                 */
+                completed_players: number;
+                /**
+                 * Format: double
+                 * @description completed_players / total registered players.
+                 */
+                completion_rate: number;
+                /** Format: int64 */
+                nub_completed_players: number;
+                /** Format: int64 */
+                pro_completed_players: number;
+                /** Format: int64 */
+                record_count: number;
+                records_by_mode: components["schemas"]["ModeCount"][];
+                records_by_time_type: components["schemas"]["TimeTypeCount"][];
+                /**
+                 * Format: int64
+                 * @description Distinct players with any approved record on the map.
+                 */
+                total_players: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerDetailResponse: {
+            data: {
+                modes: components["schemas"]["PlayerModeStatsDto"][];
+                overall: components["schemas"]["PlayerOverallStats"];
+                points_available: boolean;
+                profile: components["schemas"]["PlayerProfileDto"];
+                ranking_metric: string;
+                /** @description Mode used for `tiers`. */
+                tier_mode: components["schemas"]["ModeRef"];
+                tier_time_type: string;
+                tiers: components["schemas"]["TierProgressDto"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerListResponse: {
+            data: {
+                items: components["schemas"]["PlayerSummary"][];
+                meta: components["schemas"]["PageMeta"];
+                mode?: components["schemas"]["ModeRef"] | null;
+                points_available: boolean;
+                /** @description Metric used for ordering: `completed_maps`. */
+                ranking_metric: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerMapsResponse: {
+            data: {
+                account: components["schemas"]["PlayerRef"];
+                items: components["schemas"]["PlayerMapProgress"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ModeRef"];
+                style: components["schemas"]["StyleRef"];
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerRecordsResponse: {
+            data: {
+                account: components["schemas"]["PlayerRef"];
+                items: components["schemas"]["RecordSummary"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PublicModesResponse: {
+            data: {
+                items: components["schemas"]["PublicMode"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PublicStatistics: {
+            /** @description Aggregate counts shown on the public home page. */
+            data: {
+                /** Format: int64 */
+                courses: number;
+                /** Format: date-time */
+                generated_at: string;
+                /** Format: int64 */
+                maps: number;
+                /** Format: int64 */
+                players: number;
+                /** Format: int64 */
+                records: number;
+                /** Format: int64 */
+                servers_online: number;
+                /** Format: int64 */
+                world_records: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ReadinessResponse: {
+            /** @description Response of `GET /health/ready`. */
+            data: {
+                checks: components["schemas"]["DependencyStatusDto"][];
+                /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
+                status: string;
+                version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecentRecordsResponse: {
+            data: {
+                count: number;
+                items: components["schemas"]["RecordSummary"][];
+                /** Format: int32 */
+                limit: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecordDetailResponse: {
+            data: {
+                record: components["schemas"]["RecordSummary"];
+                /** Format: int64 */
+                replay_id?: number | null;
+                server?: components["schemas"]["ServerRef"] | null;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecordListResponse: {
+            data: {
+                items: components["schemas"]["RecordSummary"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SearchResponse: {
+            data: {
+                maps: components["schemas"]["MapRef"][];
+                players: components["schemas"]["PlayerRef"][];
+                query: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ServerListResponse: {
+            data: {
+                items: components["schemas"]["ServerSummary"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ServerSummary: {
+            data: {
+                /** @description Owner display name, used as the community label. */
+                community?: string | null;
+                /** Format: int64 */
+                current_map_id?: number | null;
+                current_map_name?: string | null;
+                current_map_slug?: string | null;
+                /** Format: int64 */
+                id: number;
+                ip: string;
+                /** Format: date-time */
+                last_heartbeat_at?: string | null;
+                /**
+                 * Format: int64
+                 * @description Not stored in the schema yet.
+                 */
+                max_players?: number | null;
+                /** @description Not stored in the schema yet. */
+                mode?: string | null;
+                name: string;
+                /** @description Fresh heartbeat within the last 2 minutes. */
+                online: boolean;
+                /**
+                 * Format: int64
+                 * @description Not stored in the schema yet.
+                 */
+                players?: number | null;
+                plugin_version?: string | null;
+                /** Format: int32 */
+                port: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SystemEventsResponse: {
+            /** @description Response of `GET /api/v1/system/events`. */
+            data: {
+                count: number;
+                items: components["schemas"]["SystemEventResponse"][];
+                /** Format: int32 */
+                limit: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SystemInfoResponse: {
+            /** @description Response of `GET /api/v1/system/info`. */
+            data: {
+                /** @description API version prefix currently served, e.g. `v1`. */
+                api_version: string;
+                /** @description `development`, `test` or `production`. */
+                environment: string;
+                name: string;
+                /** Format: date-time */
+                started_at: string;
+                /** Format: int64 */
+                uptime_seconds: number;
+                version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SystemStatusResponse: {
+            /**
+             * @description Response of `GET /api/v1/system/status`.
+             *
+             *     Contains the real state of every dependency, probed on each request.
+             */
+            data: {
+                /** Format: date-time */
+                checked_at: string;
+                checks: components["schemas"]["DependencyStatusDto"][];
+                environment: string;
+                /** Format: date-time */
+                started_at: string;
+                /** @description `healthy` when every dependency is up, otherwise `degraded`. */
+                status: string;
+                /** Format: int64 */
+                uptime_seconds: number;
+                version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_Vec_WorldRecordEntry: {
+            data: {
+                /** Format: date-time */
+                achieved_at: string;
+                /** Format: int64 */
+                improvement_ns?: number | null;
+                improvement_seconds?: string | null;
+                /** Format: int64 */
+                previous_time_ns?: number | null;
+                record: components["schemas"]["RecordSummary"];
+            }[];
+            message: string;
+            success: boolean;
+        };
+        CompareBest: {
+            completed: boolean;
+            /**
+             * Format: date-time
+             * @description Upload time of the best record (not the run duration).
+             */
+            last_record_at?: string | null;
+            /** Format: int64 */
+            points?: number | null;
+            /** Format: int64 */
+            rank?: number | null;
+            /** Format: int64 */
+            time_ns?: number | null;
+            time_seconds?: string | null;
+        };
+        CompareMapRow: {
+            left: components["schemas"]["CompareBest"];
+            /** Format: int64 */
+            left_points_diff?: number | null;
+            /** Format: int64 */
+            map_id: number;
+            name: string;
+            right: components["schemas"]["CompareBest"];
+            slug: string;
+            /** @description `left_null`, `both_completed`, `left_only`, `right_only`, `neither`. */
+            status: string;
+            /** Format: int32 */
+            tier?: number | null;
+            /**
+             * Format: int64
+             * @description Positive = player A faster, negative = player B faster.
+             */
+            time_diff_ns?: number | null;
+        };
+        ComparePlayerSide: {
+            modes: components["schemas"]["PlayerModeStatsDto"][];
+            overall: components["schemas"]["PlayerOverallStats"];
+            profile: components["schemas"]["PlayerProfileDto"];
+        };
+        CompareQuery: {
+            /**
+             * @description `all` (default), `both`, `left_only`, `right_only`, `neither`,
+             *     `left_faster`, `right_faster`.
+             */
+            filter?: string | null;
+            /** @description SteamID64 of player A. */
+            left: string;
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description SteamID64 of player B. */
+            right: string;
+            style?: string | null;
+            /** @description `all` (default), `nub`, `pro`. */
+            time_type?: string | null;
+        };
+        CompareResponse: {
+            filter: string;
+            left: components["schemas"]["ComparePlayerSide"];
+            maps: components["schemas"]["CompareMapRow"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ModeRef"];
+            points_available: boolean;
+            ranking_metric: string;
+            right: components["schemas"]["ComparePlayerSide"];
+            tiers: components["schemas"]["CompareTier"][];
+            time_type: string;
+        };
+        CompareTier: {
+            /** Format: int64 */
+            left_completed: number;
+            /** Format: int64 */
+            left_points?: number | null;
+            /** Format: int64 */
+            right_completed: number;
+            /** Format: int64 */
+            right_points?: number | null;
+            /** Format: int32 */
+            tier?: number | null;
+            /** Format: int64 */
+            total_maps: number;
+        };
+        CourseRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /**
+             * Format: int32
+             * @description 0 = main course, >0 = bonus stage.
+             */
+            stage: number;
+        };
+        /** @description Sanitized state of a single dependency. */
+        DependencyStatusDto: {
+            /** @description Stable reason when the dependency is down (`timeout`, `connection_failed`, ...). */
+            detail?: string | null;
+            /** Format: int64 */
+            latency_ms: number;
+            /** @description `postgresql` or `redis`. */
+            name: string;
+            /** @description `up` or `down`. */
+            status: string;
+        };
+        /**
+         * @description Stable, machine readable error codes. Clients should branch on these instead
+         *     of parsing `message`.
+         * @enum {string}
+         */
+        ErrorCode: "validation_error" | "unauthorized" | "forbidden" | "not_found" | "database_error" | "redis_error" | "dependency_unavailable" | "not_ready" | "internal_error";
+        /** @description Response of `GET /health`. */
+        HealthResponse: {
+            /** @description `ok` when the process is able to serve HTTP requests. */
+            status: string;
+            /** Format: date-time */
+            timestamp: string;
+            version: string;
+        };
+        LeaderboardEntry: {
+            /** Format: int64 */
+            account_id: number;
+            /** Format: int64 */
+            completed_maps: number;
+            country?: string | null;
+            display_name: string;
+            /** Format: date-time */
+            last_activity_at?: string | null;
+            /**
+             * Format: int64
+             * @description Always `null` until a points algorithm is defined.
+             */
+            points?: number | null;
+            /** Format: int64 */
+            rank: number;
+            steam_id64: string;
+            /** Format: int64 */
+            total_records: number;
+            /** Format: int64 */
+            wr_count: number;
+        };
+        LeaderboardQuery: {
+            /** @description Movement mode code (e.g. `vanilla`). Defaults to `vanilla`. */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description `all` (default), `nub` or `pro`. */
+            time_type?: string | null;
+        };
+        LeaderboardResponse: {
+            items: components["schemas"]["LeaderboardEntry"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ModeRef"];
+            points_available: boolean;
+            /** @description Metric used for ordering: `completed_maps`. */
+            ranking_metric: string;
+            /** @description `all`, `nub` or `pro`. */
+            time_type: string;
+        };
+        /** @description Response of `GET /health/live`. */
+        LivenessResponse: {
+            /** @description Always `alive` when the process responds. */
+            status: string;
+            /** Format: int64 */
+            uptime_seconds: number;
+        };
+        MapCourseDto: {
+            /** Format: int64 */
+            completed_players: number;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int32 */
+            nub_tier?: number | null;
+            /** Format: int32 */
+            pro_tier?: number | null;
+            /** Format: int64 */
+            records_count: number;
+            /** Format: int32 */
+            stage: number;
+        };
+        MapDetailQuery: {
+            /** @description Mode (default `vanilla`). */
+            mode?: string | null;
+            /** @description `all` (default), `nub` or `pro`. */
+            time_type?: string | null;
+        };
+        MapDetailResponse: {
+            /** @description Always `null` — the schema has no mapper table yet. */
+            authors?: string[] | null;
+            courses: components["schemas"]["MapCourseDto"][];
+            map: components["schemas"]["MapSummary"];
+            statistics: components["schemas"]["MapStatistics"];
+            supported_modes: components["schemas"]["ModeRef"][];
+        };
+        MapLeaderboardQuery: {
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /**
+             * Format: int32
+             * @description Course stage; default `0` (main course).
+             */
+            stage?: number | null;
+            style?: string | null;
+            /** @description `pro` (default), `nub`, `all`. */
+            time_type?: string | null;
+        };
+        MapLeaderboardResponse: {
+            course: components["schemas"]["CourseRef"];
+            items: components["schemas"]["RecordSummary"][];
+            map: components["schemas"]["MapRef"];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ModeRef"];
+            style: components["schemas"]["StyleRef"];
+            time_type: string;
+        };
+        MapListQuery: {
+            /** @description Mode (default `vanilla`). */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            search?: string | null;
+            /** @description `completions` (default), `recent`, `name`, `records`. */
+            sort?: string | null;
+            /**
+             * Format: int32
+             * @description Tier 1-10; `0` = unrated.
+             */
+            tier?: number | null;
+            /** @description `nub` (default) or `pro` — selects which tier column is used. */
+            time_type?: string | null;
+        };
+        MapListResponse: {
+            items: components["schemas"]["MapSummary"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ModeRef"];
+            time_type: string;
+        };
+        MapRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            slug: string;
+        };
+        MapStatistics: {
+            /**
+             * Format: int64
+             * @description Distinct players with a main-course record for the selected mode.
+             */
+            completed_players: number;
+            /**
+             * Format: double
+             * @description completed_players / total registered players.
+             */
+            completion_rate: number;
+            /** Format: int64 */
+            nub_completed_players: number;
+            /** Format: int64 */
+            pro_completed_players: number;
+            /** Format: int64 */
+            record_count: number;
+            records_by_mode: components["schemas"]["ModeCount"][];
+            records_by_time_type: components["schemas"]["TimeTypeCount"][];
+            /**
+             * Format: int64
+             * @description Distinct players with any approved record on the map.
+             */
+            total_players: number;
+        };
+        MapSummary: {
+            /** Format: int64 */
+            completed_players: number;
+            /** Format: int64 */
+            courses: number;
+            /** Format: date-time */
+            created_at: string;
+            description?: string | null;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            records_count: number;
+            slug: string;
+            /**
+             * Format: int32
+             * @description Tier for the requested mode/time type; `null` = unrated.
+             */
+            tier?: number | null;
+            /** Format: int64 */
+            workshop_id?: number | null;
+            wr_player_name?: string | null;
+            /** Format: int64 */
+            wr_time_ns?: number | null;
+            wr_time_seconds?: string | null;
+        };
+        ModeCount: {
+            mode: components["schemas"]["ModeRef"];
+            /** Format: int64 */
+            records: number;
+        };
+        ModeRef: {
+            code: string;
+            display_name: string;
+            /** Format: int32 */
+            id: number;
+        };
+        PageMeta: {
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+            /** Format: int32 */
+            total_pages: number;
+        };
+        PlayerDetailQuery: {
+            /** @description Mode used for tier progress and per-mode cards (default `vanilla`). */
+            mode?: string | null;
+            /** @description `all` (default), `nub`, `pro` — used for tier progress. */
+            time_type?: string | null;
+        };
+        PlayerDetailResponse: {
+            modes: components["schemas"]["PlayerModeStatsDto"][];
+            overall: components["schemas"]["PlayerOverallStats"];
+            points_available: boolean;
+            profile: components["schemas"]["PlayerProfileDto"];
+            ranking_metric: string;
+            /** @description Mode used for `tiers`. */
+            tier_mode: components["schemas"]["ModeRef"];
+            tier_time_type: string;
+            tiers: components["schemas"]["TierProgressDto"][];
+        };
+        PlayerListQuery: {
+            /** @description Optional mode filter (default `all`). */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description Display name or SteamID64 fragment. */
+            search?: string | null;
+            /** @description `completion` (default), `wr`, `records`, `recent`, `name`. */
+            sort?: string | null;
+        };
+        PlayerListResponse: {
+            items: components["schemas"]["PlayerSummary"][];
+            meta: components["schemas"]["PageMeta"];
+            mode?: components["schemas"]["ModeRef"] | null;
+            points_available: boolean;
+            /** @description Metric used for ordering: `completed_maps`. */
+            ranking_metric: string;
+        };
+        PlayerMapProgress: {
+            /** Format: int64 */
+            best_rank?: number | null;
+            /** Format: int64 */
+            best_time_ns?: number | null;
+            best_time_seconds?: string | null;
+            best_time_type?: string | null;
+            /**
+             * Format: int64
+             * @description Bonus courses completed by the player (same mode/time_type/style).
+             */
+            bonus_completed: number;
+            /**
+             * Format: int64
+             * @description Number of bonus courses on the map.
+             */
+            bonus_total: number;
+            completed: boolean;
+            /**
+             * Format: date-time
+             * @description Upload time of the best record (wall-clock completion time is not stored).
+             */
+            last_record_at?: string | null;
+            /** Format: int64 */
+            map_id: number;
+            name: string;
+            /** Format: int64 */
+            points?: number | null;
+            slug: string;
+            /** Format: int32 */
+            tier?: number | null;
+        };
+        PlayerMapsQuery: {
+            /** @description Mode (default `vanilla`). */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            search?: string | null;
+            /** @description `tier` (default), `name`, `time`, `recent`. */
+            sort?: string | null;
+            /** @description `all` (default), `completed`, `uncompleted`. */
+            status?: string | null;
+            /** @description Style (default `normal`). */
+            style?: string | null;
+            /** Format: int32 */
+            tier?: number | null;
+            /** @description `pro` (default), `nub` or `all`. */
+            time_type?: string | null;
+        };
+        PlayerMapsResponse: {
+            account: components["schemas"]["PlayerRef"];
+            items: components["schemas"]["PlayerMapProgress"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ModeRef"];
+            style: components["schemas"]["StyleRef"];
+            time_type: string;
+        };
+        PlayerModeStatsDto: {
+            /** Format: int64 */
+            completed_maps: number;
+            /** Format: double */
+            completion_rate: number;
+            mode: components["schemas"]["ModeRef"];
+            /** Format: int64 */
+            points?: number | null;
+            /** Format: int64 */
+            pro_count: number;
+            /** Format: int64 */
+            rank?: number | null;
+            /** Format: int64 */
+            total_maps: number;
+            /** Format: int64 */
+            total_records: number;
+            /** Format: int64 */
+            tp_count: number;
+            /** Format: int64 */
+            wr_count: number;
+        };
+        PlayerOverallStats: {
+            /** Format: int64 */
+            completed_maps: number;
+            /** Format: double */
+            completion_rate: number;
+            /** Format: int64 */
+            global_rank?: number | null;
+            /**
+             * Format: int64
+             * @description Always `null` until the points algorithm exists.
+             */
+            points?: number | null;
+            /** Format: int64 */
+            pro_count: number;
+            /** Format: double */
+            rating?: number | null;
+            /** Format: int64 */
+            total_maps: number;
+            /** Format: int64 */
+            total_records: number;
+            /** Format: int64 */
+            tp_count: number;
+            /** Format: int64 */
+            wr_count: number;
+        };
+        PlayerProfileDto: {
+            /** Format: int64 */
+            account_id: number;
+            country?: string | null;
+            display_name: string;
+            /** Format: date-time */
+            first_record_at?: string | null;
+            /** Format: date-time */
+            last_record_at?: string | null;
+            steam_id64: string;
+            steam_profile_url: string;
+        };
+        PlayerRecordsQuery: {
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            style?: string | null;
+            /** @description `all` (default), `nub`, `pro`. */
+            time_type?: string | null;
+        };
+        PlayerRecordsResponse: {
+            account: components["schemas"]["PlayerRef"];
+            items: components["schemas"]["RecordSummary"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        PlayerRef: {
+            /** Format: int64 */
+            account_id: number;
+            display_name: string;
+            /** @description Decimal string; SteamID64 exceeds JSON safe integer range. */
+            steam_id64: string;
+        };
+        PlayerSummary: {
+            /** Format: int64 */
+            account_id: number;
+            /** Format: int64 */
+            completed_maps: number;
+            country?: string | null;
+            display_name: string;
+            /** Format: date-time */
+            last_activity_at?: string | null;
+            /**
+             * Format: int64
+             * @description Always `null` until a points algorithm is defined.
+             */
+            points?: number | null;
+            /**
+             * Format: int64
+             * @description `null` when the player has no approved records for the selected mode.
+             */
+            rank?: number | null;
+            steam_id64: string;
+            /** Format: int64 */
+            total_records: number;
+            /** Format: int64 */
+            wr_count: number;
+        };
+        PublicMode: {
+            code: string;
+            description?: string | null;
+            display_name: string;
+            /** Format: int32 */
+            id: number;
+        };
+        PublicModesResponse: {
+            items: components["schemas"]["PublicMode"][];
+        };
+        /** @description Aggregate counts shown on the public home page. */
+        PublicStatistics: {
+            /** Format: int64 */
+            courses: number;
+            /** Format: date-time */
+            generated_at: string;
+            /** Format: int64 */
+            maps: number;
+            /** Format: int64 */
+            players: number;
+            /** Format: int64 */
+            records: number;
+            /** Format: int64 */
+            servers_online: number;
+            /** Format: int64 */
+            world_records: number;
+        };
+        /** @description Response of `GET /health/ready`. */
+        ReadinessResponse: {
+            checks: components["schemas"]["DependencyStatusDto"][];
+            /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
+            status: string;
+            version: string;
+        };
+        /** @description Query parameters of `GET /api/v1/system/events`. */
+        RecentEventsQuery: {
+            /**
+             * Format: int32
+             * @description Maximum number of events to return (1-100, default 20).
+             */
+            limit?: number | null;
+        };
+        RecentRecordsQuery: {
+            /**
+             * Format: int32
+             * @description Number of records (1-50, default 20).
+             */
+            limit?: number | null;
+            /** @description Optional movement mode filter. */
+            mode?: string | null;
+        };
+        RecentRecordsResponse: {
+            count: number;
+            items: components["schemas"]["RecordSummary"][];
+            /** Format: int32 */
+            limit: number;
+        };
+        RecentWorldRecordsQuery: {
+            /** Format: int32 */
+            limit?: number | null;
+            mode?: string | null;
+            /** @description `all` (default), `nub` or `pro`. */
+            time_type?: string | null;
+        };
+        RecordDetailResponse: {
+            record: components["schemas"]["RecordSummary"];
+            /** Format: int64 */
+            replay_id?: number | null;
+            server?: components["schemas"]["ServerRef"] | null;
+        };
+        RecordListResponse: {
+            items: components["schemas"]["RecordSummary"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        RecordQuery: {
+            /** @description RFC3339 lower bound on upload time. */
+            from?: string | null;
+            /** @description Map name fragment. */
+            map?: string | null;
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description SteamID64 or display name fragment. */
+            player?: string | null;
+            /** @description `uploaded` (default), `time`, `rank`. */
+            sort?: string | null;
+            style?: string | null;
+            /**
+             * Format: int32
+             * @description Map tier (1-10) for the selected mode/time type.
+             */
+            tier?: number | null;
+            /** @description `all` (default), `nub` or `pro`. */
+            time_type?: string | null;
+            /** @description RFC3339 upper bound on upload time. */
+            to?: string | null;
+            /** @description `true` = only current world records, `false` = only non-WR. */
+            world_record?: boolean | null;
+        };
+        RecordSummary: {
+            course: components["schemas"]["CourseRef"];
+            /**
+             * Format: date-time
+             * @description Upload time (not the run duration).
+             */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Current world record pointer for this dimension. */
+            is_world_record: boolean;
+            map: components["schemas"]["MapRef"];
+            mode: components["schemas"]["ModeRef"];
+            player: components["schemas"]["PlayerRef"];
+            /**
+             * Format: int64
+             * @description Always `null` until a points algorithm is defined.
+             */
+            points?: number | null;
+            /**
+             * Format: int64
+             * @description Position on the course/mode/style/time-type leaderboard.
+             */
+            rank: number;
+            replay_available: boolean;
+            style: components["schemas"]["StyleRef"];
+            /** Format: int32 */
+            teleports: number;
+            /**
+             * Format: int32
+             * @description Map tier for the record's time type; `null` = unrated.
+             */
+            tier?: number | null;
+            /**
+             * Format: int64
+             * @description Run duration as integer nanoseconds (ordering field).
+             */
+            time_ns: number;
+            /** @description Run duration as decimal seconds with 3 fraction digits. */
+            time_seconds: string;
+            time_type: components["schemas"]["TimeType"];
+        };
+        SearchQuery: {
+            /** @description Display name, SteamID64 or map name (2-64 characters). */
+            q: string;
+        };
+        SearchResponse: {
+            maps: components["schemas"]["MapRef"][];
+            players: components["schemas"]["PlayerRef"][];
+            query: string;
+        };
+        ServerListResponse: {
+            items: components["schemas"]["ServerSummary"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        ServerQuery: {
+            /** @description `true` = only servers with a fresh heartbeat. */
+            online?: boolean | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            search?: string | null;
+        };
+        ServerRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
+        ServerSummary: {
+            /** @description Owner display name, used as the community label. */
+            community?: string | null;
+            /** Format: int64 */
+            current_map_id?: number | null;
+            current_map_name?: string | null;
+            current_map_slug?: string | null;
+            /** Format: int64 */
+            id: number;
+            ip: string;
+            /** Format: date-time */
+            last_heartbeat_at?: string | null;
+            /**
+             * Format: int64
+             * @description Not stored in the schema yet.
+             */
+            max_players?: number | null;
+            /** @description Not stored in the schema yet. */
+            mode?: string | null;
+            name: string;
+            /** @description Fresh heartbeat within the last 2 minutes. */
+            online: boolean;
+            /**
+             * Format: int64
+             * @description Not stored in the schema yet.
+             */
+            players?: number | null;
+            plugin_version?: string | null;
+            /** Format: int32 */
+            port: number;
+        };
+        StyleRef: {
+            code: string;
+            display_name: string;
+            /** Format: int32 */
+            id: number;
+        };
+        /** @description A single system event. */
+        SystemEventResponse: {
+            /** Format: date-time */
+            created_at: string;
+            /** @description Dotted event name, e.g. `api.started`. */
+            event_type: string;
+            /** Format: uuid */
+            id: string;
+            message: string;
+            metadata: unknown;
+            /** @description `info`, `warning` or `error`. */
+            severity: string;
+        };
+        /** @description Response of `GET /api/v1/system/events`. */
+        SystemEventsResponse: {
+            count: number;
+            items: components["schemas"]["SystemEventResponse"][];
+            /** Format: int32 */
+            limit: number;
+        };
+        /** @description Response of `GET /api/v1/system/info`. */
+        SystemInfoResponse: {
+            /** @description API version prefix currently served, e.g. `v1`. */
+            api_version: string;
+            /** @description `development`, `test` or `production`. */
+            environment: string;
+            name: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: int64 */
+            uptime_seconds: number;
+            version: string;
+        };
+        /**
+         * @description Response of `GET /api/v1/system/status`.
+         *
+         *     Contains the real state of every dependency, probed on each request.
+         */
+        SystemStatusResponse: {
+            /** Format: date-time */
+            checked_at: string;
+            checks: components["schemas"]["DependencyStatusDto"][];
+            environment: string;
+            /** Format: date-time */
+            started_at: string;
+            /** @description `healthy` when every dependency is up, otherwise `degraded`. */
+            status: string;
+            /** Format: int64 */
+            uptime_seconds: number;
+            version: string;
+        };
+        TierProgressDto: {
+            /** Format: double */
+            average_points?: number | null;
+            /** Format: int64 */
+            completed_count: number;
+            /** Format: double */
+            completion_rate: number;
+            /** Format: int64 */
+            map_count: number;
+            /** Format: int64 */
+            points?: number | null;
+            /**
+             * Format: int32
+             * @description `null` = unrated.
+             */
+            tier?: number | null;
+            /** Format: int64 */
+            uncompleted_count: number;
+        };
+        /**
+         * @description Time type of a run. Derived from the teleport count, never chosen manually.
+         * @enum {string}
+         */
+        TimeType: "nub" | "pro";
+        TimeTypeCount: {
+            /** Format: int64 */
+            records: number;
+            time_type: string;
+        };
+        /**
+         * @description A current world record with optional historical improvement fields.
+         *
+         *     `previous_time_ns` / `improvement_ns` are always `null` in phase 4 because the
+         *     schema does not store WR transition history.
+         */
+        WorldRecordEntry: {
+            /** Format: date-time */
+            achieved_at: string;
+            /** Format: int64 */
+            improvement_ns?: number | null;
+            improvement_seconds?: string | null;
+            /** Format: int64 */
+            previous_time_ns?: number | null;
+            record: components["schemas"]["RecordSummary"];
+        };
     };
-    ApiErrorDetail: {
-      code: components["schemas"]["ErrorCode"];
-      details?: unknown;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_HealthResponse: {
-      /** @description Response of `GET /health`. */
-      data: {
-        /** @description `ok` when the process is able to serve HTTP requests. */
-        status: string;
-        /** Format: date-time */
-        timestamp: string;
-        version: string;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_LivenessResponse: {
-      /** @description Response of `GET /health/live`. */
-      data: {
-        /** @description Always `alive` when the process responds. */
-        status: string;
-        /** Format: int64 */
-        uptime_seconds: number;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_ReadinessResponse: {
-      /** @description Response of `GET /health/ready`. */
-      data: {
-        checks: components["schemas"]["DependencyStatusDto"][];
-        /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
-        status: string;
-        version: string;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_SystemEventsResponse: {
-      /** @description Response of `GET /api/v1/system/events`. */
-      data: {
-        count: number;
-        items: components["schemas"]["SystemEventResponse"][];
-        /** Format: int32 */
-        limit: number;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_SystemInfoResponse: {
-      /** @description Response of `GET /api/v1/system/info`. */
-      data: {
-        /** @description API version prefix currently served, e.g. `v1`. */
-        api_version: string;
-        /** @description `development`, `test` or `production`. */
-        environment: string;
-        name: string;
-        /** Format: date-time */
-        started_at: string;
-        /** Format: int64 */
-        uptime_seconds: number;
-        version: string;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Envelope used by every successful response. */
-    ApiResponse_SystemStatusResponse: {
-      /**
-       * @description Response of `GET /api/v1/system/status`.
-       *
-       *     Contains the real state of every dependency, probed on each request.
-       */
-      data: {
-        /** Format: date-time */
-        checked_at: string;
-        checks: components["schemas"]["DependencyStatusDto"][];
-        environment: string;
-        /** Format: date-time */
-        started_at: string;
-        /** @description `healthy` when every dependency is up, otherwise `degraded`. */
-        status: string;
-        /** Format: int64 */
-        uptime_seconds: number;
-        version: string;
-      };
-      message: string;
-      success: boolean;
-    };
-    /** @description Sanitized state of a single dependency. */
-    DependencyStatusDto: {
-      /** @description Stable reason when the dependency is down (`timeout`, `connection_failed`, ...). */
-      detail?: string | null;
-      /** Format: int64 */
-      latency_ms: number;
-      /** @description `postgresql` or `redis`. */
-      name: string;
-      /** @description `up` or `down`. */
-      status: string;
-    };
-    /**
-     * @description Stable, machine readable error codes. Clients should branch on these instead
-     *     of parsing `message`.
-     * @enum {string}
-     */
-    ErrorCode:
-      | "validation_error"
-      | "unauthorized"
-      | "forbidden"
-      | "not_found"
-      | "database_error"
-      | "redis_error"
-      | "dependency_unavailable"
-      | "not_ready"
-      | "internal_error";
-    /** @description Response of `GET /health`. */
-    HealthResponse: {
-      /** @description `ok` when the process is able to serve HTTP requests. */
-      status: string;
-      /** Format: date-time */
-      timestamp: string;
-      version: string;
-    };
-    /** @description Response of `GET /health/live`. */
-    LivenessResponse: {
-      /** @description Always `alive` when the process responds. */
-      status: string;
-      /** Format: int64 */
-      uptime_seconds: number;
-    };
-    /** @description Response of `GET /health/ready`. */
-    ReadinessResponse: {
-      checks: components["schemas"]["DependencyStatusDto"][];
-      /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
-      status: string;
-      version: string;
-    };
-    /** @description Query parameters of `GET /api/v1/system/events`. */
-    RecentEventsQuery: {
-      /**
-       * Format: int32
-       * @description Maximum number of events to return (1-100, default 20).
-       */
-      limit?: number | null;
-    };
-    /** @description A single system event. */
-    SystemEventResponse: {
-      /** Format: date-time */
-      created_at: string;
-      /** @description Dotted event name, e.g. `api.started`. */
-      event_type: string;
-      /** Format: uuid */
-      id: string;
-      message: string;
-      metadata: unknown;
-      /** @description `info`, `warning` or `error`. */
-      severity: string;
-    };
-    /** @description Response of `GET /api/v1/system/events`. */
-    SystemEventsResponse: {
-      count: number;
-      items: components["schemas"]["SystemEventResponse"][];
-      /** Format: int32 */
-      limit: number;
-    };
-    /** @description Response of `GET /api/v1/system/info`. */
-    SystemInfoResponse: {
-      /** @description API version prefix currently served, e.g. `v1`. */
-      api_version: string;
-      /** @description `development`, `test` or `production`. */
-      environment: string;
-      name: string;
-      /** Format: date-time */
-      started_at: string;
-      /** Format: int64 */
-      uptime_seconds: number;
-      version: string;
-    };
-    /**
-     * @description Response of `GET /api/v1/system/status`.
-     *
-     *     Contains the real state of every dependency, probed on each request.
-     */
-    SystemStatusResponse: {
-      /** Format: date-time */
-      checked_at: string;
-      checks: components["schemas"]["DependencyStatusDto"][];
-      environment: string;
-      /** Format: date-time */
-      started_at: string;
-      /** @description `healthy` when every dependency is up, otherwise `degraded`. */
-      status: string;
-      /** Format: int64 */
-      uptime_seconds: number;
-      version: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  events: {
-    parameters: {
-      query?: {
-        /** @description Maximum number of events to return (1-100, default 20). */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
+    leaderboard: {
+        parameters: {
+            query?: {
+                /** @description Movement mode code (e.g. `vanilla`). Defaults to `vanilla`. */
+                mode?: string;
+                /** @description `all` (default), `nub` or `pro`. */
+                time_type?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LeaderboardResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Recent system events */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    maps: {
+        parameters: {
+            query?: {
+                search?: string;
+                /** @description Mode (default `vanilla`). */
+                mode?: string;
+                /** @description `nub` (default) or `pro` — selects which tier column is used. */
+                time_type?: string;
+                /** @description Tier 1-10; `0` = unrated. */
+                tier?: number;
+                /** @description `completions` (default), `recent`, `name`, `records`. */
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_SystemEventsResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MapListResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
         };
-      };
-      /** @description Invalid query parameters */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorBody"];
-        };
-      };
     };
-  };
-  info: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    map_detail: {
+        parameters: {
+            query?: {
+                /** @description Mode (default `vanilla`). */
+                mode?: string;
+                /** @description `all` (default), `nub` or `pro`. */
+                time_type?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MapDetailResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description System information */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    map_leaderboard: {
+        parameters: {
+            query?: {
+                mode?: string;
+                /** @description `pro` (default), `nub`, `all`. */
+                time_type?: string;
+                /** @description Course stage; default `0` (main course). */
+                stage?: number;
+                style?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_SystemInfoResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MapLeaderboardResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
         };
-      };
     };
-  };
-  status: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    map_statistics: {
+        parameters: {
+            query?: {
+                /** @description Mode (default `vanilla`). */
+                mode?: string;
+                /** @description `all` (default), `nub` or `pro`. */
+                time_type?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_MapStatistics"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Current system status */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    modes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_SystemStatusResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PublicModesResponse"];
+                };
+            };
         };
-      };
     };
-  };
-  health: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    players: {
+        parameters: {
+            query?: {
+                /** @description Display name or SteamID64 fragment. */
+                search?: string;
+                /** @description Optional mode filter (default `all`). */
+                mode?: string;
+                /** @description `completion` (default), `wr`, `records`, `recent`, `name`. */
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerListResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description API is running */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    active_players: {
+        parameters: {
+            query?: {
+                /** @description Lookback window in days (1-30, default 7). */
+                days?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_HealthResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ActivePlayersResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
         };
-      };
     };
-  };
-  liveness: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    compare: {
+        parameters: {
+            query: {
+                /** @description SteamID64 of player A. */
+                left: string;
+                /** @description SteamID64 of player B. */
+                right: string;
+                mode?: string;
+                /** @description `all` (default), `nub`, `pro`. */
+                time_type?: string;
+                style?: string;
+                /**
+                 * @description `all` (default), `both`, `left_only`, `right_only`, `neither`,
+                 *     `left_faster`, `right_faster`.
+                 */
+                filter?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CompareResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Process is alive */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    player_detail: {
+        parameters: {
+            query?: {
+                /** @description Mode used for tier progress and per-mode cards (default `vanilla`). */
+                mode?: string;
+                /** @description `all` (default), `nub`, `pro` — used for tier progress. */
+                time_type?: string;
+            };
+            header?: never;
+            path: {
+                steamid: string;
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_LivenessResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerDetailResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
         };
-      };
     };
-  };
-  readiness: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    player_maps: {
+        parameters: {
+            query?: {
+                /** @description Mode (default `vanilla`). */
+                mode?: string;
+                /** @description `pro` (default), `nub` or `all`. */
+                time_type?: string;
+                /** @description Style (default `normal`). */
+                style?: string;
+                /** @description `all` (default), `completed`, `uncompleted`. */
+                status?: string;
+                search?: string;
+                tier?: number;
+                /** @description `tier` (default), `name`, `time`, `recent`. */
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                steamid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerMapsResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description All dependencies are reachable */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    player_records: {
+        parameters: {
+            query?: {
+                mode?: string;
+                /** @description `all` (default), `nub`, `pro`. */
+                time_type?: string;
+                style?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                steamid: string;
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["ApiResponse_ReadinessResponse"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerRecordsResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
         };
-      };
-      /** @description At least one dependency is unavailable */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiErrorBody"];
-        };
-      };
     };
-  };
+    records: {
+        parameters: {
+            query?: {
+                /** @description SteamID64 or display name fragment. */
+                player?: string;
+                /** @description Map name fragment. */
+                map?: string;
+                mode?: string;
+                style?: string;
+                /** @description `all` (default), `nub` or `pro`. */
+                time_type?: string;
+                /** @description Map tier (1-10) for the selected mode/time type. */
+                tier?: number;
+                /** @description `true` = only current world records, `false` = only non-WR. */
+                world_record?: boolean;
+                /** @description RFC3339 lower bound on upload time. */
+                from?: string;
+                /** @description RFC3339 upper bound on upload time. */
+                to?: string;
+                /** @description `uploaded` (default), `time`, `rank`. */
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecordListResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    recent_records: {
+        parameters: {
+            query?: {
+                /** @description Number of records (1-50, default 20). */
+                limit?: number;
+                /** @description Optional movement mode filter. */
+                mode?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecentRecordsResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    recent_world_records: {
+        parameters: {
+            query?: {
+                limit?: number;
+                mode?: string;
+                /** @description `all` (default), `nub` or `pro`. */
+                time_type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Vec_WorldRecordEntry"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    record_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Record id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecordDetailResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    search: {
+        parameters: {
+            query: {
+                /** @description Display name, SteamID64 or map name (2-64 characters). */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SearchResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    servers: {
+        parameters: {
+            query?: {
+                search?: string;
+                /** @description `true` = only servers with a fresh heartbeat. */
+                online?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ServerListResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    server_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Server id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ServerSummary"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    statistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PublicStatistics"];
+                };
+            };
+        };
+    };
+    events: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of events to return (1-100, default 20). */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent system events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SystemEventsResponse"];
+                };
+            };
+            /** @description Invalid query parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description System information */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SystemInfoResponse"];
+                };
+            };
+        };
+    };
+    status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current system status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SystemStatusResponse"];
+                };
+            };
+        };
+    };
+    health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API is running */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HealthResponse"];
+                };
+            };
+        };
+    };
+    liveness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Process is alive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LivenessResponse"];
+                };
+            };
+        };
+    };
+    readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All dependencies are reachable */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ReadinessResponse"];
+                };
+            };
+            /** @description At least one dependency is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
 }
