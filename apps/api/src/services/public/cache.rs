@@ -172,16 +172,18 @@ where
 ///
 /// Phase 5 write endpoints (record review, ingestion, server updates) and the
 /// protected maintenance endpoint call this after committing changes.
-pub async fn invalidate_all(state: &AppState) -> Result<(), AppError> {
-    state
-        .redis()
-        .incr(&state.redis().key(VERSION_KEY))
-        .await
-        .map(|_| ())
-        .map_err(|error| {
-            warn!(error = %error, "failed to invalidate public cache");
-            AppError::Redis(error)
-        })
+/// Returns `true` when the namespace version was advanced. Redis is a cache:
+/// an outage must degrade to PostgreSQL rather than fail a data-change request.
+pub async fn invalidate_all(state: &AppState) -> bool {
+    match state.redis().incr(&state.redis().key(VERSION_KEY)).await {
+        Ok(_) => true,
+        Err(error) => {
+            // Callers must surface `cache_invalidated=false` so operators know
+            // that short-TTL stale entries may still exist until expiry.
+            warn!(error = %error, "failed to invalidate public cache; degrading to PostgreSQL");
+            false
+        }
+    }
 }
 
 /// Warms a single loader into the cache. Used by the protected maintenance

@@ -88,7 +88,7 @@ fn require_maintenance_token(
     path = "/api/v1/public/maintenance/cache/invalidate",
     tag = "public",
     summary = "Invalidate public caches",
-    description = "Requires `X-Maintenance-Token`. Call after data changes.",
+    description = "Requires `X-Maintenance-Token`. Call after data changes. Returns `cache_invalidated=false` when Redis is unavailable; PostgreSQL remains the source of truth.",
     responses(
         (status = 200, body = ApiResponse<serde_json::Value>),
         (status = 401, body = ApiErrorBody),
@@ -100,11 +100,17 @@ pub async fn invalidate_cache(
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     require_maintenance_token(&state, &headers)?;
-    public_service::invalidate_cache(&state).await?;
-    // Warm the hot home-page statistics after invalidation.
-    public_service::warm_statistics(&state).await?;
+    let invalidated = public_service::invalidate_cache(&state).await;
+    // Warming is also best-effort: a cache miss will simply load from PostgreSQL.
+    let warmed = if invalidated {
+        public_service::warm_statistics(&state).await.is_ok()
+    } else {
+        false
+    };
     Ok(Json(ApiResponse::ok(serde_json::json!({
-        "invalidated": true,
+        "invalidated": invalidated,
+        "cache_invalidated": invalidated,
+        "warmed": warmed,
         "version": public_service::cache_version_value(&state).await,
     }))))
 }

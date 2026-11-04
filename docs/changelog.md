@@ -18,6 +18,42 @@
 
 ---
 
+## 2026年11月04日 22时25分18秒 修复 GitHub Actions CI：缓存维护端点在 Redis 不可用时返回 503
+
+**背景**
+
+推送 `develop` 后 GitHub Actions `api` job 在 `cargo test --all-targets` 的 `phase5_cache_rate_limit_and_scope` 用例失败：断言 `assert_eq!(init.status(), StatusCode::OK)` 得到 503。原因有两点：
+1. `apps/api/tests/public_api.rs` 把 Redis 地址硬编码为本地调试端口 `127.0.0.1:56379`，而 CI service 是 `localhost:6379`（workflow 提供的 `REDIS_URL`）；
+2. `POST /api/v1/public/maintenance/cache/invalidate` 把 Redis `INCR` 失败直接映射为 `AppError::Redis`（503），但缓存是 best-effort，Redis 不可用时不应让数据变更维护请求失败。
+
+**变更内容**
+
+- `services/public/cache.rs::invalidate_all` 改为返回 `bool`：Redis 成功推进命名空间版本返回 `true`，失败记录 warn 并返回 `false`，不再产生 `AppError::Redis`。
+- `services/public/mod.rs::invalidate_cache` 同步返回 `bool`（best-effort）。
+- `handlers/public.rs::invalidate_cache` 返回 200 并显式携带 `cache_invalidated` / `warmed` 标志；Redis 不可用时不预热、标记降级，PostgreSQL 仍是真值来源。
+- `tests/public_api.rs` 的 phase5 用例改为读取 workflow 注入的 `REDIS_URL`，不再写死本地端口；版本推进断言仅在 `cache_invalidated=true` 时执行；新增 `cache_invalidation_degrades_when_redis_is_unavailable` 回归测试（无 Redis 时必须 200 + `cache_invalidated=false`）。
+- `.github/workflows/ci.yml` 的 `api` job 补齐 pnpm/action-setup、setup-node 和 `pnpm install --frozen-lockfile`；此前该 job 的 OpenAPI 校验步骤调用 `pnpm` 却没有 Node 工具链，会在测试通过后再次失败。
+- 更新 OpenAPI 描述、部署文档与公开门户 API 文档；重新生成 OpenAPI 与 TypeScript 类型。
+
+**涉及文件**
+
+- 修改：`apps/api/src/services/public/cache.rs`、`apps/api/src/services/public/mod.rs`、`apps/api/src/handlers/public.rs`、`apps/api/tests/public_api.rs`
+- 修改：`.github/workflows/ci.yml`、`docs/deployment.md`、`docs/public-portal/api-requirements.md`、`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+- 数据库：无。
+- API：`POST /api/v1/public/maintenance/cache/invalidate` 响应新增 `cache_invalidated`、`warmed`；`invalidated` 保留兼容别名。Redis 不可用时由 503 改为 200 + `cache_invalidated=false`。
+
+**测试与结果**
+
+- `REDIS_URL=redis://127.0.0.1:1`（模拟 Redis 不可用）运行 `cargo test --test public_api`：3/3 通过。
+- `REDIS_URL=redis://127.0.0.1:56379`（Redis 可用）运行同一测试：3/3 通过。
+- `cargo test --all-targets`（与 CI 同命令）：**71 个通过**，0 失败。
+- `cargo fmt --check`、`cargo clippy -D warnings`、`cargo test`、OpenAPI 同步检查：通过。
+- 前端 `pnpm -r lint/typecheck/test/build`：通过（38 个单测、两个应用构建成功）。
+- **未执行**：在 GitHub Actions 真实 runner 上复跑（本次为本地等价环境验证）；Docker 构建（环境无 docker）。
+
 ## 2026年11月04日 21时58分57秒 第六阶段：玩家积分与排行榜系统
 
 **背景**

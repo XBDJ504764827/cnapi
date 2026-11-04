@@ -1337,7 +1337,9 @@ pub async fn search(state: &AppState, query: &SearchQuery) -> Result<SearchRespo
 }
 
 /// Exposed for phase 5 write paths and for diagnostics.
-pub async fn invalidate_cache(state: &AppState) -> Result<(), AppError> {
+/// Best-effort cache invalidation. `false` means Redis was unavailable; the
+/// caller must still report the data change as applied (PostgreSQL is truth).
+pub async fn invalidate_cache(state: &AppState) -> bool {
     cache::invalidate_all(state).await
 }
 

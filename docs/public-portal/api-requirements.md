@@ -62,7 +62,7 @@ TTL 表见 [architecture.md](architecture.md#7-redis-缓存)。要点：
 - `statistics`、`servers` 等“实时性”数据 TTL 较短（15–30s）。
 - 缓存失败不阻塞请求：Redis 连接 300ms 超时、0 重试、失败后 5 秒快速失败，直接查询 PostgreSQL。
 - Key 后缀使用固定长度哈希，TTL 有 0–15% 抖动；并发 miss 通过 per-key async 锁合并，降低缓存击穿/雪崩风险。
-- 受保护端点 `POST /api/v1/public/maintenance/cache/invalidate`（`X-Maintenance-Token`）执行 `INCR public:version` 并预热首页统计；数据变更后必须调用。
+- 受保护端点 `POST /api/v1/public/maintenance/cache/invalidate`（`X-Maintenance-Token`）执行 `INCR public:version` 并预热首页统计；数据变更后必须调用。Redis 不可用时返回 200 + `cache_invalidated=false`（降级到 PostgreSQL），不再是 503，运维需按此标志判断是否需要重试失效。
 - 公开读接口每 IP 每分钟最多 `PUBLIC_RATE_LIMIT_PER_MINUTE` 次；超限返回 429 `rate_limited` 与 `Retry-After`。
 - 阶段 5 的写入端点（成绩审核/导入、服务器心跳、封禁）必须在提交后调用 `public::invalidate_cache`。
 

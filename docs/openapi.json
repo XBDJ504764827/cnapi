@@ -739,7 +739,7 @@
           "public"
         ],
         "summary": "Invalidate public caches",
-        "description": "Requires `X-Maintenance-Token`. Call after data changes.",
+        "description": "Requires `X-Maintenance-Token`. Call after data changes. Returns `cache_invalidated=false` when Redis is unavailable; PostgreSQL remains the source of truth.",
         "operationId": "invalidate_cache",
         "responses": {
           "200": {

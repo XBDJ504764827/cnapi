@@ -222,7 +222,7 @@ export interface paths {
         put?: never;
         /**
          * Invalidate public caches
-         * @description Requires `X-Maintenance-Token`. Call after data changes.
+         * @description Requires `X-Maintenance-Token`. Call after data changes. Returns `cache_invalidated=false` when Redis is unavailable; PostgreSQL remains the source of truth.
          */
         post: operations["invalidate_cache"];
         delete?: never;

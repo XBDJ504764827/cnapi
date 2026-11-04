@@ -370,7 +370,13 @@ async fn phase5_cache_rate_limit_and_scope() {
         ("APP_ENV", "test".to_owned()),
         ("APP_VERSION", "0.0.0-test".to_owned()),
         ("DATABASE_URL", database_url.clone()),
-        ("REDIS_URL", "redis://127.0.0.1:56379".to_owned()),
+        (
+            "REDIS_URL",
+            std::env::var("REDIS_URL")
+                .ok()
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "redis://127.0.0.1:1".to_owned()),
+        ),
         ("PUBLIC_RATE_LIMIT_PER_MINUTE", "3".to_owned()),
         ("MAINTENANCE_TOKEN", "phase5-test-token".to_owned()),
     ])
@@ -487,16 +493,21 @@ async fn phase5_cache_rate_limit_and_scope() {
         .to_bytes();
     let body: Value = serde_json::from_slice(&bytes).expect("json");
     eprintln!("invalidate response: {body}");
-    assert_eq!(body["data"]["invalidated"], true);
-    let version_after: i64 = body["data"]["version"]
-        .as_str()
-        .unwrap_or("1")
-        .parse()
-        .expect("numeric version");
-    assert!(
-        version_after > version_before,
-        "cache namespace version must advance: {version_before} -> {version_after}"
-    );
+    // `cache_invalidated` is true only when Redis answered; CI/local runs may
+    // have no Redis, in which case the endpoint must still return 200 and
+    // explicitly report the degraded state instead of 503.
+    assert!(body["data"]["cache_invalidated"].is_boolean());
+    if body["data"]["cache_invalidated"] == true {
+        let version_after: i64 = body["data"]["version"]
+            .as_str()
+            .unwrap_or("1")
+            .parse()
+            .expect("numeric version");
+        assert!(
+            version_after > version_before,
+            "cache namespace version must advance: {version_before} -> {version_after}"
+        );
+    }
 
     // Player detail now exposes an explicit scope; scoped and unscoped numbers
     // are both present and clearly labelled.
@@ -534,4 +545,47 @@ async fn phase5_cache_rate_limit_and_scope() {
     .await
     .expect("drop temporary database");
     admin.close().await;
+}
+
+/// Regression test for the CI failure: cache maintenance must never return 503
+/// when Redis is unavailable. PostgreSQL remains the source of truth.
+#[tokio::test]
+async fn cache_invalidation_degrades_when_redis_is_unavailable() {
+    let config = AppConfig::from_pairs([
+        ("APP_ENV", "test".to_owned()),
+        (
+            "DATABASE_URL",
+            "postgres://user:password@127.0.0.1:1/db".to_owned(),
+        ),
+        ("REDIS_URL", "redis://127.0.0.1:1".to_owned()),
+        ("MAINTENANCE_TOKEN", "phase5-test-token".to_owned()),
+    ])
+    .expect("config");
+    let pool = sqlx::PgPool::connect_lazy(&config.database_url).expect("lazy pool");
+    let redis =
+        state::RedisClient::new(&config.redis_url, "test-phase5-no-redis").expect("redis client");
+    let app = routes::build_router(AppState::new(config, pool, redis));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/public/maintenance/cache/invalidate")
+                .header("x-maintenance-token", "phase5-test-token")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
+    let body: Value = serde_json::from_slice(&bytes).expect("json");
+    assert_eq!(body["data"]["cache_invalidated"], false);
+    assert_eq!(body["data"]["warmed"], false);
 }

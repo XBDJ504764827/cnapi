@@ -178,6 +178,7 @@ docker compose exec api curl -fsS http://127.0.0.1:8080/api/v1/system/status | j
 
 ```bash
 # 需要 MAINTENANCE_TOKEN；未配置时返回 403
+# 返回值 cache_invalidated=false 表示 Redis 不可用，已降级到 PostgreSQL，应重试
 curl -X POST http://localhost:8080/api/v1/public/maintenance/cache/invalidate \
   -H "X-Maintenance-Token: $MAINTENANCE_TOKEN"
 
