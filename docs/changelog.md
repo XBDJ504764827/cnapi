@@ -18,6 +18,39 @@
 
 ---
 
+## 2026年11月04日 22时43分32秒 修复 GitHub Actions CI：schema 集成测试不再依赖预先迁移的数据库
+
+**背景**
+
+推送后 GitHub Actions `api` job 的 `cargo test --all-targets` 在 `schema_integration` 用例失败，11 个用例全部报错：`phase 2 migrations are not applied; start the API once or run sqlx migrate`。
+
+CI 的 PostgreSQL service 启动时只有空库，`cargo test` 之前没有启动 API 或执行迁移；而 `tests/schema_integration.rs` 直接连接 `DATABASE_URL` 并断言迁移已存在。其他真实依赖测试（`public_api`、`points_system`、`service_integration`）都会临时建库并执行 `sqlx::migrate!`，只有该文件仍依赖外部预置 schema。
+
+**变更内容**
+
+- `tests/schema_integration.rs` 的 `pool()` 改为临时创建数据库并执行 `sqlx::migrate!("./migrations")`，与其余集成测试保持一致。
+- 新增 `TestDatabase` 守卫：为每个用例提供独立数据库；用例结束或断言失败回滚时，在独立线程中通过 `DROP DATABASE ... WITH (FORCE)` 清理，避免跨 Tokio runtime 使用数据库连接导致挂起。
+- 缺少 `DATABASE_URL` 时仍按原约定跳过并打印原因。
+- 更新 `docs/development.md` 中 schema 测试说明。
+
+**涉及文件**
+
+- 修改：`apps/api/tests/schema_integration.rs`、`docs/development.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+- 数据库：仅测试行为变化，用例临时建库/删库；生产 schema 无变化。
+- API：无。
+
+**测试与结果**
+
+- `DATABASE_URL=postgres://cnapi@127.0.0.1:55432/cngokzapi_test cargo test --test schema_integration`：11/11 通过，临时库全部清理。
+- `DATABASE_URL=... REDIS_URL=redis://127.0.0.1:56379 cargo test --all-targets`（与 CI 同命令）：**71 个通过**，0 失败。
+- `cargo fmt --all`：通过。
+- **未执行**：在 GitHub Actions 真实 runner 上复跑（本次为本地等价 PostgreSQL 18 + Redis 8 环境验证）。
+
+---
+
 ## 2026年11月04日 22时25分18秒 修复 GitHub Actions CI：缓存维护端点在 Redis 不可用时返回 503
 
 **背景**

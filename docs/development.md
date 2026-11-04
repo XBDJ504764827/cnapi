@@ -115,7 +115,9 @@ DATABASE_URL=postgres://cngokz:cngokz@localhost:5432/cngokzapi \
 cargo test --test schema_integration
 ```
 
-`tests/schema_integration.rs` 使用事务并在结束时回滚，可重复执行，不会污染数据库。
+`tests/schema_integration.rs` 会为每个用例临时创建数据库并执行全部迁移，结束后（包括失败用例）删除临时库，因此不要求 `DATABASE_URL` 指向已迁移的数据库；数据库用户需要 `CREATEDB` 权限。
+
+缺少 `DATABASE_URL` 时 schema 集成用例会跳过并打印原因。
 
 ## 6. OpenAPI 与前端类型
 
@@ -142,7 +144,7 @@ cargo test --all-targets
 ```
 
 - `tests/http_api.rs`：不依赖外部服务（依赖指向关闭的端口），验证响应结构、状态码、CORS、OpenAPI、Swagger UI、404。
-- `tests/schema_integration.rs`：第二阶段 schema 测试（表/索引/约束/枚举/触发器/SteamID64/WR 并发/软删除唯一性），需要已应用迁移的 `DATABASE_URL`，事务回滚，可重复执行。
+- `tests/schema_integration.rs`：第二阶段 schema 测试（表/索引/约束/枚举/触发器/SteamID64/WR 并发/软删除唯一性），每个用例临时建库并执行迁移、结束后删库；事务回滚，可重复执行，不依赖预先迁移的数据库。
 - `tests/service_integration.rs`：需要真实服务；未设置 `DATABASE_URL` 时**跳过并打印原因**：
 
 ```bash

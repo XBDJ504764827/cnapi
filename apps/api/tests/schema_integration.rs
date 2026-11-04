@@ -1,13 +1,15 @@
 //! Schema-level integration tests for the phase 2 KZ data model.
 //!
-//! Every test opens a transaction and rolls it back, so the database is never
-//! polluted and the tests can run repeatedly. Set `DATABASE_URL` to run them;
-//! without it the tests print a skip message (consistent with the phase 1
-//! integration tests).
+//! Each test creates a throwaway database, applies the real migrations and is
+//! rolled back or dropped afterwards, so the tests never touch a developer or
+//! CI database. Set `DATABASE_URL` to run them; without it the tests print a
+//! skip message (consistent with the phase 1 integration tests).
 
 use chrono::Utc;
+use sqlx::postgres::PgConnectOptions;
 use sqlx::types::BigDecimal;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{AssertSqlSafe, PgPool, Postgres, Transaction};
+use std::ops::Deref;
 use std::str::FromStr as _;
 
 use cngokz_api::models::{
@@ -21,28 +23,89 @@ fn database_url() -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-/// Ensures the schema tests never run against an uninitialized database.
-async fn pool() -> Option<PgPool> {
+/// A throwaway database with the real migrations applied.
+///
+/// The schema tests are self-contained: they never depend on a developer or CI
+/// database having been migrated beforehand. The database is dropped when the
+/// guard is released, so repeated runs do not leave anything behind.
+struct TestDatabase {
+    pool: PgPool,
+    base_url: String,
+    name: String,
+}
+
+impl Deref for TestDatabase {
+    type Target = PgPool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pool
+    }
+}
+
+impl Drop for TestDatabase {
+    fn drop(&mut self) {
+        let base_url = self.base_url.clone();
+        let name = self.name.clone();
+
+        // Dropping happens from a Tokio worker, where we cannot create and
+        // block on another runtime. Use a dedicated thread with its own
+        // connection so no resource crosses runtime boundaries, and never
+        // panic here: this also runs while a failing test is unwinding.
+        let cleanup = std::thread::spawn(move || {
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            else {
+                return;
+            };
+            runtime.block_on(async move {
+                let Ok(admin) = PgPool::connect(&base_url).await else {
+                    return;
+                };
+                let _ = sqlx::raw_sql(AssertSqlSafe(format!(
+                    "DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"
+                )))
+                .execute(&admin)
+                .await;
+                admin.close().await;
+            });
+        });
+        let _ = cleanup.join();
+    }
+}
+
+/// Creates an isolated database and applies every migration to it.
+async fn pool() -> Option<TestDatabase> {
     let Some(url) = database_url() else {
         eprintln!("skipped: DATABASE_URL is not set");
         return None;
     };
-    let pool = PgPool::connect(&url)
+
+    let admin = PgPool::connect(&url)
         .await
         .expect("connect to test database");
+    let name = format!("cngokz_schema_{}", uuid::Uuid::new_v4().simple());
 
-    let has_migrations: bool = sqlx::query_scalar(
-        "SELECT to_regclass('public.records') IS NOT NULL AND to_regclass('public.accounts') IS NOT NULL",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("schema probe");
-    assert!(
-        has_migrations,
-        "phase 2 migrations are not applied; start the API once or run sqlx migrate"
-    );
+    sqlx::raw_sql(AssertSqlSafe(format!("CREATE DATABASE \"{name}\"")))
+        .execute(&admin)
+        .await
+        .expect("create temporary database");
 
-    Some(pool)
+    let options: PgConnectOptions = url.parse().expect("valid DATABASE_URL");
+    let pool = PgPool::connect_with(options.database(&name))
+        .await
+        .expect("connect to temporary database");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("apply migrations to temporary database");
+
+    Some(TestDatabase {
+        pool,
+        base_url: url,
+        name,
+    })
 }
 
 #[tokio::test]
@@ -74,7 +137,7 @@ async fn all_phase_two_tables_exist() {
 
     let tables: Vec<String> =
         sqlx::query_scalar("SELECT tablename::text FROM pg_tables WHERE schemaname = 'public'")
-            .fetch_all(&pool)
+            .fetch_all(&*pool)
             .await
             .expect("table list");
 
@@ -95,7 +158,7 @@ async fn steam_id64_column_has_no_overflow_risk() {
          FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'steam_id64'",
     )
-    .fetch_one(&pool)
+    .fetch_one(&*pool)
     .await
     .expect("column metadata");
 
@@ -129,20 +192,20 @@ async fn reference_data_is_seeded_from_upstream_sources() {
     let Some(pool) = pool().await else { return };
 
     let modes: Vec<String> = sqlx::query_scalar("SELECT code FROM movement_modes ORDER BY code")
-        .fetch_all(&pool)
+        .fetch_all(&*pool)
         .await
         .expect("modes");
     assert_eq!(modes, vec!["classic", "kztimer", "simple", "vanilla"]);
 
     let styles: Vec<String> = sqlx::query_scalar("SELECT code FROM movement_styles ORDER BY code")
-        .fetch_all(&pool)
+        .fetch_all(&*pool)
         .await
         .expect("styles");
     assert_eq!(styles, vec!["normal"]);
 
     let jump_types: Vec<(String, Option<i16>, Option<i16>)> =
         sqlx::query_as("SELECT code, gokz_code, cs2kz_code FROM jump_types ORDER BY code")
-            .fetch_all(&pool)
+            .fetch_all(&*pool)
             .await
             .expect("jump types");
     assert_eq!(jump_types.len(), 12);
@@ -625,7 +688,7 @@ async fn indexes_for_leaderboards_and_retention_exist() {
     let indexes: Vec<String> = sqlx::query_scalar(
         "SELECT indexname::text FROM pg_indexes WHERE schemaname = 'public' ORDER BY indexname",
     )
-    .fetch_all(&pool)
+    .fetch_all(&*pool)
     .await
     .expect("indexes");
 
@@ -653,7 +716,7 @@ async fn updated_at_trigger_is_installed() {
     let triggers: Vec<String> = sqlx::query_scalar(
         "SELECT tgname::text FROM pg_trigger WHERE NOT tgisinternal ORDER BY tgname",
     )
-    .fetch_all(&pool)
+    .fetch_all(&*pool)
     .await
     .expect("triggers");
 
@@ -673,14 +736,14 @@ async fn updated_at_trigger_is_installed() {
     let name = format!("kz_trigger_test_{}", uuid::Uuid::new_v4().simple());
     let map_id: i64 = sqlx::query_scalar("INSERT INTO maps (name) VALUES ($1) RETURNING id")
         .bind(&name)
-        .fetch_one(&pool)
+        .fetch_one(&*pool)
         .await
         .expect("insert map");
 
     let before: chrono::DateTime<Utc> =
         sqlx::query_scalar("SELECT updated_at FROM maps WHERE id = $1")
             .bind(map_id)
-            .fetch_one(&pool)
+            .fetch_one(&*pool)
             .await
             .expect("before");
 
@@ -688,20 +751,20 @@ async fn updated_at_trigger_is_installed() {
 
     sqlx::query("UPDATE maps SET description = 'touched' WHERE id = $1")
         .bind(map_id)
-        .execute(&pool)
+        .execute(&*pool)
         .await
         .expect("update");
 
     let after: chrono::DateTime<Utc> =
         sqlx::query_scalar("SELECT updated_at FROM maps WHERE id = $1")
             .bind(map_id)
-            .fetch_one(&pool)
+            .fetch_one(&*pool)
             .await
             .expect("after");
 
     sqlx::query("DELETE FROM maps WHERE id = $1")
         .bind(map_id)
-        .execute(&pool)
+        .execute(&*pool)
         .await
         .expect("cleanup");
 
