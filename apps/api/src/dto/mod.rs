@@ -6,6 +6,7 @@ pub mod health;
 pub mod jumpstat;
 pub mod map;
 pub mod moderation;
+pub mod points;
 pub mod public;
 pub mod record;
 pub mod replay;

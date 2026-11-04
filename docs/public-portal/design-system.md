@@ -70,6 +70,7 @@
 | `RecordDetailDialog` | 成绩详情、服务器、Replay 可用性说明 |
 | `PlayerPicker` | 比较页双玩家搜索选择 |
 | `TierProgress` | 难度完成进度条（CSS，无图表库） |
+| `ModeSegment` / `SummaryStrip` / `RankRow` | 排行榜专用：分段模式切换、事实条、卡片化排名行（前三名克制强调） |
 | `Pagination` | 分页 + 页大小 |
 | `DataTable` | 列表骨架、空/错误状态统一 |
 | `Callout` | 口径说明、未实现字段、429/错误提示 |
@@ -94,6 +95,7 @@
 - Dialog 有 `DialogTitle`；SearchDialog 提供 sr-only 标题。
 - 状态不只依赖颜色：状态点 + 文字（在线/离线/正常/不可用）。
 - 空/错误/加载三态均有明确文案；未实现能力显示 “—” 与说明，不显示假成功。
+- 排行榜不再复用后台宽表：使用排名行 + 前三名徽块；筛选收进紧凑控制台，Tooltip 需 `TooltipProvider`（已在 `PublicLayout` 注入）。
 - 主题默认深色，切换即时生效并持久化（`localStorage` key `cngokz-public-ui`）。
 
 ## 7. 与后台的差异

@@ -60,6 +60,7 @@ pub enum ErrorCode {
     DependencyUnavailable,
     NotReady,
     InternalError,
+    RateLimited,
 }
 
 impl ErrorCode {
@@ -74,6 +75,7 @@ impl ErrorCode {
             Self::DependencyUnavailable => "dependency_unavailable",
             Self::NotReady => "not_ready",
             Self::InternalError => "internal_error",
+            Self::RateLimited => "rate_limited",
         }
     }
 }

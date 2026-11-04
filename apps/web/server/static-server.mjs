@@ -70,9 +70,20 @@ const server = http.createServer((request, response) => {
 });
 
 function serveStatic(response, pathname) {
-  const decoded = decodeURIComponent(pathname);
-  const target = path.join(distDir, decoded);
-  const resolved = path.resolve(target);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    response.writeHead(400).end('Bad Request');
+    return;
+  }
+  // path.join collapses '..' segments; reject anything that escapes distDir.
+  const resolved = path.resolve(path.join(distDir, decoded));
+  const relative = path.relative(distDir, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    response.writeHead(403).end('Forbidden');
+    return;
+  }
 
   if (!resolved.startsWith(distDir)) {
     response.writeHead(403).end('Forbidden');
@@ -80,7 +91,7 @@ function serveStatic(response, pathname) {
   }
 
   if (existsSync(resolved) && statSync(resolved).isFile()) {
-    sendFile(response, resolved, decoded);
+    sendFile(response, resolved, '/' + relative.replaceAll(path.sep, '/'));
     return;
   }
 

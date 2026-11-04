@@ -47,3 +47,9 @@ export function formatLatency(latencyMs: number | null | undefined): string {
   if (latencyMs === null || latencyMs === undefined) return '—';
   return `${latencyMs} ms`;
 }
+
+/** Formats a number with locale grouping; `—` for missing values. */
+export function formatNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return value.toLocaleString('zh-CN');
+}

@@ -4,6 +4,193 @@
  */
 
 export interface paths {
+    "/api/v1/admin/points/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Initialize Filters from existing records (no T9 backfill) */
+        post: operations["initialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/recalc-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent recalculation runs */
+        get: operations["admin_recalc_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/recalc/filter/{filter_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue one Filter recalculation */
+        post: operations["recalc_filter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/recalc/mode/{mode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue all Filters of one mode */
+        post: operations["recalc_mode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Points recalc status */
+        get: operations["points_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Course tiers and first completion */
+        get: operations["admin_tiers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/points/tiers/{map_id}/{course_id}/{mode_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a course tier (triggers Filter recalculation) */
+        patch: operations["update_tier"];
+        trace?: never;
+    };
+    "/api/v1/leaderboards/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One Filter's points leaderboard */
+        get: operations["filter_leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leaderboards/points/{mode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Independent points leaderboard for KZT / SKZ / VNL */
+        get: operations["mode_leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/players/{steamid}/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player points for KZT / SKZ / VNL */
+        get: operations["player_points"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/players/{steamid}/points/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Player Filter points detail */
+        get: operations["player_filter_points"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/leaderboards": {
         parameters: {
             query?: never;
@@ -16,6 +203,43 @@ export interface paths {
          * @description Ranked by completed main-course maps. Points are not computed yet.
          */
         get: operations["leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/maintenance/cache/invalidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invalidate public caches
+         * @description Requires `X-Maintenance-Token`. Call after data changes.
+         */
+        post: operations["invalidate_cache"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/maintenance/cache/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read public cache namespace version */
+        get: operations["cache_version"];
         put?: never;
         post?: never;
         delete?: never;
@@ -492,6 +716,43 @@ export interface components {
             days: number;
             items: components["schemas"]["ActivePlayer"][];
         };
+        AdminTierDto: {
+            completed: boolean;
+            /** Format: int64 */
+            course_id: number;
+            course_name: string;
+            /** Format: int64 */
+            first_completion_account_id?: number | null;
+            /** Format: date-time */
+            first_completion_at?: string | null;
+            first_completion_player: string;
+            /** Format: int64 */
+            first_completion_record_id?: number | null;
+            /** Format: int64 */
+            map_id: number;
+            map_name: string;
+            mode_code: string;
+            /** Format: int32 */
+            mode_id: number;
+            /** Format: int32 */
+            stage: number;
+            /** Format: int32 */
+            tier: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AdminTiersQuery: {
+            /** @description KZT / SKZ / VNL. Omit for all modes. */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+        };
+        AdminTiersResponse: {
+            items: components["schemas"]["AdminTierDto"][];
+            meta: components["schemas"]["PageMeta"];
+        };
         /** @description Envelope used by every failed response. */
         ApiErrorBody: {
             error: components["schemas"]["ApiErrorDetail"];
@@ -513,6 +774,15 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_AdminTiersResponse: {
+            data: {
+                items: components["schemas"]["AdminTierDto"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_CompareResponse: {
             data: {
                 filter: string;
@@ -525,6 +795,23 @@ export interface components {
                 right: components["schemas"]["ComparePlayerSide"];
                 tiers: components["schemas"]["CompareTier"][];
                 time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_FilterLeaderboardResponse: {
+            data: {
+                /** Format: int64 */
+                filter_id: number;
+                items: components["schemas"]["FilterLeaderboardEntry"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ScoringModeDto"];
+                /** Format: int64 */
+                pb_count: number;
+                record_type: string;
+                /** Format: int32 */
+                tier: number;
             };
             message: string;
             success: boolean;
@@ -640,15 +927,30 @@ export interface components {
         /** @description Envelope used by every successful response. */
         ApiResponse_PlayerDetailResponse: {
             data: {
+                /** @description Per-mode breakdown across all time types/styles. */
                 modes: components["schemas"]["PlayerModeStatsDto"][];
+                /** @description All-mode/all-type summary, explicitly marked `scoped=false`. */
                 overall: components["schemas"]["PlayerOverallStats"];
                 points_available: boolean;
                 profile: components["schemas"]["PlayerProfileDto"];
                 ranking_metric: string;
-                /** @description Mode used for `tiers`. */
-                tier_mode: components["schemas"]["ModeRef"];
-                tier_time_type: string;
+                /** @description Scope shared by `tiers`, map progress and the scoped card. */
+                scope: components["schemas"]["PlayerStatScope"];
+                /** @description Summary for the selected `scope` (`scoped=true`). */
+                scoped: components["schemas"]["PlayerOverallStats"];
+                /** @description Tier completion counts for the selected `scope`. */
                 tiers: components["schemas"]["TierProgressDto"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerFilterPointsResponse: {
+            data: {
+                /** Format: int64 */
+                account_id: number;
+                items: components["schemas"]["PlayerFilterPointsDto"][];
+                meta: components["schemas"]["PageMeta"];
             };
             message: string;
             success: boolean;
@@ -680,11 +982,51 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerPointsResponse: {
+            data: {
+                /** Format: int64 */
+                account_id: number;
+                modes: components["schemas"]["ModePointsDto"][];
+                steam_id64: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_PlayerRecordsResponse: {
             data: {
                 account: components["schemas"]["PlayerRef"];
                 items: components["schemas"]["RecordSummary"][];
                 meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PointsLeaderboardResponse: {
+            data: {
+                items: components["schemas"]["PointsLeaderboardEntry"][];
+                meta: components["schemas"]["PageMeta"];
+                mode: components["schemas"]["ScoringModeDto"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PointsSystemStatus: {
+            data: {
+                /** Format: int64 */
+                dirty_filters: number;
+                /** Format: int64 */
+                failed: number;
+                /** Format: int64 */
+                filters: number;
+                /** Format: date-time */
+                last_recalculated_at?: string | null;
+                /** Format: int64 */
+                pending: number;
+                /** Format: int64 */
+                running: number;
             };
             message: string;
             success: boolean;
@@ -727,6 +1069,25 @@ export interface components {
                 /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
                 status: string;
                 version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecalcResponse: {
+            data: {
+                mode: string;
+                /** Format: int64 */
+                queued_filters: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecalcRunsResponse: {
+            data: {
+                items: components["schemas"]["RecalcRunDto"][];
+                meta: components["schemas"]["PageMeta"];
             };
             message: string;
             success: boolean;
@@ -790,6 +1151,11 @@ export interface components {
                 current_map_id?: number | null;
                 current_map_name?: string | null;
                 current_map_slug?: string | null;
+                /**
+                 * Format: int64
+                 * @description Seconds since the last heartbeat; `null` when no heartbeat exists.
+                 */
+                heartbeat_age_seconds?: number | null;
                 /** Format: int64 */
                 id: number;
                 ip: string;
@@ -813,6 +1179,8 @@ export interface components {
                 plugin_version?: string | null;
                 /** Format: int32 */
                 port: number;
+                /** @description `online` / `offline` / `expired` / `unknown`; derived from heartbeat age. */
+                status: string;
             };
             message: string;
             success: boolean;
@@ -867,6 +1235,22 @@ export interface components {
                 uptime_seconds: number;
                 version: string;
             };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_UpdateTierResponse: {
+            data: {
+                /** Format: int32 */
+                tier: number;
+                updated: boolean;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_Value: {
+            data: unknown;
             message: string;
             success: boolean;
         };
@@ -995,7 +1379,47 @@ export interface components {
          *     of parsing `message`.
          * @enum {string}
          */
-        ErrorCode: "validation_error" | "unauthorized" | "forbidden" | "not_found" | "database_error" | "redis_error" | "dependency_unavailable" | "not_ready" | "internal_error";
+        ErrorCode: "validation_error" | "unauthorized" | "forbidden" | "not_found" | "database_error" | "redis_error" | "dependency_unavailable" | "not_ready" | "internal_error" | "rate_limited";
+        FilterLeaderboardEntry: {
+            /** Format: int64 */
+            account_id: number;
+            display_name: string;
+            is_world_record: boolean;
+            /** Format: int64 */
+            pb_record_id: number;
+            pb_time_seconds: string;
+            /** Format: int32 */
+            points: number;
+            /** Format: int32 */
+            rank: number;
+            steam_id64: string;
+        };
+        FilterLeaderboardQuery: {
+            /** Format: int64 */
+            course_id: number;
+            /** Format: int64 */
+            map_id: number;
+            /** @description KZT / SKZ / VNL. */
+            mode: string;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description nub / pro. */
+            record_type: string;
+        };
+        FilterLeaderboardResponse: {
+            /** Format: int64 */
+            filter_id: number;
+            items: components["schemas"]["FilterLeaderboardEntry"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ScoringModeDto"];
+            /** Format: int64 */
+            pb_count: number;
+            record_type: string;
+            /** Format: int32 */
+            tier: number;
+        };
         /** @description Response of `GET /health`. */
         HealthResponse: {
             /** @description `ok` when the process is able to serve HTTP requests. */
@@ -1192,6 +1616,18 @@ export interface components {
             /** Format: int64 */
             records: number;
         };
+        ModePointsDto: {
+            code: string;
+            display_name: string;
+            /** Format: int64 */
+            filter_count: number;
+            /** Format: int64 */
+            nub_points: number;
+            /** Format: int64 */
+            pro_points: number;
+            /** Format: int64 */
+            total_points: number;
+        };
         ModeRef: {
             code: string;
             display_name: string;
@@ -1209,21 +1645,82 @@ export interface components {
             total_pages: number;
         };
         PlayerDetailQuery: {
-            /** @description Mode used for tier progress and per-mode cards (default `vanilla`). */
+            /** @description Mode used for the whole detail page (default `vanilla`). */
             mode?: string | null;
-            /** @description `all` (default), `nub`, `pro` — used for tier progress. */
+            /** @description `all` (default), `nub`, `pro` — used for the whole detail page. */
             time_type?: string | null;
         };
         PlayerDetailResponse: {
+            /** @description Per-mode breakdown across all time types/styles. */
             modes: components["schemas"]["PlayerModeStatsDto"][];
+            /** @description All-mode/all-type summary, explicitly marked `scoped=false`. */
             overall: components["schemas"]["PlayerOverallStats"];
             points_available: boolean;
             profile: components["schemas"]["PlayerProfileDto"];
             ranking_metric: string;
-            /** @description Mode used for `tiers`. */
-            tier_mode: components["schemas"]["ModeRef"];
-            tier_time_type: string;
+            /** @description Scope shared by `tiers`, map progress and the scoped card. */
+            scope: components["schemas"]["PlayerStatScope"];
+            /** @description Summary for the selected `scope` (`scoped=true`). */
+            scoped: components["schemas"]["PlayerOverallStats"];
+            /** @description Tier completion counts for the selected `scope`. */
             tiers: components["schemas"]["TierProgressDto"][];
+        };
+        PlayerFilterPointsDto: {
+            /** Format: date-time */
+            calculated_at: string;
+            /** Format: int64 */
+            course_id: number;
+            course_name: string;
+            /** Format: int64 */
+            filter_id: number;
+            is_world_record: boolean;
+            /** Format: int64 */
+            map_id: number;
+            map_name: string;
+            map_slug: string;
+            mode: components["schemas"]["ModeRef"];
+            /** Format: int64 */
+            pb_record_id: number;
+            /** @description PB duration in seconds. */
+            pb_time_seconds: string;
+            /** Format: int32 */
+            points: number;
+            /** Format: int32 */
+            rank: number;
+            record_type: string;
+            /** Format: int32 */
+            stage: number;
+            /** @description Historical T9 label; the stored course tier is always T1-T8. */
+            t9_label: boolean;
+            /** Format: int32 */
+            tier: number;
+            wr_time_seconds: string;
+        };
+        PlayerFilterPointsQuery: {
+            /** Format: int64 */
+            course_id?: number | null;
+            map?: string | null;
+            /** @description KZT / SKZ / VNL. Omit for all modes. */
+            mode?: string | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            /** @description nub / pro. Omit for both. */
+            record_type?: string | null;
+            /** @description rank / points / time / tier. */
+            sort?: string | null;
+            /**
+             * Format: int32
+             * @description 1..8.
+             */
+            tier?: number | null;
+        };
+        PlayerFilterPointsResponse: {
+            /** Format: int64 */
+            account_id: number;
+            items: components["schemas"]["PlayerFilterPointsDto"][];
+            meta: components["schemas"]["PageMeta"];
         };
         PlayerListQuery: {
             /** @description Optional mode filter (default `all`). */
@@ -1341,6 +1838,8 @@ export interface components {
             pro_count: number;
             /** Format: double */
             rating?: number | null;
+            /** @description `true` = these numbers are scoped to `scope`; `false` = all-mode summary. */
+            scoped: boolean;
             /** Format: int64 */
             total_maps: number;
             /** Format: int64 */
@@ -1349,6 +1848,12 @@ export interface components {
             tp_count: number;
             /** Format: int64 */
             wr_count: number;
+        };
+        PlayerPointsResponse: {
+            /** Format: int64 */
+            account_id: number;
+            modes: components["schemas"]["ModePointsDto"][];
+            steam_id64: string;
         };
         PlayerProfileDto: {
             /** Format: int64 */
@@ -1384,6 +1889,18 @@ export interface components {
             /** @description Decimal string; SteamID64 exceeds JSON safe integer range. */
             steam_id64: string;
         };
+        PlayerStatScope: {
+            /** @description Human-readable definition of what "completed" means for this page. */
+            completion_definition: string;
+            mode: components["schemas"]["ModeRef"];
+            /**
+             * @description Synthetic "all styles" reference; style is an optional drill-down, not
+             *     part of the default ranking/completion scope.
+             */
+            style: components["schemas"]["StyleRef"];
+            /** @description `all`, `nub` or `pro`. */
+            time_type: string;
+        };
         PlayerSummary: {
             /** Format: int64 */
             account_id: number;
@@ -1408,6 +1925,47 @@ export interface components {
             total_records: number;
             /** Format: int64 */
             wr_count: number;
+        };
+        PointsLeaderboardEntry: {
+            /** Format: int64 */
+            account_id: number;
+            display_name: string;
+            /** Format: int64 */
+            filter_count: number;
+            /** Format: int64 */
+            nub_points: number;
+            /** Format: int64 */
+            pro_points: number;
+            /** Format: int64 */
+            rank: number;
+            steam_id64: string;
+            /** Format: int64 */
+            total_points: number;
+        };
+        PointsLeaderboardQuery: {
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+        };
+        PointsLeaderboardResponse: {
+            items: components["schemas"]["PointsLeaderboardEntry"][];
+            meta: components["schemas"]["PageMeta"];
+            mode: components["schemas"]["ScoringModeDto"];
+        };
+        PointsSystemStatus: {
+            /** Format: int64 */
+            dirty_filters: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            filters: number;
+            /** Format: date-time */
+            last_recalculated_at?: string | null;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            running: number;
         };
         PublicMode: {
             code: string;
@@ -1442,6 +2000,40 @@ export interface components {
             /** @description `ready` when every dependency is reachable, otherwise `not_ready`. */
             status: string;
             version: string;
+        };
+        RecalcRequest: {
+            mode: string;
+        };
+        RecalcResponse: {
+            mode: string;
+            /** Format: int64 */
+            queued_filters: number;
+        };
+        RecalcRunDto: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int32 */
+            duration_ms: number;
+            error?: string | null;
+            /** Format: int64 */
+            filter_id: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            mode_id: number;
+            /** Format: int64 */
+            pb_count: number;
+            status: string;
+        };
+        RecalcRunsQuery: {
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+        };
+        RecalcRunsResponse: {
+            items: components["schemas"]["RecalcRunDto"][];
+            meta: components["schemas"]["PageMeta"];
         };
         /** @description Query parameters of `GET /api/v1/system/events`. */
         RecentEventsQuery: {
@@ -1552,6 +2144,12 @@ export interface components {
             time_seconds: string;
             time_type: components["schemas"]["TimeType"];
         };
+        ScoringModeDto: {
+            code: string;
+            display_name: string;
+            mode: components["schemas"]["ModeRef"];
+            t9_enabled: boolean;
+        };
         SearchQuery: {
             /** @description Display name, SteamID64 or map name (2-64 characters). */
             q: string;
@@ -1586,6 +2184,11 @@ export interface components {
             current_map_id?: number | null;
             current_map_name?: string | null;
             current_map_slug?: string | null;
+            /**
+             * Format: int64
+             * @description Seconds since the last heartbeat; `null` when no heartbeat exists.
+             */
+            heartbeat_age_seconds?: number | null;
             /** Format: int64 */
             id: number;
             ip: string;
@@ -1609,6 +2212,8 @@ export interface components {
             plugin_version?: string | null;
             /** Format: int32 */
             port: number;
+            /** @description `online` / `offline` / `expired` / `unknown`; derived from heartbeat age. */
+            status: string;
         };
         StyleRef: {
             code: string;
@@ -1696,6 +2301,15 @@ export interface components {
             records: number;
             time_type: string;
         };
+        UpdateTierRequest: {
+            /** Format: int32 */
+            tier: number;
+        };
+        UpdateTierResponse: {
+            /** Format: int32 */
+            tier: number;
+            updated: boolean;
+        };
         /**
          * @description A current world record with optional historical improvement fields.
          *
@@ -1721,6 +2335,366 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    initialize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Value"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_recalc_runs: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecalcRunsResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    recalc_filter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                filter_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Value"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    recalc_mode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description KZT / SKZ / VNL */
+                mode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecalcResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    points_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PointsSystemStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_tiers: {
+        parameters: {
+            query?: {
+                /** @description KZT / SKZ / VNL. Omit for all modes. */
+                mode?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdminTiersResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    update_tier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                map_id: number;
+                course_id: number;
+                mode_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTierRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_UpdateTierResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    filter_leaderboard: {
+        parameters: {
+            query: {
+                map_id: number;
+                course_id: number;
+                /** @description KZT / SKZ / VNL. */
+                mode: string;
+                /** @description nub / pro. */
+                record_type: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_FilterLeaderboardResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    mode_leaderboard: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description KZT, SKZ or VNL */
+                mode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PointsLeaderboardResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    player_points: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description SteamID64 */
+                steamid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerPointsResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    player_filter_points: {
+        parameters: {
+            query?: {
+                /** @description KZT / SKZ / VNL. Omit for all modes. */
+                mode?: string;
+                /** @description nub / pro. Omit for both. */
+                record_type?: string;
+                /** @description 1..8. */
+                tier?: number;
+                course_id?: number;
+                map?: string;
+                /** @description rank / points / time / tier. */
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description SteamID64 */
+                steamid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerFilterPointsResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
     leaderboard: {
         parameters: {
             query?: {
@@ -1754,6 +2728,68 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    invalidate_cache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Value"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    cache_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Value"];
+                };
+            };
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2048,9 +3084,9 @@ export interface operations {
     player_detail: {
         parameters: {
             query?: {
-                /** @description Mode used for tier progress and per-mode cards (default `vanilla`). */
+                /** @description Mode used for the whole detail page (default `vanilla`). */
                 mode?: string;
-                /** @description `all` (default), `nub`, `pro` — used for tier progress. */
+                /** @description `all` (default), `nub`, `pro` — used for the whole detail page. */
                 time_type?: string;
             };
             header?: never;

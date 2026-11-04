@@ -55,14 +55,21 @@ const server = http.createServer((request, response) => {
 });
 
 function serve(response, pathname) {
-  const decoded = decodeURIComponent(pathname);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    response.writeHead(400).end('Bad Request');
+    return;
+  }
   const resolved = path.resolve(path.join(distDir, decoded));
-  if (!resolved.startsWith(distDir)) {
+  const relative = path.relative(distDir, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
     response.writeHead(403).end('Forbidden');
     return;
   }
   if (existsSync(resolved) && statSync(resolved).isFile()) {
-    send(response, resolved, decoded);
+    send(response, resolved, '/' + relative.replaceAll(path.sep, '/'));
     return;
   }
   const index = path.join(distDir, 'index.html');

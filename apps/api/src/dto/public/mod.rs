@@ -21,7 +21,8 @@ pub use players::{
     CompareBest, CompareMapRow, ComparePlayerSide, CompareQuery, CompareResponse, CompareTier,
     PlayerDetailQuery, PlayerDetailResponse, PlayerListQuery, PlayerListResponse,
     PlayerMapProgress, PlayerMapsQuery, PlayerMapsResponse, PlayerModeStatsDto, PlayerOverallStats,
-    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerSummary, TierProgressDto,
+    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerStatScope, PlayerSummary,
+    TierProgressDto,
 };
 pub use records::{
     ActivePlayer, ActivePlayersQuery, ActivePlayersResponse, RecentRecordsQuery,

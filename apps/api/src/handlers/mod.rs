@@ -2,5 +2,6 @@
 //! result in the unified response envelope.
 
 pub mod health;
+pub mod points;
 pub mod public;
 pub mod system;

@@ -3,6 +3,7 @@
 
 use utoipa::OpenApi;
 
+use crate::dto::points as points_dto;
 use crate::dto::public as public_dto;
 use crate::dto::public::leaderboards::{LeaderboardEntry, LeaderboardQuery, LeaderboardResponse};
 use crate::dto::public::maps::{
@@ -13,7 +14,8 @@ use crate::dto::public::players::{
     CompareBest, CompareMapRow, ComparePlayerSide, CompareQuery, CompareResponse, CompareTier,
     PlayerDetailQuery, PlayerDetailResponse, PlayerListQuery, PlayerListResponse,
     PlayerMapProgress, PlayerMapsQuery, PlayerMapsResponse, PlayerModeStatsDto, PlayerOverallStats,
-    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerSummary, TierProgressDto,
+    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerStatScope, PlayerSummary,
+    TierProgressDto,
 };
 use crate::dto::public::records::{
     ActivePlayer, ActivePlayersQuery, ActivePlayersResponse, RecentRecordsQuery,
@@ -32,7 +34,7 @@ use crate::dto::{
         SystemStatusResponse,
     },
 };
-use crate::handlers::{health, public, system};
+use crate::handlers::{health, points, public, system};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -69,6 +71,19 @@ use crate::handlers::{health, public, system};
         public::servers,
         public::server_detail,
         public::search,
+        public::invalidate_cache,
+        public::cache_version,
+        points::player_points,
+        points::player_filter_points,
+        points::mode_leaderboard,
+        points::filter_leaderboard,
+        points::points_status,
+        points::admin_tiers,
+        points::update_tier,
+        points::admin_recalc_runs,
+        points::recalc_filter,
+        points::recalc_mode,
+        points::initialize,
     ),
     components(schemas(
         ApiResponse<HealthResponse>,
@@ -119,6 +134,7 @@ use crate::handlers::{health, public, system};
         PlayerListResponse,
         PlayerDetailQuery,
         PlayerProfileDto,
+        PlayerStatScope,
         PlayerOverallStats,
         PlayerModeStatsDto,
         TierProgressDto,
@@ -170,6 +186,38 @@ use crate::handlers::{health, public, system};
         ApiResponse<ServerListResponse>,
         ApiResponse<ServerSummary>,
         ApiResponse<SearchResponse>,
+        points_dto::PlayerPointsResponse,
+        points_dto::ModePointsDto,
+        points_dto::PlayerFilterPointsQuery,
+        points_dto::PlayerFilterPointsDto,
+        points_dto::PlayerFilterPointsResponse,
+        points_dto::PointsLeaderboardQuery,
+        points_dto::PointsLeaderboardEntry,
+        points_dto::PointsLeaderboardResponse,
+        points_dto::ScoringModeDto,
+        points_dto::FilterLeaderboardQuery,
+        points_dto::FilterLeaderboardEntry,
+        points_dto::FilterLeaderboardResponse,
+        points_dto::PointsSystemStatus,
+        points_dto::RecalcRunsQuery,
+        points_dto::RecalcRunDto,
+        points_dto::RecalcRunsResponse,
+        points_dto::RecalcRequest,
+        points_dto::RecalcResponse,
+        points_dto::AdminTierDto,
+        points_dto::AdminTiersQuery,
+        points_dto::AdminTiersResponse,
+        points_dto::UpdateTierRequest,
+        points_dto::UpdateTierResponse,
+        ApiResponse<points_dto::PlayerPointsResponse>,
+        ApiResponse<points_dto::PlayerFilterPointsResponse>,
+        ApiResponse<points_dto::PointsLeaderboardResponse>,
+        ApiResponse<points_dto::FilterLeaderboardResponse>,
+        ApiResponse<points_dto::PointsSystemStatus>,
+        ApiResponse<points_dto::AdminTiersResponse>,
+        ApiResponse<points_dto::UpdateTierResponse>,
+        ApiResponse<points_dto::RecalcRunsResponse>,
+        ApiResponse<points_dto::RecalcResponse>,
     )),
     tags(
         (name = "health", description = "Liveness and readiness probes"),
@@ -178,3 +226,6 @@ use crate::handlers::{health, public, system};
     )
 )]
 pub struct ApiDoc;
+
+// Phase 6 points & ranking schemas are registered here to keep `ApiDoc` in one
+// place. Paths are registered through `#[utoipa::path]` on `handlers::points`.

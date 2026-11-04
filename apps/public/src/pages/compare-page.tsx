@@ -101,7 +101,7 @@ export function ComparePage() {
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="玩家比较"
-        description="选择两位玩家，对比完成度、各模式成绩与同一地图上的最佳成绩。积分算法尚未定义，积分列显示为 “—”。"
+        description="选择两位玩家，对比完成度、各模式成绩与同一地图上的最佳成绩。积分比较将在后续版本接入独立积分接口。"
       />
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">

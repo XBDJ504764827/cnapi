@@ -3,7 +3,9 @@ import { formatNumber, formatPercent } from '@/lib/format';
 import type { PlayerDetailPayload } from '@cngokz/shared-types';
 
 export function OverallStats({ player }: { player: PlayerDetailPayload }) {
-  const overall = player.overall;
+  // The page explicitly shows the selected scope so all cards below the header
+  // agree with tier progress and map completion on the same page.
+  const overall = player.scoped;
   const stats = [
     {
       label: '完成地图',
@@ -24,14 +26,23 @@ export function OverallStats({ player }: { player: PlayerDetailPayload }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {stats.map((stat) => (
-        <Card key={stat.label} className="gap-1 p-4">
-          <p className="text-[11px] text-muted-foreground">{stat.label}</p>
-          <p className="text-xl font-semibold tracking-tight tabular-nums">{stat.value}</p>
-          <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
-        </Card>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground">当前范围</span>
+        <span className="font-mono">
+          {player.scope.mode.display_name} · {player.scope.style.display_name} · {player.scope.time_type.toUpperCase()}
+        </span>
+        <span>· 全站汇总见下方模式卡</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="gap-1 p-4">
+            <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+            <p className="text-xl font-semibold tracking-tight tabular-nums">{stat.value}</p>
+            <p className="text-[10px] text-muted-foreground">{stat.sub}</p>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

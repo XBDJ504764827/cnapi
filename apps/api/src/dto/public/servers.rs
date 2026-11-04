@@ -42,6 +42,10 @@ pub struct ServerSummary {
     pub port: i32,
     /// Fresh heartbeat within the last 2 minutes.
     pub online: bool,
+    /// `online` / `offline` / `expired` / `unknown`; derived from heartbeat age.
+    pub status: String,
+    /// Seconds since the last heartbeat; `null` when no heartbeat exists.
+    pub heartbeat_age_seconds: Option<i64>,
     pub current_map_id: Option<i64>,
     pub current_map_name: Option<String>,
     pub current_map_slug: Option<String>,

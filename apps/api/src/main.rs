@@ -7,6 +7,7 @@ use anyhow::Context;
 use cngokz_api::config::AppConfig;
 use cngokz_api::errors::StartupError;
 use cngokz_api::routes;
+use cngokz_api::services::scoring::recalc;
 use cngokz_api::state;
 use cngokz_api::utils::telemetry;
 use tokio::signal;
@@ -29,6 +30,9 @@ async fn main() -> anyhow::Result<()> {
     let state = state::connect(&config)
         .await
         .context("failed to initialize application state")?;
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let worker_state = state.clone();
+    let worker = tokio::spawn(async move { recalc::run_worker(worker_state, shutdown_rx).await });
     let router = routes::build_router(state.clone());
     let addr = config.socket_addr()?;
 
@@ -43,13 +47,18 @@ async fn main() -> anyhow::Result<()> {
         "HTTP server listening"
     );
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .map_err(StartupError::Serve)
-        .context("HTTP server error")?;
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .map_err(StartupError::Serve)
+    .context("HTTP server error")?;
 
     info!("shutdown signal received, closing resources");
+    let _ = shutdown_tx.send(true);
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), worker).await;
     state.db().close().await;
     info!("bye");
 

@@ -39,6 +39,30 @@ export function createApiClient({ baseUrl, fetch }: ApiClientOptions) {
           }),
         ),
     },
+    points: {
+      getPlayerPoints: (steamid: string) =>
+        request(http.GET('/api/v1/players/{steamid}/points', { params: { path: { steamid } } })),
+      getPlayerFilterPoints: (steamid: string, query?: PublicPlayerFilterPointsQuery) =>
+        request(
+          http.GET('/api/v1/players/{steamid}/points/filters', {
+            params: { path: { steamid }, query: query ?? {} },
+          }),
+        ),
+      getModeLeaderboard: (mode: string, query?: PublicPointsLeaderboardQuery) =>
+        request(
+          http.GET('/api/v1/leaderboards/points/{mode}', {
+            params: { path: { mode }, query: query ?? {} },
+          }),
+        ),
+      getFilterLeaderboard: (query: PublicFilterLeaderboardQuery) =>
+        request(http.GET('/api/v1/leaderboards/filters', { params: { query } })),
+      getStatus: (init?: { headers?: Record<string, string> }) =>
+        request(http.GET('/api/v1/admin/points/status', init ?? {})),
+      getAdminTiers: (query?: PublicAdminTiersQuery, init?: { headers?: Record<string, string> }) =>
+        request(http.GET('/api/v1/admin/points/tiers', { params: { query: query ?? {} }, ...(init ?? {}) })),
+      getRecalcRuns: (query?: PublicRecalcRunsQuery, init?: { headers?: Record<string, string> }) =>
+        request(http.GET('/api/v1/admin/points/recalc-runs', { params: { query: query ?? {} }, ...(init ?? {}) })),
+    },
     public: {
       getStatistics: () => request(http.GET('/api/v1/public/statistics')),
       getModes: () => request(http.GET('/api/v1/public/modes')),
@@ -115,5 +139,10 @@ export type PublicMapListQuery = NonNullable<QueryOf<'/api/v1/public/maps', 'get
 export type PublicMapDetailQuery = NonNullable<QueryOf<'/api/v1/public/maps/{slug}', 'get'>>;
 export type PublicMapLeaderboardQuery = NonNullable<QueryOf<'/api/v1/public/maps/{slug}/leaderboard', 'get'>>;
 export type PublicServerQuery = NonNullable<QueryOf<'/api/v1/public/servers', 'get'>>;
+export type PublicPlayerFilterPointsQuery = NonNullable<QueryOf<'/api/v1/players/{steamid}/points/filters', 'get'>>;
+export type PublicPointsLeaderboardQuery = NonNullable<QueryOf<'/api/v1/leaderboards/points/{mode}', 'get'>>;
+export type PublicFilterLeaderboardQuery = QueryOf<'/api/v1/leaderboards/filters', 'get'>;
+export type PublicAdminTiersQuery = NonNullable<QueryOf<'/api/v1/admin/points/tiers', 'get'>>;
+export type PublicRecalcRunsQuery = NonNullable<QueryOf<'/api/v1/admin/points/recalc-runs', 'get'>>;
 
 export type ApiClient = ReturnType<typeof createApiClient>;

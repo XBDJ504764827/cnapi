@@ -65,3 +65,10 @@ export function initials(name: string): string {
   if (!trimmed) return '?';
   return trimmed.slice(0, 2).toUpperCase();
 }
+
+/** Formats an SQL decimal-seconds string to 3 fractional digits. */
+export function formatSecondsPrecise(value: string | null | undefined): string {
+  if (!value) return '—';
+  const [integer = '0', fraction = '000'] = value.split('.');
+  return `${integer}.${fraction.slice(0, 3).padEnd(3, '0')}`;
+}

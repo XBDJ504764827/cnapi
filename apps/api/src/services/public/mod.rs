@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 
 use crate::dto::public::common::{
-    PageMeta, PlayerRef, map_slug, parse_time_type_filter, seconds_string_3, validate_code,
-    validate_search, validate_sort,
+    PageMeta, PlayerRef, StyleRef, map_slug, parse_time_type_filter, seconds_string_3,
+    validate_code, validate_search, validate_sort,
 };
 use crate::dto::public::leaderboards::{LeaderboardEntry, LeaderboardQuery, LeaderboardResponse};
 use crate::dto::public::maps::{
@@ -22,7 +22,8 @@ use crate::dto::public::players::{
     CompareBest, CompareMapRow, ComparePlayerSide, CompareQuery, CompareResponse, CompareTier,
     PlayerDetailQuery, PlayerDetailResponse, PlayerListQuery, PlayerListResponse,
     PlayerMapProgress, PlayerMapsQuery, PlayerMapsResponse, PlayerModeStatsDto, PlayerOverallStats,
-    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerSummary, TierProgressDto,
+    PlayerProfileDto, PlayerRecordsQuery, PlayerRecordsResponse, PlayerStatScope, PlayerSummary,
+    TierProgressDto,
 };
 use crate::dto::public::records::{
     ActivePlayer, ActivePlayersQuery, ActivePlayersResponse, RecentRecordsQuery,
@@ -287,6 +288,8 @@ async fn overall_stats(
     account_id: i64,
     mode_id: Option<i16>,
     time_type: Option<TimeType>,
+    style_id: Option<i16>,
+    scoped: bool,
 ) -> Result<
     (
         PlayerOverallStats,
@@ -295,7 +298,8 @@ async fn overall_stats(
     ),
     AppError,
 > {
-    let row = player_repo::overall(state.db(), account_id).await?;
+    let row =
+        player_repo::scoped_overall(state.db(), account_id, mode_id, time_type, style_id).await?;
     let rank = if row.total_records > 0 {
         leaderboards::account_rank(state.db(), account_id, mode_id, time_type).await?
     } else {
@@ -309,6 +313,7 @@ async fn overall_stats(
 
     Ok((
         PlayerOverallStats {
+            scoped,
             global_rank: rank,
             completed_maps: row.completed_maps,
             total_maps: row.total_maps,
@@ -383,11 +388,23 @@ pub async fn player_detail(
     );
 
     cache::get_or_load(state, &key, cache::TTL_PLAYER_DETAIL, || async {
+        // `overall` is an explicitly unscoped lifetime summary; `scoped`, tiers
+        // and map progress use the same mode/time_type/style scope.
         let (overall, first_record_at, last_record_at) =
-            overall_stats(state, player.account_id, None, None).await?;
+            overall_stats(state, player.account_id, None, None, None, false).await?;
+        let (scoped, _, _) = overall_stats(
+            state,
+            player.account_id,
+            Some(mode.id),
+            time_type,
+            None,
+            true,
+        )
+        .await?;
         let modes = mode_stats_dtos(state, player.account_id).await?;
         let tier_rows =
-            player_repo::tier_progress(state.db(), player.account_id, mode.id, time_type).await?;
+            player_repo::tier_progress(state.db(), player.account_id, mode.id, time_type, None)
+                .await?;
         let mut tiers: Vec<TierProgressDto> = tier_rows
             .into_iter()
             .map(|row| {
@@ -414,8 +431,18 @@ pub async fn player_detail(
             overall,
             modes,
             tiers,
-            tier_mode: mode.to_ref(),
-            tier_time_type: time_type_label(time_type).to_owned(),
+            scope: PlayerStatScope {
+                mode: mode.to_ref(),
+                style: StyleRef {
+                    id: 0,
+                    code: "all".to_owned(),
+                    display_name: "全部 Style".to_owned(),
+                },
+                time_type: time_type_label(time_type).to_owned(),
+                completion_definition: "主线课程（stage 0）存在已通过成绩；Bonus 成绩不计入完成数"
+                    .to_owned(),
+            },
+            scoped,
             ranking_metric: RANKING_METRIC.to_owned(),
             points_available: false,
         })
@@ -601,7 +628,7 @@ async fn compare_side(
         country,
     };
     let (overall, first_record_at, last_record_at) =
-        overall_stats(state, account_id, None, None).await?;
+        overall_stats(state, account_id, None, None, None, false).await?;
     let modes = mode_stats_dtos(state, account_id).await?;
     Ok(ComparePlayerSide {
         profile: profile_dto(&player, first_record_at, last_record_at),
@@ -662,10 +689,22 @@ pub async fn compare(state: &AppState, query: &CompareQuery) -> Result<CompareRe
         )
         .await?;
 
-        let left_tiers =
-            player_repo::tier_progress(state.db(), left.account_id, mode.id, time_type).await?;
-        let right_tiers =
-            player_repo::tier_progress(state.db(), right.account_id, mode.id, time_type).await?;
+        let left_tiers = player_repo::tier_progress(
+            state.db(),
+            left.account_id,
+            mode.id,
+            time_type,
+            Some(style.id),
+        )
+        .await?;
+        let right_tiers = player_repo::tier_progress(
+            state.db(),
+            right.account_id,
+            mode.id,
+            time_type,
+            Some(style.id),
+        )
+        .await?;
         let mut tiers: BTreeMap<Option<i16>, CompareTier> = BTreeMap::new();
         for row in &left_tiers {
             tiers.insert(
@@ -1239,6 +1278,17 @@ pub async fn servers(
 
 fn server_summary(row: server_repo::ServerRow) -> ServerSummary {
     let current_map_slug = row.map_slug();
+    let heartbeat_age_seconds = row
+        .last_heartbeat_at
+        .map(|heartbeat| (Utc::now() - heartbeat).num_seconds().max(0));
+    let status = match (row.online, row.last_heartbeat_at, heartbeat_age_seconds) {
+        (true, Some(_), Some(age)) if age < 120 => "online",
+        (false, Some(_), Some(age)) if age >= 120 => "expired",
+        (false, Some(_), _) => "offline",
+        (_, None, _) => "unknown",
+        _ => "offline",
+    };
+
     ServerSummary {
         id: row.id,
         name: row.name,
@@ -1246,6 +1296,8 @@ fn server_summary(row: server_repo::ServerRow) -> ServerSummary {
         ip: row.ip,
         port: row.port,
         online: row.online,
+        status: status.to_owned(),
+        heartbeat_age_seconds,
         current_map_id: row.current_map_id,
         current_map_slug,
         current_map_name: row.current_map_name,
@@ -1287,4 +1339,25 @@ pub async fn search(state: &AppState, query: &SearchQuery) -> Result<SearchRespo
 /// Exposed for phase 5 write paths and for diagnostics.
 pub async fn invalidate_cache(state: &AppState) -> Result<(), AppError> {
     cache::invalidate_all(state).await
+}
+
+/// Re-populates the most frequently requested cache entry after invalidation.
+pub async fn warm_statistics(state: &AppState) -> Result<(), AppError> {
+    cache::warm(state, "statistics", cache::TTL_STATISTICS, || async {
+        let row = stats_repo::statistics(state.db()).await?;
+        Ok(PublicStatistics {
+            players: row.players,
+            maps: row.maps,
+            courses: row.courses,
+            records: row.records,
+            world_records: row.world_records,
+            servers_online: row.servers_online,
+            generated_at: Utc::now(),
+        })
+    })
+    .await
+}
+
+pub async fn cache_version_value(state: &AppState) -> String {
+    cache::cache_version_value(state).await
 }

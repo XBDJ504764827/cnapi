@@ -51,6 +51,79 @@ pub fn router() -> Router<AppState> {
         .route("/maps/{slug}/statistics", get(map_statistics))
         .route("/servers", get(servers))
         .route("/servers/{id}", get(server_detail))
+        // Protected maintenance endpoints (not part of the public contract).
+        .route(
+            "/maintenance/cache/invalidate",
+            axum::routing::post(invalidate_cache),
+        )
+        .route("/maintenance/cache/version", get(cache_version))
+}
+
+/// Shared maintenance token. When unset the endpoints are disabled in
+/// production; in development they are available for local cache verification.
+fn require_maintenance_token(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<(), AppError> {
+    let Some(expected) = state.config().maintenance_token.as_deref() else {
+        return Err(AppError::Forbidden {
+            message: "cache maintenance is not configured".to_owned(),
+        });
+    };
+    let presented = headers
+        .get("x-maintenance-token")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if presented == expected {
+        Ok(())
+    } else {
+        Err(AppError::Unauthorized {
+            message: "invalid maintenance token".to_owned(),
+        })
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/public/maintenance/cache/invalidate",
+    tag = "public",
+    summary = "Invalidate public caches",
+    description = "Requires `X-Maintenance-Token`. Call after data changes.",
+    responses(
+        (status = 200, body = ApiResponse<serde_json::Value>),
+        (status = 401, body = ApiErrorBody),
+        (status = 403, body = ApiErrorBody),
+    ),
+)]
+pub async fn invalidate_cache(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    require_maintenance_token(&state, &headers)?;
+    public_service::invalidate_cache(&state).await?;
+    // Warm the hot home-page statistics after invalidation.
+    public_service::warm_statistics(&state).await?;
+    Ok(Json(ApiResponse::ok(serde_json::json!({
+        "invalidated": true,
+        "version": public_service::cache_version_value(&state).await,
+    }))))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/maintenance/cache/version",
+    tag = "public",
+    summary = "Read public cache namespace version",
+    responses((status = 200, body = ApiResponse<serde_json::Value>), (status = 401, body = ApiErrorBody)),
+)]
+pub async fn cache_version(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    require_maintenance_token(&state, &headers)?;
+    Ok(Json(ApiResponse::ok(serde_json::json!({
+        "version": public_service::cache_version_value(&state).await,
+    }))))
 }
 
 fn validate_identifier(value: &str, max: usize, field: &str) -> Result<(), AppError> {
@@ -491,4 +564,45 @@ pub async fn search(
     Ok(Json(ApiResponse::ok(
         public_service::search(&state, &query).await?,
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+    use crate::state::{AppState, RedisClient};
+    use axum::http::HeaderMap;
+    use sqlx::PgPool;
+
+    fn test_state(token: Option<&str>) -> AppState {
+        let config = AppConfig::from_pairs([
+            ("APP_ENV", "test".to_owned()),
+            (
+                "DATABASE_URL",
+                "postgres://user:password@127.0.0.1:1/db".to_owned(),
+            ),
+            ("REDIS_URL", "redis://127.0.0.1:1".to_owned()),
+            (
+                "MAINTENANCE_TOKEN",
+                token.unwrap_or("expected-token").to_owned(),
+            ),
+        ])
+        .expect("config");
+        let db = PgPool::connect_lazy(&config.database_url).expect("lazy pool");
+        let redis = RedisClient::new(&config.redis_url, "test").expect("redis");
+        AppState::new(config, db, redis)
+    }
+
+    #[tokio::test]
+    async fn maintenance_token_is_required_and_exact() {
+        let state = test_state(None);
+        let mut headers = HeaderMap::new();
+        assert!(require_maintenance_token(&state, &headers).is_err());
+
+        headers.insert(
+            "x-maintenance-token",
+            axum::http::HeaderValue::from_static("expected-token"),
+        );
+        assert!(require_maintenance_token(&state, &headers).is_ok());
+    }
 }

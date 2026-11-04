@@ -9,6 +9,648 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/admin/points/initialize": {
+      "post": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Initialize Filters from existing records (no T9 backfill)",
+        "operationId": "initialize",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Value"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/recalc-runs": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Recent recalculation runs",
+        "operationId": "admin_recalc_runs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecalcRunsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/recalc/filter/{filter_id}": {
+      "post": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Queue one Filter recalculation",
+        "operationId": "recalc_filter",
+        "parameters": [
+          {
+            "name": "filter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Value"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/recalc/mode/{mode}": {
+      "post": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Queue all Filters of one mode",
+        "operationId": "recalc_mode",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "path",
+            "description": "KZT / SKZ / VNL",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecalcResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/status": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Points recalc status",
+        "operationId": "points_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PointsSystemStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/tiers": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Course tiers and first completion",
+        "operationId": "admin_tiers",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "KZT / SKZ / VNL. Omit for all modes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdminTiersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/points/tiers/{map_id}/{course_id}/{mode_id}": {
+      "patch": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Update a course tier (triggers Filter recalculation)",
+        "operationId": "update_tier",
+        "parameters": [
+          {
+            "name": "map_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_UpdateTierResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leaderboards/filters": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "One Filter's points leaderboard",
+        "operationId": "filter_leaderboard",
+        "parameters": [
+          {
+            "name": "map_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "KZT / SKZ / VNL.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "record_type",
+            "in": "query",
+            "description": "nub / pro.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_FilterLeaderboardResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leaderboards/points/{mode}": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Independent points leaderboard for KZT / SKZ / VNL",
+        "operationId": "mode_leaderboard",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "path",
+            "description": "KZT, SKZ or VNL",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PointsLeaderboardResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/players/{steamid}/points": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Player points for KZT / SKZ / VNL",
+        "operationId": "player_points",
+        "parameters": [
+          {
+            "name": "steamid",
+            "in": "path",
+            "description": "SteamID64",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlayerPointsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/players/{steamid}/points/filters": {
+      "get": {
+        "tags": [
+          "points"
+        ],
+        "summary": "Player Filter points detail",
+        "operationId": "player_filter_points",
+        "parameters": [
+          {
+            "name": "steamid",
+            "in": "path",
+            "description": "SteamID64",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "description": "KZT / SKZ / VNL. Omit for all modes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "record_type",
+            "in": "query",
+            "description": "nub / pro. Omit for both.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "description": "1..8.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "map",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "rank / points / time / tier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlayerFilterPointsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/leaderboards": {
       "get": {
         "tags": [
@@ -80,6 +722,74 @@
             }
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/maintenance/cache/invalidate": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Invalidate public caches",
+        "description": "Requires `X-Maintenance-Token`. Call after data changes.",
+        "operationId": "invalidate_cache",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Value"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/maintenance/cache/version": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Read public cache namespace version",
+        "operationId": "cache_version",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Value"
+                }
+              }
+            }
+          },
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -684,7 +1394,7 @@
           {
             "name": "mode",
             "in": "query",
-            "description": "Mode used for tier progress and per-mode cards (default `vanilla`).",
+            "description": "Mode used for the whole detail page (default `vanilla`).",
             "required": false,
             "schema": {
               "type": "string"
@@ -693,7 +1403,7 @@
           {
             "name": "time_type",
             "in": "query",
-            "description": "`all` (default), `nub`, `pro` — used for tier progress.",
+            "description": "`all` (default), `nub`, `pro` — used for the whole detail page.",
             "required": false,
             "schema": {
               "type": "string"
@@ -1663,6 +2373,130 @@
           }
         }
       },
+      "AdminTierDto": {
+        "type": "object",
+        "required": [
+          "map_id",
+          "map_name",
+          "course_id",
+          "course_name",
+          "stage",
+          "mode_id",
+          "mode_code",
+          "tier",
+          "completed",
+          "first_completion_player",
+          "updated_at"
+        ],
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          },
+          "course_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "course_name": {
+            "type": "string"
+          },
+          "first_completion_account_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "first_completion_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "first_completion_player": {
+            "type": "string"
+          },
+          "first_completion_record_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "map_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "map_name": {
+            "type": "string"
+          },
+          "mode_code": {
+            "type": "string"
+          },
+          "mode_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminTiersQuery": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "KZT / SKZ / VNL. Omit for all modes."
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminTiersResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTierDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        }
+      },
       "ApiErrorBody": {
         "type": "object",
         "description": "Envelope used by every failed response.",
@@ -1721,6 +2555,41 @@
                 "items": {
                   "$ref": "#/components/schemas/ActivePlayer"
                 }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_AdminTiersResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminTierDto"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
               }
             }
           },
@@ -1791,6 +2660,64 @@
               },
               "time_type": {
                 "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_FilterLeaderboardResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "filter_id",
+              "tier",
+              "mode",
+              "record_type",
+              "pb_count",
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "filter_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FilterLeaderboardEntry"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/ScoringModeDto"
+              },
+              "pb_count": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "record_type": {
+                "type": "string"
+              },
+              "tier": {
+                "type": "integer",
+                "format": "int32"
               }
             }
           },
@@ -2171,8 +3098,8 @@
               "overall",
               "modes",
               "tiers",
-              "tier_mode",
-              "tier_time_type",
+              "scope",
+              "scoped",
               "ranking_metric",
               "points_available"
             ],
@@ -2181,10 +3108,12 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/PlayerModeStatsDto"
-                }
+                },
+                "description": "Per-mode breakdown across all time types/styles."
               },
               "overall": {
-                "$ref": "#/components/schemas/PlayerOverallStats"
+                "$ref": "#/components/schemas/PlayerOverallStats",
+                "description": "All-mode/all-type summary, explicitly marked `scoped=false`."
               },
               "points_available": {
                 "type": "boolean"
@@ -2195,18 +3124,60 @@
               "ranking_metric": {
                 "type": "string"
               },
-              "tier_mode": {
-                "$ref": "#/components/schemas/ModeRef",
-                "description": "Mode used for `tiers`."
+              "scope": {
+                "$ref": "#/components/schemas/PlayerStatScope",
+                "description": "Scope shared by `tiers`, map progress and the scoped card."
               },
-              "tier_time_type": {
-                "type": "string"
+              "scoped": {
+                "$ref": "#/components/schemas/PlayerOverallStats",
+                "description": "Summary for the selected `scope` (`scoped=true`)."
               },
               "tiers": {
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/TierProgressDto"
+                },
+                "description": "Tier completion counts for the selected `scope`."
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_PlayerFilterPointsResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "account_id",
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlayerFilterPointsDto"
                 }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
               }
             }
           },
@@ -2324,6 +3295,46 @@
           }
         }
       },
+      "ApiResponse_PlayerPointsResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "account_id",
+              "steam_id64",
+              "modes"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "modes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ModePointsDto"
+                }
+              },
+              "steam_id64": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_PlayerRecordsResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -2352,6 +3363,101 @@
               },
               "meta": {
                 "$ref": "#/components/schemas/PageMeta"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_PointsLeaderboardResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "mode",
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PointsLeaderboardEntry"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/ScoringModeDto"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_PointsSystemStatus": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "pending",
+              "running",
+              "failed",
+              "filters",
+              "dirty_filters"
+            ],
+            "properties": {
+              "dirty_filters": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "failed": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "filters": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "last_recalculated_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "pending": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "running": {
+                "type": "integer",
+                "format": "int64"
               }
             }
           },
@@ -2484,6 +3590,74 @@
               },
               "version": {
                 "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RecalcResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "queued_filters",
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "queued_filters": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RecalcRunsResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/RecalcRunDto"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
               }
             }
           },
@@ -2710,7 +3884,8 @@
               "name",
               "ip",
               "port",
-              "online"
+              "online",
+              "status"
             ],
             "properties": {
               "community": {
@@ -2738,6 +3913,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "heartbeat_age_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "description": "Seconds since the last heartbeat; `null` when no heartbeat exists."
               },
               "id": {
                 "type": "integer",
@@ -2792,6 +3975,10 @@
               "port": {
                 "type": "integer",
                 "format": "int32"
+              },
+              "status": {
+                "type": "string",
+                "description": "`online` / `offline` / `expired` / `unknown`; derived from heartbeat age."
               }
             }
           },
@@ -2953,6 +4140,57 @@
               }
             }
           },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_UpdateTierResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "updated",
+              "tier"
+            ],
+            "properties": {
+              "tier": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "updated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_Value": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {},
           "message": {
             "type": "string"
           },
@@ -3361,8 +4599,136 @@
           "redis_error",
           "dependency_unavailable",
           "not_ready",
-          "internal_error"
+          "internal_error",
+          "rate_limited"
         ]
+      },
+      "FilterLeaderboardEntry": {
+        "type": "object",
+        "required": [
+          "rank",
+          "account_id",
+          "steam_id64",
+          "display_name",
+          "pb_record_id",
+          "pb_time_seconds",
+          "points",
+          "is_world_record"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_world_record": {
+            "type": "boolean"
+          },
+          "pb_record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pb_time_seconds": {
+            "type": "string"
+          },
+          "points": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "steam_id64": {
+            "type": "string"
+          }
+        }
+      },
+      "FilterLeaderboardQuery": {
+        "type": "object",
+        "required": [
+          "map_id",
+          "course_id",
+          "mode",
+          "record_type"
+        ],
+        "properties": {
+          "course_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "map_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string",
+            "description": "KZT / SKZ / VNL."
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "record_type": {
+            "type": "string",
+            "description": "nub / pro."
+          }
+        }
+      },
+      "FilterLeaderboardResponse": {
+        "type": "object",
+        "required": [
+          "filter_id",
+          "tier",
+          "mode",
+          "record_type",
+          "pb_count",
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "filter_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilterLeaderboardEntry"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ScoringModeDto"
+          },
+          "pb_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "record_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "HealthResponse": {
         "type": "object",
@@ -3978,6 +5344,41 @@
           }
         }
       },
+      "ModePointsDto": {
+        "type": "object",
+        "required": [
+          "code",
+          "display_name",
+          "pro_points",
+          "nub_points",
+          "total_points",
+          "filter_count"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "filter_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nub_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pro_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_points": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "ModeRef": {
         "type": "object",
         "required": [
@@ -4036,14 +5437,14 @@
               "string",
               "null"
             ],
-            "description": "Mode used for tier progress and per-mode cards (default `vanilla`)."
+            "description": "Mode used for the whole detail page (default `vanilla`)."
           },
           "time_type": {
             "type": [
               "string",
               "null"
             ],
-            "description": "`all` (default), `nub`, `pro` — used for tier progress."
+            "description": "`all` (default), `nub`, `pro` — used for the whole detail page."
           }
         }
       },
@@ -4054,8 +5455,8 @@
           "overall",
           "modes",
           "tiers",
-          "tier_mode",
-          "tier_time_type",
+          "scope",
+          "scoped",
           "ranking_metric",
           "points_available"
         ],
@@ -4064,10 +5465,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PlayerModeStatsDto"
-            }
+            },
+            "description": "Per-mode breakdown across all time types/styles."
           },
           "overall": {
-            "$ref": "#/components/schemas/PlayerOverallStats"
+            "$ref": "#/components/schemas/PlayerOverallStats",
+            "description": "All-mode/all-type summary, explicitly marked `scoped=false`."
           },
           "points_available": {
             "type": "boolean"
@@ -4078,18 +5481,196 @@
           "ranking_metric": {
             "type": "string"
           },
-          "tier_mode": {
-            "$ref": "#/components/schemas/ModeRef",
-            "description": "Mode used for `tiers`."
+          "scope": {
+            "$ref": "#/components/schemas/PlayerStatScope",
+            "description": "Scope shared by `tiers`, map progress and the scoped card."
           },
-          "tier_time_type": {
-            "type": "string"
+          "scoped": {
+            "$ref": "#/components/schemas/PlayerOverallStats",
+            "description": "Summary for the selected `scope` (`scoped=true`)."
           },
           "tiers": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TierProgressDto"
+            },
+            "description": "Tier completion counts for the selected `scope`."
+          }
+        }
+      },
+      "PlayerFilterPointsDto": {
+        "type": "object",
+        "required": [
+          "filter_id",
+          "map_id",
+          "map_name",
+          "map_slug",
+          "course_id",
+          "course_name",
+          "stage",
+          "mode",
+          "record_type",
+          "tier",
+          "t9_label",
+          "pb_record_id",
+          "pb_time_seconds",
+          "wr_time_seconds",
+          "rank",
+          "points",
+          "is_world_record",
+          "calculated_at"
+        ],
+        "properties": {
+          "calculated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "course_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "course_name": {
+            "type": "string"
+          },
+          "filter_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_world_record": {
+            "type": "boolean"
+          },
+          "map_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "map_name": {
+            "type": "string"
+          },
+          "map_slug": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ModeRef"
+          },
+          "pb_record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pb_time_seconds": {
+            "type": "string",
+            "description": "PB duration in seconds."
+          },
+          "points": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "record_type": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "t9_label": {
+            "type": "boolean",
+            "description": "Historical T9 label; the stored course tier is always T1-T8."
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wr_time_seconds": {
+            "type": "string"
+          }
+        }
+      },
+      "PlayerFilterPointsQuery": {
+        "type": "object",
+        "properties": {
+          "course_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "map": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "KZT / SKZ / VNL. Omit for all modes."
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "record_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "nub / pro. Omit for both."
+          },
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "rank / points / time / tier."
+          },
+          "tier": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "1..8."
+          }
+        }
+      },
+      "PlayerFilterPointsResponse": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlayerFilterPointsDto"
             }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
           }
         }
       },
@@ -4423,6 +6004,7 @@
       "PlayerOverallStats": {
         "type": "object",
         "required": [
+          "scoped",
           "completed_maps",
           "total_maps",
           "completion_rate",
@@ -4466,6 +6048,10 @@
             ],
             "format": "double"
           },
+          "scoped": {
+            "type": "boolean",
+            "description": "`true` = these numbers are scoped to `scope`; `false` = all-mode summary."
+          },
           "total_maps": {
             "type": "integer",
             "format": "int64"
@@ -4481,6 +6067,29 @@
           "wr_count": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "PlayerPointsResponse": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "steam_id64",
+          "modes"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModePointsDto"
+            }
+          },
+          "steam_id64": {
+            "type": "string"
           }
         }
       },
@@ -4611,6 +6220,32 @@
           }
         }
       },
+      "PlayerStatScope": {
+        "type": "object",
+        "required": [
+          "mode",
+          "style",
+          "time_type",
+          "completion_definition"
+        ],
+        "properties": {
+          "completion_definition": {
+            "type": "string",
+            "description": "Human-readable definition of what \"completed\" means for this page."
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ModeRef"
+          },
+          "style": {
+            "$ref": "#/components/schemas/StyleRef",
+            "description": "Synthetic \"all styles\" reference; style is an optional drill-down, not\npart of the default ranking/completion scope."
+          },
+          "time_type": {
+            "type": "string",
+            "description": "`all`, `nub` or `pro`."
+          }
+        }
+      },
       "PlayerSummary": {
         "type": "object",
         "required": [
@@ -4670,6 +6305,133 @@
             "format": "int64"
           },
           "wr_count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PointsLeaderboardEntry": {
+        "type": "object",
+        "required": [
+          "rank",
+          "account_id",
+          "steam_id64",
+          "display_name",
+          "pro_points",
+          "nub_points",
+          "total_points",
+          "filter_count"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "filter_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nub_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pro_points": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "steam_id64": {
+            "type": "string"
+          },
+          "total_points": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PointsLeaderboardQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PointsLeaderboardResponse": {
+        "type": "object",
+        "required": [
+          "mode",
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PointsLeaderboardEntry"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ScoringModeDto"
+          }
+        }
+      },
+      "PointsSystemStatus": {
+        "type": "object",
+        "required": [
+          "pending",
+          "running",
+          "failed",
+          "filters",
+          "dirty_filters"
+        ],
+        "properties": {
+          "dirty_filters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "filters": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_recalculated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "running": {
             "type": "integer",
             "format": "int64"
           }
@@ -4779,6 +6541,119 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "RecalcRequest": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          }
+        }
+      },
+      "RecalcResponse": {
+        "type": "object",
+        "required": [
+          "queued_filters",
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "queued_filters": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RecalcRunDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "filter_id",
+          "mode_id",
+          "status",
+          "pb_count",
+          "duration_ms",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filter_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pb_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "RecalcRunsQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "RecalcRunsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecalcRunDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
           }
         }
       },
@@ -5094,6 +6969,29 @@
           }
         }
       },
+      "ScoringModeDto": {
+        "type": "object",
+        "required": [
+          "code",
+          "display_name",
+          "mode",
+          "t9_enabled"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ModeRef"
+          },
+          "t9_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
       "SearchQuery": {
         "type": "object",
         "required": [
@@ -5206,7 +7104,8 @@
           "name",
           "ip",
           "port",
-          "online"
+          "online",
+          "status"
         ],
         "properties": {
           "community": {
@@ -5234,6 +7133,14 @@
               "string",
               "null"
             ]
+          },
+          "heartbeat_age_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Seconds since the last heartbeat; `null` when no heartbeat exists."
           },
           "id": {
             "type": "integer",
@@ -5288,6 +7195,10 @@
           "port": {
             "type": "integer",
             "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "description": "`online` / `offline` / `expired` / `unknown`; derived from heartbeat age."
           }
         }
       },
@@ -5522,6 +7433,34 @@
           },
           "time_type": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateTierRequest": {
+        "type": "object",
+        "required": [
+          "tier"
+        ],
+        "properties": {
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateTierResponse": {
+        "type": "object",
+        "required": [
+          "updated",
+          "tier"
+        ],
+        "properties": {
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "updated": {
+            "type": "boolean"
           }
         }
       },

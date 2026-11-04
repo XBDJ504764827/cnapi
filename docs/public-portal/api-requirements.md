@@ -61,6 +61,9 @@ TTL 表见 [architecture.md](architecture.md#7-redis-缓存)。要点：
 - 缓存键包含 `public:version`（Redis `INCR` 全局失效），以及全部查询参数；不会把不同筛选结果混用。
 - `statistics`、`servers` 等“实时性”数据 TTL 较短（15–30s）。
 - 缓存失败不阻塞请求：Redis 连接 300ms 超时、0 重试、失败后 5 秒快速失败，直接查询 PostgreSQL。
+- Key 后缀使用固定长度哈希，TTL 有 0–15% 抖动；并发 miss 通过 per-key async 锁合并，降低缓存击穿/雪崩风险。
+- 受保护端点 `POST /api/v1/public/maintenance/cache/invalidate`（`X-Maintenance-Token`）执行 `INCR public:version` 并预热首页统计；数据变更后必须调用。
+- 公开读接口每 IP 每分钟最多 `PUBLIC_RATE_LIMIT_PER_MINUTE` 次；超限返回 429 `rate_limited` 与 `Retry-After`。
 - 阶段 5 的写入端点（成绩审核/导入、服务器心跳、封禁）必须在提交后调用 `public::invalidate_cache`。
 
 ## 5. 缺失字段 / 未实现能力
@@ -87,3 +90,22 @@ DATABASE_URL=postgres://user:pass@localhost:5432/db \
 REDIS_URL=redis://localhost:6379 \
 cargo test --test public_api
 ```
+
+## 7. 第五阶段性能验证
+
+在临时数据库（2 万条成绩、200 玩家、100 地图）上执行 `EXPLAIN (ANALYZE, BUFFERS)`：
+
+| 查询 | 计划 | 执行时间 |
+| --- | --- | --- |
+| 最近 20 条上传成绩 | `Index Only Scan idx_records_recent_public` | 0.107 ms |
+| 玩家成绩历史（按上传时间） | `Index Scan idx_records_account_created` | 0.302 ms |
+| 课程排行榜（按 `time_ns`） | 命中 `idx_records_course_time` | 0.090 ms |
+| 地图名模糊搜索 | `idx_maps_name_trgm` | 0.173 ms |
+
+新增迁移 `20261104000001_phase5_indexes.sql` 仅加入与实际查询匹配的索引（partial index 限定 `status='approved' AND deleted_at IS NULL`），未对高写入字段盲目增加索引。
+
+## 8. 第五阶段统计口径修正
+
+- `GET /players/{steamid}` 返回 `overall`（全部模式/类型/风格，`scoped=false`）与 `scoped`（选定 mode + time_type + 全部 Style，`scoped=true`）。
+- `scope` 明确给出 mode、style、time_type 与完成定义；难度进度、地图进度、排行榜、比较均使用相同完成定义：主线课程（`stage=0`）存在 approved 成绩，Bonus 单独统计。
+- 积分/Rating 仍为 `null`；未定义算法前不计算、不伪造。

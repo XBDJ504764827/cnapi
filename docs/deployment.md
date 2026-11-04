@@ -1,6 +1,6 @@
 # 部署指南
 
-使用 Docker Compose 部署五个服务：PostgreSQL、Redis、Rust API、React Web。生产环境不需要额外的 Nginx 即可运行；如需统一域名/TLS，可在后续阶段前置反向代理。
+使用 Docker Compose 部署五个服务：PostgreSQL、Redis、Rust API、管理后台（内部）、公开门户（唯一对外入口）。生产环境不需要额外的 Nginx 即可运行；如需 TLS 或统一域名，可在后续阶段前置反向代理。
 
 ## 1. 前置条件
 
@@ -24,10 +24,11 @@ cp .env.example .env
 | `LOG_LEVEL` | `info`（排障时临时 `debug`） |
 | `CORS_ALLOWED_ORIGINS` | 若浏览器只经 Web 访问 API，可留空；如直连 API 则填前端域名 |
 | `POSTGRES_PORT` / `REDIS_PORT` | 生产环境可注释掉端口映射（见"安全基线"） |
-| `PORTAL_PORT` | 对外唯一端口：`/` 公开门户 + `/admin` 管理后台 |
 | `PORTAL_PORT` | 对外暴露的唯一门户端口（默认 5173；`/` 公开站，`/admin` 管理后台） |
 | `VITE_SITE_URL` | 公开门户 canonical/sitemap 的站点地址（默认 `http://localhost:5173`）；更改后需重建 public 镜像 |
 | `ADMIN_PORT` | 仅本地开发的管理后台内部端口（默认 5174） |
+| `PUBLIC_RATE_LIMIT_PER_MINUTE` | 公开 API 每 IP 每分钟请求上限（默认 120） |
+| `MAINTENANCE_TOKEN` | 公开缓存失效端点的保护令牌；留空时端点禁用 |
 
 > compose 默认把 PostgreSQL/Redis/API 端口绑定在 `127.0.0.1`，只有 Web 监听 `0.0.0.0`。
 
@@ -39,15 +40,16 @@ docker compose ps
 docker compose logs -f
 ```
 
-预期顺序：`postgres` / `redis` 健康 → `api` 构建并执行迁移、健康检查通过 → `web` 启动。
+预期顺序：`postgres` / `redis` 健康 → `api` 构建并执行迁移、健康检查通过 → `web`（内部管理后台）健康 → `public`（唯一对外入口）启动。
 
 验证：
 
 ```bash
-curl -fsS http://localhost:5173/health | jq                # 经 Web 代理
-curl -fsS http://localhost:5173/admin/api 2>/dev/null || true
-curl -fsS http://localhost:5173/api/v1/system/status | jq  # 依赖状态（同源）
-curl -fsS http://localhost:8080/health/ready | jq          # 宿主机直连 API
+curl -fsS http://localhost:5173/health | jq                       # 经公开门户同源代理
+curl -fsS http://localhost:5173/api/v1/system/status | jq        # 依赖状态
+curl -fsS http://localhost:5173/api/v1/public/statistics | jq    # 公开统计
+curl -fsS http://localhost:5173/admin/ -o /dev/null -w '%{http_code}\n'  # 管理后台
+curl -fsS http://localhost:8080/health/ready | jq               # 宿主机直连 API
 ```
 
 浏览器访问 `http://<host>:5173`（公开门户，默认）与 `http://<host>:5173/admin`（管理后台）。两者共用同一后端；管理后台仪表盘显示真实的 API / PostgreSQL / Redis 状态，公开门户的统计、排行榜、成绩来自同一数据库。
@@ -169,3 +171,35 @@ docker compose exec api curl -fsS http://127.0.0.1:8080/api/v1/system/status | j
 - 单实例足以支撑第一阶段；后续可按模块拆出只读副本或独立 Worker，但**不要**提前拆分微服务。
 - 提高 `DATABASE_MAX_CONNECTIONS` 时同步评估 PostgreSQL `max_connections`。
 - Redis `maxmemory` 为 256MB，接入真实缓存前按容量调整 `infrastructure/redis/redis.conf`。
+
+## 11. 缓存失效与运维（第五阶段）
+
+公开 API 使用 Redis 命名空间版本 `public:version`：数据变更后调用一次受保护端点即可让全部公开缓存失效，并自动预热首页统计。
+
+```bash
+# 需要 MAINTENANCE_TOKEN；未配置时返回 403
+curl -X POST http://localhost:8080/api/v1/public/maintenance/cache/invalidate \
+  -H "X-Maintenance-Token: $MAINTENANCE_TOKEN"
+
+# 查询当前缓存命名空间版本
+curl -H "X-Maintenance-Token: $MAINTENANCE_TOKEN" \
+  http://localhost:8080/api/v1/public/maintenance/cache/version
+```
+
+公开 API 每 IP 每分钟限流由 `PUBLIC_RATE_LIMIT_PER_MINUTE` 控制；维护端点不受该限流，但仍然需要令牌。限流器为单进程内存实现，多副本部署应改用 Redis 或边缘网关限流。
+
+## 12. 数据库备份与恢复（补充）
+
+```bash
+# 备份（仅数据卷容器，不停止服务）
+docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > backup-$(date +%F).dump
+
+# 恢复（会覆盖目标库，执行前请确认）
+docker compose stop api
+docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backup-2026-11-04.dump
+docker compose start api
+curl -X POST http://localhost:8080/api/v1/public/maintenance/cache/invalidate \
+  -H "X-Maintenance-Token: $MAINTENANCE_TOKEN"
+```
+
+> 恢复后必须使缓存失效，否则公开页面可能继续展示旧数据直到 TTL 到期。

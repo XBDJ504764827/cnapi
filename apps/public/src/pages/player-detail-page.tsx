@@ -10,11 +10,13 @@ import { PlayerMapProgress } from '@/components/players/map-progress';
 import { PlayerRecordHistory } from '@/components/players/record-history';
 import { ProfileHeader } from '@/components/players/profile-header';
 import { OverallStats } from '@/components/players/overall-stats';
+import { ModePointsCards } from '@/components/points/mode-points-cards';
 import { TierProgress } from '@/components/players/tier-progress';
 import { Callout } from '@/components/ui/callout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useListParams } from '@/hooks/use-list-params';
+import { pointsQueries } from '@/services/points-service';
 import { publicQueries } from '@/services/public-service';
 import { usePageMeta } from '@/seo/use-page-meta';
 import type { ApiClientError } from '@cngokz/api-client';
@@ -27,6 +29,7 @@ export function PlayerDetailPage() {
 
   const modes = useQuery(publicQueries.modes());
   const player = useQuery(publicQueries.player(steamid, { mode, time_type: timeType }));
+  const pointQuery = useQuery(pointsQueries.player(steamid));
 
   usePageMeta({
     title: player.data ? `${player.data.profile.display_name} · 玩家资料` : '玩家资料',
@@ -77,11 +80,19 @@ export function PlayerDetailPage() {
         <>
           <ProfileHeader player={player.data} />
           <OverallStats player={player.data} />
+          {pointQuery.data ? <ModePointsCards points={pointQuery.data} /> : null}
 
           <Callout
             variant="neutral"
             title="统计口径"
-            description="完成地图 = 该模式主线课程（stage 0）的已通过成绩；完成率分母为支持该模式的已上线地图。积分与 Rating 尚未定义，显示为 “—”。"
+            description={
+              <span>
+                上方综合统计为全部模式/类型/风格汇总；下方“当前范围”与难度/地图进度统一使用{' '}
+                {player.data.scope.mode.display_name} · {player.data.scope.style.display_name} ·{' '}
+                {player.data.scope.time_type.toUpperCase()}。{player.data.scope.completion_definition}；积分区域按 KZT /
+                SKZ / VNL 独立展示。
+              </span>
+            }
           />
 
           <section className="space-y-3">

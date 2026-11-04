@@ -17,6 +17,7 @@ const DEFAULT_HEALTH_CHECK_TIMEOUT_MS: u64 = 2_000;
 const DEFAULT_MAX_CONNECTIONS: u32 = 10;
 const DEFAULT_MIN_CONNECTIONS: u32 = 1;
 const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE: u32 = 120;
 
 /// Runtime environment of the service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +88,10 @@ pub struct AppConfig {
     pub redis_url: String,
     pub redis_key_prefix: String,
     pub health_check_timeout: Duration,
+    /// Maximum requests per client IP per minute for `/api/v1/public/*`.
+    pub public_rate_limit_per_minute: u32,
+    /// Optional token for protected cache maintenance endpoints.
+    pub maintenance_token: Option<String>,
 }
 
 impl AppConfig {
@@ -180,6 +185,14 @@ impl AppConfig {
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "cngokz".to_owned());
 
+        let public_rate_limit_per_minute = parse_u32(
+            &vars,
+            "PUBLIC_RATE_LIMIT_PER_MINUTE",
+            DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE,
+            1,
+            10_000,
+        )?;
+        let maintenance_token = get("MAINTENANCE_TOKEN").filter(|value| !value.is_empty());
         let health_check_timeout_ms = parse_u64(
             &vars,
             "HEALTH_CHECK_TIMEOUT_MS",
@@ -202,6 +215,8 @@ impl AppConfig {
             redis_url,
             redis_key_prefix,
             health_check_timeout: Duration::from_millis(health_check_timeout_ms),
+            public_rate_limit_per_minute,
+            maintenance_token,
         })
     }
 
@@ -236,6 +251,14 @@ impl fmt::Debug for AppConfig {
             .field("redis_url", &redact_url(&self.redis_url))
             .field("redis_key_prefix", &self.redis_key_prefix)
             .field("health_check_timeout", &self.health_check_timeout)
+            .field(
+                "public_rate_limit_per_minute",
+                &self.public_rate_limit_per_minute,
+            )
+            .field(
+                "maintenance_token",
+                &self.maintenance_token.as_ref().map(|_| "***"),
+            )
             .finish()
     }
 }
@@ -388,6 +411,7 @@ mod tests {
         assert_eq!(config.database_min_connections, 1);
         assert_eq!(config.database_acquire_timeout, Duration::from_secs(5));
         assert_eq!(config.health_check_timeout, Duration::from_millis(2_000));
+        assert_eq!(config.public_rate_limit_per_minute, 120);
         assert_eq!(config.cors_allowed_origins.len(), 2);
     }
 

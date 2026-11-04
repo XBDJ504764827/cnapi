@@ -13,6 +13,7 @@ use axum::{
 use cngokz_api::{
     config::AppConfig,
     routes,
+    services::public as public_service,
     state::{self, AppState},
 };
 use http_body_util::BodyExt;
@@ -345,6 +346,186 @@ async fn public_portal_endpoints_work_against_real_schema() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // cleanup
+    pool.close().await;
+    sqlx::raw_sql(AssertSqlSafe(format!(
+        "DROP DATABASE IF EXISTS \"{database_name}\" WITH (FORCE)"
+    )))
+    .execute(&admin)
+    .await
+    .expect("drop temporary database");
+    admin.close().await;
+}
+
+/// Phase 5 integration checks: cache namespace invalidation, rate limiting,
+/// server heartbeat classification and the explicit player stat scope.
+#[tokio::test]
+async fn phase5_cache_rate_limit_and_scope() {
+    let Some((admin, pool, database_name, database_url)) = create_fixture_database().await else {
+        eprintln!("skipped: DATABASE_URL is not set");
+        return;
+    };
+
+    // A dedicated config with a tiny public rate limit and a maintenance token.
+    let config = AppConfig::from_pairs([
+        ("APP_ENV", "test".to_owned()),
+        ("APP_VERSION", "0.0.0-test".to_owned()),
+        ("DATABASE_URL", database_url.clone()),
+        ("REDIS_URL", "redis://127.0.0.1:56379".to_owned()),
+        ("PUBLIC_RATE_LIMIT_PER_MINUTE", "3".to_owned()),
+        ("MAINTENANCE_TOKEN", "phase5-test-token".to_owned()),
+    ])
+    .expect("config");
+    let redis = state::RedisClient::new(&config.redis_url, "test-phase5").expect("redis client");
+    let app_state = AppState::new(config, pool.clone(), redis);
+    let app = routes::build_router(app_state.clone());
+
+    async fn get_with(
+        app: &Router,
+        path: &str,
+        headers: &[(&str, &str)],
+    ) -> (StatusCode, Value, axum::http::HeaderMap) {
+        let mut builder = Request::builder().uri(path);
+        for (name, value) in headers {
+            builder = builder.header(*name, *value);
+        }
+        let response = app
+            .clone()
+            .oneshot(builder.body(Body::empty()).expect("request"))
+            .await
+            .expect("response");
+        let status = response.status();
+        let response_headers = response.headers().clone();
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        (
+            status,
+            serde_json::from_slice(&bytes).expect("json"),
+            response_headers,
+        )
+    }
+
+    // Same-origin requests share one peer key; 4th request is rejected.
+    let mut rate_limited = false;
+    for _ in 0..4 {
+        let (status, body, headers) = get_with(&app, "/api/v1/public/modes", &[]).await;
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            assert_eq!(body["error"]["code"], "rate_limited");
+            assert!(headers.contains_key("retry-after"));
+            rate_limited = true;
+            break;
+        }
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+    assert!(rate_limited, "public rate limiter did not trigger");
+
+    // Health probes are outside the limiter and still work.
+    let (status, body, _) = get_with(&app, "/health", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Build a fresh router (and thus a fresh in-memory limiter) for the
+    // remaining functional assertions.
+    let app = routes::build_router(app_state.clone());
+
+    // Cache maintenance requires a token.
+    let (status, _, _) = get_with(&app, "/api/v1/public/maintenance/cache/version", &[]).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    // Initialise the namespace version so that a later INCR is observable even
+    // when Redis starts empty (missing version defaults to "1").
+    let auth = [("x-maintenance-token", "phase5-test-token")];
+    let init = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/public/maintenance/cache/invalidate")
+                .header("x-maintenance-token", "phase5-test-token")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(init.status(), StatusCode::OK);
+
+    // Authorized version read + invalidation + hot statistics warm.
+    let (status, body, _) = get_with(&app, "/api/v1/public/maintenance/cache/version", &auth).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let version_before: i64 = body["data"]["version"]
+        .as_str()
+        .unwrap_or("1")
+        .parse()
+        .expect("numeric version");
+
+    // Prime the statistics cache without rate limiting (direct service call).
+    let stats_before = public_service::statistics(&app_state)
+        .await
+        .expect("statistics");
+    assert_eq!(stats_before.players, 3);
+
+    let invalidate = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/public/maintenance/cache/invalidate")
+                .header("x-maintenance-token", "phase5-test-token")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(invalidate.status(), StatusCode::OK);
+    let bytes = invalidate
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
+    let body: Value = serde_json::from_slice(&bytes).expect("json");
+    eprintln!("invalidate response: {body}");
+    assert_eq!(body["data"]["invalidated"], true);
+    let version_after: i64 = body["data"]["version"]
+        .as_str()
+        .unwrap_or("1")
+        .parse()
+        .expect("numeric version");
+    assert!(
+        version_after > version_before,
+        "cache namespace version must advance: {version_before} -> {version_after}"
+    );
+
+    // Player detail now exposes an explicit scope; scoped and unscoped numbers
+    // are both present and clearly labelled.
+    let (status, body, _) = get_with(&app, "/api/v1/public/players/76561198000000001", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["overall"]["scoped"], false);
+    assert_eq!(body["data"]["scoped"]["scoped"], true);
+    assert_eq!(body["data"]["scope"]["mode"]["code"], "vanilla");
+    assert_eq!(body["data"]["scope"]["style"]["code"], "all");
+    assert_eq!(body["data"]["scope"]["time_type"], "all");
+    assert_eq!(body["data"]["tiers"].as_array().map(Vec::len), Some(2));
+
+    // Server list status classification.
+    let (status, body, _) = get_with(&app, "/api/v1/public/servers", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let servers = body["data"]["items"].as_array().expect("servers");
+    let alpha = servers
+        .iter()
+        .find(|item| item["name"] == "Alpha Server")
+        .expect("alpha server");
+    let beta = servers
+        .iter()
+        .find(|item| item["name"] == "Beta Server")
+        .expect("beta server");
+    assert_eq!(alpha["status"], "online");
+    assert_eq!(beta["status"], "expired");
+    assert!(alpha["heartbeat_age_seconds"].is_number());
+    assert!(alpha["players"].is_null());
+
     pool.close().await;
     sqlx::raw_sql(AssertSqlSafe(format!(
         "DROP DATABASE IF EXISTS \"{database_name}\" WITH (FORCE)"

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 concurrency:
@@ -59,7 +59,8 @@ jobs:
       - name: OpenAPI document is up to date
         run: |
           cargo run --quiet --bin dump-openapi -- docs/openapi.json
-          git diff --exit-code -- docs/openapi.json
+          pnpm --filter @cngokz/shared-types gen:api >/dev/null
+          git diff --exit-code -- docs/openapi.json packages/shared-types/src/generated/api-schema.d.ts
 
   web:
     name: Web (lint, typecheck, tests, build)

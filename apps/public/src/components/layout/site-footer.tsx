@@ -15,6 +15,9 @@ export function SiteFooter() {
           <Link to="/leaderboards" className="hover:text-foreground">
             排行榜
           </Link>
+          <Link to="/points" className="hover:text-foreground">
+            积分榜
+          </Link>
           <Link to="/players" className="hover:text-foreground">
             玩家
           </Link>

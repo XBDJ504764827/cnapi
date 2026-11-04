@@ -1,20 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { Trophy } from 'lucide-react';
+import { CircleHelp, FilterX, Trophy } from 'lucide-react';
 
 import { EmptyState } from '@/components/common/empty-state';
-import { ModeTabs } from '@/components/common/mode-tabs';
+import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
-import { PlayerAvatar, PlayerNameLink } from '@/components/common/player-avatar';
-import { Callout } from '@/components/ui/callout';
+import { ModeSegment } from '@/components/leaderboards/mode-segment';
+import { RankRow, RankRowSkeleton } from '@/components/leaderboards/rank-row';
+import { SummaryStrip } from '@/components/leaderboards/summary-strip';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Pagination } from '@/components/ui/pagination';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useListParams } from '@/hooks/use-list-params';
-import { formatDateTime, formatNumber } from '@/lib/format';
+import { formatNumber } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { publicQueries } from '@/services/public-service';
 import { usePageMeta } from '@/seo/use-page-meta';
-import type { LeaderboardEntryPayload } from '@cngokz/shared-types';
+
+const timeTypeOptions = [
+  { value: 'all', label: '全部类型' },
+  { value: 'pro', label: 'PRO' },
+  { value: 'nub', label: 'NUB' },
+] as const;
 
 export function LeaderboardsPage() {
   usePageMeta({
@@ -31,108 +40,146 @@ export function LeaderboardsPage() {
     publicQueries.leaderboard({ mode, time_type: timeType, page: list.page, page_size: list.pageSize }),
   );
 
-  const columns: DataTableColumn<LeaderboardEntryPayload>[] = [
-    {
-      id: 'rank',
-      header: '#',
-      className: 'w-14',
-      cell: (row) => <span className="font-mono text-xs text-muted-foreground tabular-nums">#{row.rank}</span>,
-    },
-    {
-      id: 'player',
-      header: '玩家',
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <PlayerAvatar steamId64={row.steam_id64} displayName={row.display_name} size="sm" />
-          <div className="min-w-0">
-            <PlayerNameLink steamId64={row.steam_id64} displayName={row.display_name} />
-            <p className="truncate font-mono text-[10px] text-muted-foreground">{row.steam_id64}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'country',
-      header: '国家',
-      cell: (row) => <span className="text-xs text-muted-foreground">{row.country ?? '—'}</span>,
-    },
-    {
-      id: 'maps',
-      header: '完成地图',
-      className: 'text-right',
-      cell: (row) => <span className="font-medium tabular-nums">{formatNumber(row.completed_maps)}</span>,
-    },
-    {
-      id: 'wr',
-      header: 'WR',
-      className: 'text-right',
-      cell: (row) => <span className="tabular-nums">{formatNumber(row.wr_count)}</span>,
-    },
-    {
-      id: 'records',
-      header: '成绩数',
-      className: 'text-right',
-      cell: (row) => <span className="text-muted-foreground tabular-nums">{formatNumber(row.total_records)}</span>,
-    },
-    {
-      id: 'last',
-      header: '最近活动',
-      cell: (row) => <span className="text-xs text-muted-foreground">{formatDateTime(row.last_activity_at)}</span>,
-    },
-    {
-      id: 'points',
-      header: '积分',
-      className: 'text-right',
-      cell: () => <span className="text-muted-foreground">—</span>,
-    },
-  ];
+  const activeMode = modes.data?.items.find((item) => item.code === mode);
+  const entries = query.data?.items ?? [];
+  const hasFilters = mode !== 'vanilla' || timeType !== 'all' || list.page > 1;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="全球排行榜"
-        description="按模式查看全球玩家排名。当前按完成主线地图数排序，积分算法尚未定义。"
-        meta={query.data ? <span>共 {formatNumber(query.data.meta.total)} 位有成绩的玩家</span> : null}
+        description="按模式与成绩类型查看完成地图排行榜；积分榜请切换到独立的 KZT / SKZ / VNL 页面。"
+        meta={
+          <>
+            <span className="font-mono">{activeMode?.display_name ?? mode}</span>
+            <span className="text-border-strong">·</span>
+            <span>{timeType === 'all' ? '全部成绩类型' : timeType.toUpperCase()}</span>
+            <span className="text-border-strong">·</span>
+            <span>共 {formatNumber(query.data?.meta.total)} 位有成绩的玩家</span>
+          </>
+        }
       />
 
-      <Callout
-        variant="neutral"
-        title="积分与排名口径"
-        description="CNGOKZAPI 尚未实现积分算法，因此排行榜不使用 Points/Rating。排名按完成主线地图数（相同则依次比较 WR 数、成绩数）计算。"
-      />
+      {/* Filter console: segmented mode switch + compact selectors, no giant callout. */}
+      <Card className="gap-3 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">模式</span>
+            <ModeSegment
+              modes={modes.data?.items}
+              value={mode}
+              onChange={(value) => list.setFilter('mode', value, 'vanilla')}
+              isLoading={modes.isLoading}
+            />
+          </div>
 
-      <ModeTabs
-        modes={modes.data?.items}
-        value={mode}
-        onChange={(value) => list.setFilter('mode', value, 'vanilla')}
-        isLoading={modes.isLoading}
-      />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-elevated/40 p-0.5">
+              {timeTypeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={timeType === option.value}
+                  onClick={() => list.setFilter('time_type', option.value, 'all')}
+                  className={cn(
+                    'h-8 cursor-pointer rounded-sm px-3 text-xs font-medium transition-colors outline-none select-none',
+                    timeType === option.value
+                      ? 'bg-primary/15 text-primary shadow-xs'
+                      : 'text-muted-foreground hover:bg-surface-hover hover:text-foreground',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
-      <Tabs value={timeType} onValueChange={(value) => list.setFilter('time_type', value, 'all')}>
-        <TabsList>
-          <TabsTrigger value="all">全部类型</TabsTrigger>
-          <TabsTrigger value="pro">PRO</TabsTrigger>
-          <TabsTrigger value="nub">NUB</TabsTrigger>
-        </TabsList>
-      </Tabs>
+            <Select value={String(list.pageSize)} onValueChange={(value) => list.setPageSize(Number(value))}>
+              <SelectTrigger className="w-24" aria-label="每页显示">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size} / 页
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="ghost" size="sm" onClick={list.reset} disabled={!hasFilters} title="重置筛选与分页">
+              <FilterX />
+              重置
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <Badge variant="outline">完成主线地图数</Badge>
+          <span>并列时依次比较 WR 数、成绩数；此榜不以积分排序。</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <CircleHelp className="size-3" />
+                排名说明
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">
+              完成地图 = 主线课程（stage 0）的已通过成绩；Bonus 成绩不计入。同一模式与成绩类型下分别统计。
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </Card>
+
+      <SummaryStrip
+        mode={mode}
+        timeType={timeType}
+        total={query.data?.meta.total}
+        entries={entries}
+        isLoading={query.isLoading}
+      />
 
       <Card className="overflow-hidden">
-        <DataTable
-          columns={columns}
-          rows={query.data?.items ?? []}
-          getRowKey={(row) => row.account_id}
-          isLoading={query.isLoading}
-          error={
-            query.isError
-              ? { title: '无法加载排行榜', description: query.error.message, onRetry: () => void query.refetch() }
-              : null
-          }
-          minWidthClass="min-w-[960px]"
-          empty={
-            <EmptyState icon={Trophy} title="暂无排行榜数据" description="当前模式与成绩类型还没有已通过的成绩。" />
-          }
-        />
-        <div className="border-t border-border/70 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5 sm:px-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="size-4 text-primary" aria-hidden="true" />
+            <h2 className="text-sm font-semibold">{activeMode?.display_name ?? mode} 排名</h2>
+          </div>
+          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+            {query.data ? `#${(query.data.meta.page - 1) * query.data.meta.page_size + 1} 起` : '—'}
+          </span>
+        </div>
+
+        {query.isError ? (
+          <div className="p-4">
+            <ErrorState title="无法加载排行榜" description={query.error.message} onRetry={() => void query.refetch()} />
+          </div>
+        ) : query.isLoading ? (
+          <div className="divide-y divide-border/60">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <RankRowSkeleton key={index} />
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="p-4">
+            <EmptyState
+              icon={Trophy}
+              title="暂无排行榜数据"
+              description="当前模式与成绩类型下还没有已通过的成绩。接入成绩后排行榜会自动生成。"
+              hint="排名不使用模拟数据"
+            />
+          </div>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {entries.map((entry) => (
+              <RankRow key={entry.account_id} entry={entry} rank={entry.rank} />
+            ))}
+          </div>
+        )}
+
+        <div className="border-t border-border/70 px-3 py-3 sm:px-4">
           <Pagination
             page={query.data?.meta.page ?? list.page}
             pageSize={query.data?.meta.page_size ?? list.pageSize}

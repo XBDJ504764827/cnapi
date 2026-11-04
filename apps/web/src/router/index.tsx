@@ -9,8 +9,12 @@ import { RouteErrorPage } from '@/pages/route-error-page';
 // Route level code splitting: one chunk per page.
 const DashboardPage = lazy(async () => ({ default: (await import('@/pages/dashboard-page')).DashboardPage }));
 const SystemStatusPage = lazy(async () => ({ default: (await import('@/pages/system-status-page')).SystemStatusPage }));
+const PointsPage = lazy(async () => ({ default: (await import('@/pages/points-page')).PointsPage }));
+const PointsTiersPage = lazy(async () => ({ default: (await import('@/pages/points-tiers-page')).PointsTiersPage }));
+const PointsRecalcPage = lazy(async () => ({ default: (await import('@/pages/points-recalc-page')).PointsRecalcPage }));
 const PlayersPage = lazy(async () => ({ default: (await import('@/pages/players-page')).PlayersPage }));
 const PlayerDetailPage = lazy(async () => ({ default: (await import('@/pages/player-detail-page')).PlayerDetailPage }));
+const PlayerPointsPage = lazy(async () => ({ default: (await import('@/pages/player-points-page')).PlayerPointsPage }));
 const MapsPage = lazy(async () => ({ default: (await import('@/pages/maps-page')).MapsPage }));
 const RecordsPage = lazy(async () => ({ default: (await import('@/pages/records-page')).RecordsPage }));
 const LeaderboardPage = lazy(async () => ({ default: (await import('@/pages/leaderboard-page')).LeaderboardPage }));
@@ -40,10 +44,14 @@ export const router = createBrowserRouter(
 
         { path: 'dashboard', element: withSuspense(<DashboardPage />) },
         { path: 'system/status', element: withSuspense(<SystemStatusPage />) },
+        { path: 'points', element: withSuspense(<PointsPage />) },
+        { path: 'points/tiers', element: withSuspense(<PointsTiersPage />) },
+        { path: 'points/recalc', element: withSuspense(<PointsRecalcPage />) },
         { path: 'system/settings', element: withSuspense(<SettingsPage />) },
 
         { path: 'players', element: withSuspense(<PlayersPage />) },
         { path: 'players/:playerId', element: withSuspense(<PlayerDetailPage />) },
+        { path: 'players/:playerId/points', element: withSuspense(<PlayerPointsPage />) },
 
         { path: 'maps', element: withSuspense(<MapsPage />) },
         { path: 'records', element: withSuspense(<RecordsPage />) },

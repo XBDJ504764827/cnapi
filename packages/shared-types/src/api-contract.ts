@@ -77,3 +77,19 @@ export type MapCoursePayload = components['schemas']['MapCourseDto'];
 export type ServerSummaryPayload = components['schemas']['ServerSummary'];
 export type ServerListPayload = components['schemas']['ServerListResponse'];
 export type SearchPayload = components['schemas']['SearchResponse'];
+
+export type PlayerStatScopePayload = components['schemas']['PlayerStatScope'];
+
+/* Phase 6 points payloads */
+export type PlayerPointsPayload = components['schemas']['PlayerPointsResponse'];
+export type ModePointsPayload = components['schemas']['ModePointsDto'];
+export type PlayerFilterPointsPayload = components['schemas']['PlayerFilterPointsResponse'];
+export type PlayerFilterPointPayload = components['schemas']['PlayerFilterPointsDto'];
+export type PointsLeaderboardPayload = components['schemas']['PointsLeaderboardResponse'];
+export type PointsLeaderboardEntryPayload = components['schemas']['PointsLeaderboardEntry'];
+export type FilterLeaderboardPayload = components['schemas']['FilterLeaderboardResponse'];
+export type PointsSystemStatusPayload = components['schemas']['PointsSystemStatus'];
+export type AdminTiersPayload = components['schemas']['AdminTiersResponse'];
+export type AdminTierPayload = components['schemas']['AdminTierDto'];
+export type RecalcRunsPayload = components['schemas']['RecalcRunsResponse'];
+export type RecalcRunPayload = components['schemas']['RecalcRunDto'];

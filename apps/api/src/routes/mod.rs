@@ -2,7 +2,7 @@
 
 pub mod openapi;
 
-use axum::Router;
+use axum::{Router, middleware::from_fn_with_state};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -21,13 +21,22 @@ pub fn build_router(state: AppState) -> Router {
     let swagger =
         SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi::ApiDoc::openapi());
     let cors = middleware::cors_layer(&state.config().cors_allowed_origins);
+    let public_rate_limiter = middleware::RateLimiter::new(
+        state.config().public_rate_limit_per_minute,
+        std::time::Duration::from_secs(60),
+    );
 
     Router::new()
         .merge(handlers::health::router())
         .nest("/api/v1", handlers::system::router())
+        .nest("/api/v1", handlers::points::router())
         .nest("/api/v1/public", handlers::public::router())
         .merge(swagger)
         .fallback(not_found)
+        .layer(from_fn_with_state(
+            public_rate_limiter,
+            middleware::rate_limit::public_rate_limit,
+        ))
         .layer(middleware::trace_layer())
         .layer(middleware::request_id::propagate_layer())
         .layer(middleware::request_id::set_layer())

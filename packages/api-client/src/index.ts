@@ -16,6 +16,11 @@ export {
   type PublicRecentRecordsQuery,
   type PublicRecentWorldRecordsQuery,
   type PublicServerQuery,
+  type PublicPlayerFilterPointsQuery,
+  type PublicPointsLeaderboardQuery,
+  type PublicFilterLeaderboardQuery,
+  type PublicAdminTiersQuery,
+  type PublicRecalcRunsQuery,
 } from './client';
 export { ApiClientError, isApiClientError, type ClientErrorCode } from './errors';
 export { request, unwrapResponse, type EnvelopeResult } from './request';

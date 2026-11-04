@@ -13,6 +13,7 @@ import { ThemeToggle } from './theme-toggle';
 const publicNav = [
   { label: '首页', to: '/' },
   { label: '排行榜', to: '/leaderboards' },
+  { label: '积分榜', to: '/points' },
   { label: '玩家', to: '/players' },
   { label: '地图', to: '/maps' },
   { label: '成绩', to: '/records' },

@@ -62,7 +62,16 @@ export function ServersPage() {
     {
       id: 'status',
       header: '状态',
-      cell: (row) => <StatusIndicator tone={row.online ? 'up' : 'unknown'} label={row.online ? '在线' : '离线'} />,
+      cell: (row) => {
+        const meta: Record<string, { tone: 'up' | 'down' | 'unknown'; label: string }> = {
+          online: { tone: 'up', label: '在线' },
+          offline: { tone: 'unknown', label: '离线' },
+          expired: { tone: 'down', label: '心跳过期' },
+          unknown: { tone: 'unknown', label: '数据未知' },
+        };
+        const state = meta[row.status ?? ''] ?? meta.unknown!;
+        return <StatusIndicator tone={state.tone} label={state.label} />;
+      },
     },
     {
       id: 'map',
@@ -88,7 +97,14 @@ export function ServersPage() {
     {
       id: 'heartbeat',
       header: '最近心跳',
-      cell: (row) => <span className="text-[11px] text-muted-foreground">{formatDateTime(row.last_heartbeat_at)}</span>,
+      cell: (row) => (
+        <div>
+          <span className="text-[11px] text-muted-foreground">{formatDateTime(row.last_heartbeat_at)}</span>
+          {row.heartbeat_age_seconds !== null && row.heartbeat_age_seconds !== undefined ? (
+            <p className="text-[10px] text-muted-foreground">{row.heartbeat_age_seconds} 秒前</p>
+          ) : null}
+        </div>
+      ),
     },
   ];
 
@@ -101,14 +117,14 @@ export function ServersPage() {
     <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
         title="服务器列表"
-        description="服务器主动上报或后端采集的公开信息。播放器数量、最大人数与服务器模式尚未采集。"
+        description="服务器主动上报或后端采集的公开信息。在线按 2 分钟心跳判定，过期与未知分别标注。"
         meta={query.data ? <span>共 {query.data.meta.total.toLocaleString('zh-CN')} 台服务器</span> : null}
       />
 
       <Callout
         variant="neutral"
         title="数据来源与缺失字段"
-        description="在线状态根据最近心跳（2 分钟内）推导；当前玩家数、最大人数与服务器级模式尚未入库，显示为 “—”。"
+        description="online = 2 分钟内有心跳；offline = 明确离线；expired = 心跳过期；unknown = 从未上报。当前玩家数、最大人数与服务器级模式尚未入库，显示为 “—”。"
       />
 
       <Card className="overflow-hidden">

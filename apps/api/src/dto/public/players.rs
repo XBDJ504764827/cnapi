@@ -63,9 +63,9 @@ pub struct PlayerListResponse {
 #[derive(Debug, Clone, Default, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Query)]
 pub struct PlayerDetailQuery {
-    /// Mode used for tier progress and per-mode cards (default `vanilla`).
+    /// Mode used for the whole detail page (default `vanilla`).
     pub mode: Option<String>,
-    /// `all` (default), `nub`, `pro` — used for tier progress.
+    /// `all` (default), `nub`, `pro` — used for the whole detail page.
     pub time_type: Option<String>,
 }
 
@@ -82,6 +82,8 @@ pub struct PlayerProfileDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PlayerOverallStats {
+    /// `true` = these numbers are scoped to `scope`; `false` = all-mode summary.
+    pub scoped: bool,
     pub global_rank: Option<i64>,
     pub completed_maps: i64,
     pub total_maps: i64,
@@ -122,14 +124,30 @@ pub struct TierProgressDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PlayerStatScope {
+    pub mode: ModeRef,
+    /// Synthetic "all styles" reference; style is an optional drill-down, not
+    /// part of the default ranking/completion scope.
+    pub style: StyleRef,
+    /// `all`, `nub` or `pro`.
+    pub time_type: String,
+    /// Human-readable definition of what "completed" means for this page.
+    pub completion_definition: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PlayerDetailResponse {
     pub profile: PlayerProfileDto,
+    /// All-mode/all-type summary, explicitly marked `scoped=false`.
     pub overall: PlayerOverallStats,
+    /// Per-mode breakdown across all time types/styles.
     pub modes: Vec<PlayerModeStatsDto>,
+    /// Tier completion counts for the selected `scope`.
     pub tiers: Vec<TierProgressDto>,
-    /// Mode used for `tiers`.
-    pub tier_mode: ModeRef,
-    pub tier_time_type: String,
+    /// Scope shared by `tiers`, map progress and the scoped card.
+    pub scope: PlayerStatScope,
+    /// Summary for the selected `scope` (`scoped=true`).
+    pub scoped: PlayerOverallStats,
     pub ranking_metric: String,
     pub points_available: bool,
 }

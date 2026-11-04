@@ -1,4 +1,5 @@
 import {
+  Activity,
   Ban,
   FileCode2,
   Film,
@@ -33,6 +34,27 @@ export const navSections: NavSection[] = [
         icon: LayoutDashboard,
         description: '平台运行概览与关键指标',
         keywords: ['dashboard', 'overview', 'home'],
+      },
+      {
+        label: '积分概览',
+        to: '/points',
+        icon: Trophy,
+        description: '三模式积分排名与重算任务状态',
+        keywords: ['points', 'scoring', 'rank'],
+      },
+      {
+        label: '地图等级',
+        to: '/points/tiers',
+        icon: Map,
+        description: '按 map × course × mode 配置等级与首通状态',
+        keywords: ['tier', 'first completion'],
+      },
+      {
+        label: '重算管理',
+        to: '/points/recalc',
+        icon: Activity,
+        description: 'Filter 重算任务与失败记录',
+        keywords: ['recalc', 'queue'],
       },
       {
         label: '系统状态',

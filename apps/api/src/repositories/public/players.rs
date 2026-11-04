@@ -48,6 +48,85 @@ pub async fn overall(pool: &PgPool, account_id: i64) -> Result<OverallRow, sqlx:
     .await
 }
 
+/// Overall stats for a player under one explicit scope.
+///
+/// `None` filters mean "all modes / all time types / all styles". `completed_maps`
+/// always means: distinct approved maps with a main-course (stage=0) record.
+pub async fn scoped_overall(
+    pool: &PgPool,
+    account_id: i64,
+    mode_id: Option<i16>,
+    time_type: Option<TimeType>,
+    style_id: Option<i16>,
+) -> Result<OverallRow, sqlx::Error> {
+    // Whitelisted, parameterized SQL fragments built only from enum/id values.
+    let mode_filter = match mode_id {
+        Some(_) => " AND r.mode_id = $2",
+        None => "",
+    };
+    let tt_filter = match time_type {
+        Some(TimeType::Pro) => " AND r.time_type = 'pro'",
+        Some(TimeType::Nub) => " AND r.time_type = 'nub'",
+        None => "",
+    };
+    let style_filter = match style_id {
+        Some(_) => " AND r.style_id = $3",
+        None => "",
+    };
+    let wr_mode = match mode_id {
+        Some(_) => " AND wr.mode_id = $2",
+        None => "",
+    };
+    let wr_tt = match time_type {
+        Some(TimeType::Pro) => " AND wr.time_type = 'pro'",
+        Some(TimeType::Nub) => " AND wr.time_type = 'nub'",
+        None => "",
+    };
+    let wr_style = match style_id {
+        Some(_) => " AND wr.style_id = $3",
+        None => "",
+    };
+
+    let sql = format!(
+        r#"
+        SELECT
+            (SELECT count(*) FROM records r
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                {mode_filter}{tt_filter}{style_filter}) AS total_records,
+            (SELECT count(*) FROM records r
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                AND r.time_type = 'pro'{mode_filter}{tt_filter}{style_filter}) AS pro_count,
+            (SELECT count(*) FROM records r
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                AND r.time_type = 'nub'{mode_filter}{tt_filter}{style_filter}) AS tp_count,
+            (SELECT count(DISTINCT r.map_id) FROM records r
+              JOIN map_courses c ON c.id = r.course_id AND c.stage = 0
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                {mode_filter}{tt_filter}{style_filter}) AS completed_maps,
+            (SELECT count(*) FROM maps m
+              WHERE m.status = 'approved' AND m.deleted_at IS NULL
+                AND ($2::smallint IS NULL OR EXISTS (
+                    SELECT 1 FROM map_modes mm WHERE mm.map_id = m.id AND mm.mode_id = $2
+                ))) AS total_maps,
+            (SELECT count(*) FROM course_world_records w
+              JOIN records wr ON wr.id = w.record_id
+              WHERE wr.account_id = $1 AND wr.status = 'approved' AND wr.deleted_at IS NULL
+                {wr_mode}{wr_tt}{wr_style}) AS wr_count,
+            (SELECT min(r.created_at) FROM records r
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                {mode_filter}{tt_filter}{style_filter}) AS first_record_at,
+            (SELECT max(r.created_at) FROM records r
+              WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
+                {mode_filter}{tt_filter}{style_filter}) AS last_record_at
+        "#
+    );
+
+    let mut query = sqlx::query_as::<_, OverallRow>(AssertSqlSafe(sql)).bind(account_id);
+    query = query.bind(mode_id);
+    query = query.bind(style_id);
+    query.fetch_one(pool).await
+}
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct ModeStatsRow {
     pub mode_id: i16,
@@ -102,11 +181,13 @@ pub struct TierRow {
     pub completed_count: i64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn tier_progress(
     pool: &PgPool,
     account_id: i64,
     mode_id: i16,
     time_type: Option<TimeType>,
+    style_id: Option<i16>,
 ) -> Result<Vec<TierRow>, sqlx::Error> {
     let tier_column = match time_type {
         Some(TimeType::Pro) => "ct.pro_tier",
@@ -115,6 +196,10 @@ pub async fn tier_progress(
     let tt_filter = match time_type {
         Some(value) => format!(" AND r.time_type = '{}'", value.as_str()),
         None => String::new(),
+    };
+    let style_filter = match style_id {
+        Some(_) => " AND r.style_id = $3",
+        None => "",
     };
 
     let sql = format!(
@@ -134,7 +219,7 @@ pub async fn tier_progress(
              WHERE r.account_id = $1
                AND r.mode_id = $2
                AND r.status = 'approved'
-               AND r.deleted_at IS NULL{tt_filter}
+               AND r.deleted_at IS NULL{tt_filter}{style_filter}
         )
         SELECT mt.tier,
                count(*)::bigint AS map_count,
@@ -149,6 +234,7 @@ pub async fn tier_progress(
     sqlx::query_as::<_, TierRow>(AssertSqlSafe(sql))
         .bind(account_id)
         .bind(mode_id)
+        .bind(style_id)
         .fetch_all(pool)
         .await
 }

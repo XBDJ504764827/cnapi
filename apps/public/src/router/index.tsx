@@ -15,6 +15,10 @@ const MapsPage = lazy(async () => ({ default: (await import('@/pages/maps-page')
 const MapDetailPage = lazy(async () => ({ default: (await import('@/pages/map-detail-page')).MapDetailPage }));
 const RecordsPage = lazy(async () => ({ default: (await import('@/pages/records-page')).RecordsPage }));
 const ServersPage = lazy(async () => ({ default: (await import('@/pages/servers-page')).ServersPage }));
+const PointsLeaderboardsPage = lazy(async () => ({
+  default: (await import('@/pages/points-leaderboards-page')).PointsLeaderboardsPage,
+}));
+const PlayerPointsPage = lazy(async () => ({ default: (await import('@/pages/player-points-page')).PlayerPointsPage }));
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +35,8 @@ export const router = createBrowserRouter([
       { path: 'maps/:slug', element: withSuspense(<MapDetailPage />) },
       { path: 'records', element: withSuspense(<RecordsPage />) },
       { path: 'servers', element: withSuspense(<ServersPage />) },
+      { path: 'points', element: withSuspense(<PointsLeaderboardsPage />) },
+      { path: 'players/:steamid/points', element: withSuspense(<PlayerPointsPage />) },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

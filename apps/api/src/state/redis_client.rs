@@ -111,6 +111,25 @@ impl RedisClient {
         }
     }
 
+    /// Writes a string value only when the key does not exist.
+    pub async fn set_nx(&self, key: &str, value: &str) -> Result<bool, redis::RedisError> {
+        let mut connection = self.connection().await?;
+        match redis::cmd("SET")
+            .arg(key)
+            .arg(value)
+            .arg("NX")
+            .query_async::<Option<String>>(&mut connection)
+            .await
+        {
+            Ok(result) => Ok(result.is_some()),
+            Err(error) => {
+                warn!(error = %error, key, "redis SETNX failed; dropping pooled connection");
+                self.invalidate().await;
+                Err(error)
+            }
+        }
+    }
+
     /// Atomically increments a counter and returns the new value.
     pub async fn incr(&self, key: &str) -> Result<i64, redis::RedisError> {
         let mut connection = self.connection().await?;

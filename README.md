@@ -105,7 +105,7 @@ CNGOKZAPI/
 
 ```bash
 cp .env.example .env          # 按需修改密码与端口
-docker compose up -d --build  # 启动 PostgreSQL / Redis / API / Web
+docker compose up -d --build  # 启动 PostgreSQL / Redis / API / Web / Public
 docker compose logs -f        # 查看日志
 docker compose down           # 停止（保留数据卷）
 ```
@@ -172,6 +172,10 @@ pnpm -r format:check
 
 # 测试
 cargo test --all-targets                      # 需 DATABASE_URL/REDIS_URL 才执行集成用例
+# 带真实依赖：
+# DATABASE_URL=... REDIS_URL=... cargo test --all-targets
+# 缓存失效维护端点（需 MAINTENANCE_TOKEN）：
+# curl -X POST localhost:8080/api/v1/public/maintenance/cache/invalidate -H "X-Maintenance-Token: ..." 
 pnpm -r test
 
 # 构建
@@ -210,7 +214,7 @@ scripts/gen-api.sh
 - 页面：首页（统计/模式 Top10/最近 20 条成绩/最近 WR/活跃玩家/在线服务器/全局搜索）、排行榜、玩家目录、玩家详情（综合/模式/难度进度/地图完成与未完成/成绩历史）、玩家比较（综合/模式/难度/逐地图）、地图列表与详情（课程/统计/排行榜）、成绩查询（多维筛选/排序/详情）、服务器列表。
 - 后端新增 `/api/v1/public/*` 只读接口（统计、模式、排行榜、玩家、地图、成绩、服务器、搜索），分页上限 100，统一响应结构并纳入 OpenAPI；SQL 聚合（`LATERAL` 最佳成绩、`RANK()`、`count(DISTINCT)`），避免 N+1。
 - Redis 缓存：统计 30s、排行榜 60s、最近成绩 15s、玩家/地图 30–120s；`public:version` 计数器可一次性失效；Redis 故障时 300ms 超时快速回源。
-- 数据准确性：完成地图以主线课程（stage 0）为准，Bonus 单独统计；完成时间（跑图时长）与上传时间严格区分；积分算法尚未定义，`points` 为 `null` 并明确展示，不伪造积分。
+- 数据准确性：完成地图以主线课程（stage 0）为准，Bonus 单独统计；完成时间（跑图时长）与上传时间严格区分。积分在第六阶段按 Filter 公式实现，详见 [docs/points-system.md](docs/points-system.md)。
 - 已知缺口：玩家头像、地图作者/封面、服务器玩家数/模式、WR 历史提升值、Replay 公开下载、动态 sitemap。详见 [公开门户架构](docs/public-portal/architecture.md#10-已知缺口与阶段-5-建议)。
 
 ## 界面设计（第三阶段）
@@ -239,6 +243,18 @@ scripts/gen-api.sh
 - [Accounts](docs/database/accounts.md) · [Maps](docs/database/maps.md) · [Records](docs/database/records.md) · [Servers](docs/database/servers.md) · [Jumpstats](docs/database/jumpstats.md) · [Replays](docs/database/replays.md) · [Moderation](docs/database/moderation.md)
 - [GlobalAPI 兼容性分析](docs/globalapi-compatibility.md)
 - [开发记录（变更日志）](docs/changelog.md)
+
+## 第六阶段状态
+
+- 新增 Filter 积分系统：KZT / SKZ / VNL 完全独立，权威 `(map,course,mode)` 等级与 VNL T9 首通历史标签；积分公式、PB/WR/排名重算、玩家模式总分、Filter/模式积分榜、管理端点与前后端页面已实现。
+- 详见 [docs/points-system.md](docs/points-system.md) 与 [docs/phase6-audit.md](docs/phase6-audit.md)。
+- 积分/Rating 已按第六阶段规则实现；历史成绩 T9 回溯、封禁成绩排除、同成绩 tie-break 等仍为待确认事项。
+
+## 第五阶段状态
+
+- 完成审查（[docs/phase5-audit.md](docs/phase5-audit.md)）、统计口径统一、Redis 缓存硬化、公开接口限流、服务器四态、性能索引与 EXPLAIN 验证、静态路径安全、部署参数修正。
+- 积分算法已在第六阶段实现；管理后台认证仍只有维护令牌，服务器心跳上报、Replay 下载、动态 sitemap 尚未实现。
+- Docker 启动因环境无 `docker` 命令未实际执行；其余构建、测试与端到端验证通过。
 
 ## 阶段状态
 

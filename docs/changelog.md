@@ -18,6 +18,125 @@
 
 ---
 
+## 2026年11月04日 21时58分57秒 第六阶段：玩家积分与排行榜系统
+
+**背景**
+
+按需求先完成项目审查（见 `docs/phase6-audit.md`），输出实际数据结构与现有规则；仓库中未发现用户所说的历史积分规范文件，因此以本轮需求正文中的公式为最终准则。在不重建项目、不删除成绩、不修改既有成绩判定规则的前提下，实现 Filter 积分计算、持久化、重算、三模式独立总分、排行榜与前后端展示闭环。
+
+**变更内容**
+
+- 审查结论：PRO ⇔ `teleports=0` 由既有 CHECK 强制；有效成绩 = `approved` 且未软删除；等级原先按 `(course,mode)` 且 NUB/PRO 两列；`player_mode_stats.points/rating` 为未使用的预留列；Style 当前只有 `normal`；WR 指针表已存在但未关联积分。
+- 新增迁移 `20261104000002_points_system.sql`：`scoring_modes`（KZT→kztimer / SKZ→simple / VNL→vanilla，classic 不参与）、`course_mode_tiers`（权威 tier[map][course][mode] + 首通状态，tier 1–8）、`scoring_filters`、`player_filter_points`、`player_mode_points`、`filter_recalc_tasks`、`filter_recalc_runs`、`filter_first_completions`，以及组合索引/partial 索引；未删除表或数据。
+- 新增纯 Rust 模块 `services/scoring/{model,formula}.rs`：基础分表、排名系数、分布系数、最终积分；WR 恒为 1000；T9 用 T8 计算；非法输入拒绝；N 不参与第一版公式。
+- 新增 `services/scoring/recalc.rs`：SQL CTE 聚合全部玩家 PB / WR / rank / pb_count，事务内批量替换积分并重建单模式总分；`FOR UPDATE SKIP LOCKED` 任务领取；按模式缓存失效；幂等；初始化端点不回填历史 T9。
+- DB 触发器：成绩变更只标记受影响 Filter 并入队；VNL 未完成课程的首个有效成绩写 T9 历史标签并立即置 T8；等级变更触发同模式 Filter 重算。KZT/SKZ 不受 VNL 首通影响。
+- 新增 API：玩家积分、Filter 积分明细、KZT/SKZ/VNL 积分榜、Filter 榜、积分状态、等级管理、重算任务/单 Filter/单模式/历史初始化；管理端点由 `X-Maintenance-Token` 保护。OpenAPI 重新生成。
+- 前端：公开门户新增 `/points`、`/players/:steamid/points`，玩家详情加入三模式积分卡，页头/页脚加入口；管理后台新增积分概览、地图等级、重算管理、玩家积分明细页；API Client/共享类型新增 points 方法。
+- 文档：`docs/points-system.md`、`docs/phase6-audit.md`，README 阶段状态同步；移除“积分算法尚未定义”的旧文案。
+
+**涉及文件**
+
+- 新增：`apps/api/migrations/20261104000002_points_system.sql`、`apps/api/src/services/scoring/{mod,model,formula,recalc}.rs`、`apps/api/src/repositories/points.rs`、`apps/api/src/services/points.rs`、`apps/api/src/handlers/points.rs`、`apps/api/src/dto/points.rs`、`apps/api/tests/points_system.rs`
+- 修改：`apps/api/src/{main,services/mod,repositories/mod,dto/mod,handlers/mod,routes/mod,routes/openapi,services/public/cache}.rs`、`apps/api/src/dto/public/*` 部分类型
+- 修改：`packages/api-client/src/{client,index}.ts`、`packages/shared-types/src/{api-contract,generated/api-schema.d}.ts`、`docs/openapi.json`
+- 新增公开门户：`src/services/points-service.ts`、`src/components/points/*`、`src/pages/{points-leaderboards,player-points}-page.tsx`、`src/pages/points-pages.test.tsx`、`src/test/fixtures.ts` 扩展
+- 新增管理后台：`src/services/points-service.ts`、`src/pages/{points,points-tiers,points-recalc,player-points}-page.tsx`，更新 nav-config/router/format/vite-env
+- 修改：`README.md`、`docs/{changelog,points-system,phase6-audit}.md`
+
+**数据库与 API 变化**
+
+- 数据库：新增 8 张积分相关表、触发器与索引；`records`、`course_tiers`、`course_world_records`、`player_mode_stats` 均未删除或改结构；历史成绩初始化不伪造 T9 标签。
+- API：新增 11 个积分相关端点；无现有公开接口被移除；管理端点需要维护令牌，未配置时 403。
+
+**测试与结果**
+
+- 后端：`cargo fmt --check`、`cargo clippy -D warnings` 通过；`cargo test` **70 个通过**（43 单元 + 10 HTTP + 1 points_system 集成 + 2 公开 API + 11 schema + 3 集成）；全新库 11 个迁移执行通过；算法测试覆盖 T1–T9、NUB/PRO、rank 边界、分布、非法输入、WR=1000。
+- 集成测试 `points_system.rs`：PB/WR/rank、T9 首通、KZT/SKZ/VNL 隔离、总分=PRO+NUB、增量与全量重算一致、原 WR 失去 1000 分后按当前规则重算。
+- 前端：`pnpm -r lint/typecheck/format:check` 通过；**38 个单测通过**（后台 21 + 门户 17，新增 3 个积分页面测试）；两个应用构建成功。
+- 运行时：11 个积分/管理端点 200（无令牌管理接口 401）；真实 fixture 经触发器入队、worker 重算 6 个 Filter，状态 pending=0/failed=0；VNL 全量重算后 5 个 Filter 成功；积分榜/Filter 明细/玩家总分均返回真实 PostgreSQL 数据。
+- Playwright 回归：公开门户 36/36、管理后台 38/38、统一入口 13/13；0 控制台错误（在第六阶段中间版本执行）。
+- **未执行**：Docker 镜像构建/Compose 启动（环境无 docker）；完整管理员认证（仍为维护令牌）；生产规模（百万级 PB）性能压测；历史成绩 T9 回溯（需求未确认）。
+
+## 2026年11月04日 20时59分12秒 第五阶段：全站联调、数据准确性、缓存/限流/性能与生产化
+
+**背景**
+
+按第五阶段要求先完成项目审查（结果见 `docs/phase5-audit.md`），再按最小修改方案修复：统一玩家统计范围、完善 Redis 缓存与限流、补充性能索引与执行计划、修正部署参数与静态服务器路径、补充测试与文档。不重建项目、不改技术栈、不改已有数据库表结构。
+
+**变更内容**
+
+- 新增审查文档 `docs/phase5-audit.md`，记录实际目录（管理后台为 `apps/web`、后端为 `apps/api`，无 `apps/admin`/`crates/`）、共享类型、模拟数据检查、Docker 与 TODO 审查结论。
+- 数据准确性：`PlayerDetailResponse` 新增 `overall(scoped=false)`、`scoped(scoped=true)`、`scope(mode/style/time_type/completion_definition)`；页面明确区分全站汇总与当前范围；`scoped_overall` 统一按 mode/time_type/style 计算，`tier_progress` 支持 style 过滤；完成定义统一为主线课程（stage 0）approved 成绩，Bonus 单独统计。
+- 积分/Rating：仍未定义算法，继续返回 `null` 并标注 `points_available=false`；**未擅自实现公式**。
+- API 稳定性：新增 `rate_limited` 错误码与 429 + `Retry-After`；`middleware/rate_limit.rs` 实现每 IP 固定窗口限流（`PUBLIC_RATE_LIMIT_PER_MINUTE`，默认 120），排除健康检查与维护端点；维护端点使用 `X-Maintenance-Token`（`MAINTENANCE_TOKEN`，未配置则 403）。
+- Redis：`services/public/cache.rs` 改为固定长度哈希 Key、TTL 抖动、per-key async 单飞、启动时 `SET NX` 初始化版本；新增 `POST /maintenance/cache/invalidate`（INCR + 首页统计预热）与 `GET /maintenance/cache/version`；`RedisClient` 增加 `set_nx`。
+- 服务器状态：`ServerSummary` 新增 `status(online/offline/expired/unknown)` 与 `heartbeat_age_seconds`；前端展示四态；玩家数/最大人数/模式仍为 `null`。
+- 性能：新增迁移 `20261104000001_phase5_indexes.sql`（pg_trgm、partial 索引：最近成绩、玩家/地图历史、进度查询、课程排名、WR 达成时间）；在 2 万条成绩临时库上用 `EXPLAIN (ANALYZE, BUFFERS)` 验证命中（0.09–0.30 ms 量级）。
+- 部署：修正 compose `VITE_SITE_URL` 默认 5173；`.env.example` 增加限流/维护令牌；CI 覆盖 `develop` 与 compose 校验；部署文档补充缓存失效、备份恢复后的失效流程。
+- 安全：两个静态服务器修复 decodeURIComponent 异常处理与路径穿越校验；日志/配置脱敏检查；无模拟数据写入。
+- 测试：新增 `phase5_cache_rate_limit_and_scope` 集成测试（限流 429、维护令牌、缓存版本推进、统计范围、服务器四态），`handlers::public` 维护令牌单测，缓存 Key/TTL 抖动单测；更新 `public_api.rs` 断言。
+
+**涉及文件**
+
+- 新增：`docs/phase5-audit.md`、`apps/api/migrations/20261104000001_phase5_indexes.sql`、`apps/api/src/middleware/rate_limit.rs`
+- 修改：`apps/api/src/{config,dto/response,errors,handlers/public,main,middleware/mod,routes/mod,routes/openapi,services/public/cache,services/public/mod,state/connections,state/redis_client,repositories/public/players}.rs`、`apps/api/src/dto/public/{players,servers}.rs`、`apps/api/tests/public_api.rs`
+- 修改：`apps/public/src/pages/{player-detail,servers}.tsx`、`components/players/overall-stats.tsx`、`apps/public/server/static-server.mjs`、`apps/web/server/static-server.mjs`
+- 修改：`.env.example`、`docker-compose.yml`、`.github/workflows/ci.yml`、`docs/{deployment,changelog,public-portal/*}.md`、`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`
+
+**数据库与 API 变化**
+
+- 数据库：仅新增索引与 `pg_trgm` 扩展，未修改表结构或业务数据。
+- API：`/api/v1/public/players/{steamid}`、`/servers` 响应增加字段（向后兼容新增字段）；新增 2 个维护端点；OpenAPI 28 paths / 101 schemas。
+
+**测试与结果**
+
+- 后端：`cargo fmt --check`、`cargo clippy -D warnings`、`cargo test` **61 个通过**（35 单元 + 10 HTTP + 2 公开 API + 11 schema + 3 集成）；`cargo build --release` 通过。
+- 前端：`pnpm -r lint/typecheck/format:check` 通过；**35 个单测通过**（管理后台 21 + 公开门户 14，新增 9 个页面级渲染/API 成功/失败/空数据/分页/搜索/玩家详情/地图详情/比较测试）；两个应用构建成功。
+- 端到端：公开门户 36/36、管理后台 38/38、统一入口 13/13、排行榜 8/8；0 控制台错误。真实 fixture 验证玩家统计/完成地图/WR/地图榜/排行榜一致；缓存失效后统计随数据库写入/删除同步变化。
+- 限流：集成测试与运行时 429 + `Retry-After` 均验证通过；维护端点无令牌 401。
+- 路径穿越：编码/非编码 `..` 请求返回 403 或 SPA 回退，不读取 dist 外文件。
+- **未执行**：Docker 镜像构建与 `docker compose up -d --build`（环境无 docker 命令）；多副本限流与 Redis 故障切换演练；生产认证/管理写接口（功能尚不存在）。
+
+## 2026年11月04日 19时43分24秒 全球排行榜页面视觉与交互重构
+
+**背景**
+
+公开门户的 `/leaderboards` 原使用“大段说明 Callout + 两行 Tab + 宽数据表（含积分/国家/最近活动等列）”的后台式布局，信息层级弱、视觉拥挤，且积分列在算法未定义时长期显示 `—`。本次改为专门的排名控制台式布局，不修改 API 或数据库。
+
+**变更内容**
+
+- 新增 `components/leaderboards/`：`ModeSegment`（紧凑分段模式切换）、`SummaryStrip`（当前榜单事实条）、`RankRow`/`RankRowSkeleton`（排名行卡片化）。
+- 页面头部保留标题与事实性说明，删除大块 `Callout`；把模式、TP/PRO、每页条数、重置统一收进一个“筛选控制台”卡片。
+- 模式切换由下划线 Tabs 改为分段按钮；TP/PRO 改为紧凑按钮组；新增每页条数、重置与“排名说明”Tooltip。
+- 榜单事实条显示当前模式/类型、上榜玩家、最高完成、页面 WR/成绩、最近活动，全部来自 API；空数据时为 0/`—`，不伪造。
+- 排名列表从通用 `DataTable` 改为排名行：
+  - 桌面端：名次徽块 + 玩家/头像 + 完成地图 + WR + 成绩/最近活动 + 详情箭头；
+  - 前三名使用克制的金/蓝主色徽块与 TOP 标签，不使用夸张奖牌或霓虹；
+  - 移动端：名次 + 玩家 + 关键指标（完成/WR）内联显示，其余信息不挤压；
+  - 加载使用排名行骨架，空/错误状态仍完整显示。
+- 分页面板保留在榜单卡片底部；所有筛选写入 URL，刷新/后退保持。
+- `PublicLayout` 增加 `TooltipProvider`，修复页面首次使用 Tooltip 时 Radix 抛错导致路由错误页的问题。
+- 更新 docs/public-portal 页面与设计文档中排行榜相关描述。
+
+**涉及文件**
+
+- 新增：`apps/public/src/components/leaderboards/{mode-segment,summary-strip,rank-row}.tsx`
+- 重写：`apps/public/src/pages/leaderboards-page.tsx`
+- 修改：`apps/public/src/layouts/public-layout.tsx`
+- 修改：`docs/public-portal/pages.md`、`docs/public-portal/design-system.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+无。继续消费 `/api/v1/public/leaderboards` 与 `/api/v1/public/modes`，统计口径不变。
+
+**测试与结果**
+
+- `pnpm --filter @cngokz/public typecheck`、`lint`、`test`（5 个）、`build`：通过。
+- Playwright **8/8** 通过、0 控制台错误：标题、模式分段可见、模式切换、TP/PRO 切换、重置、Tooltip、1440/375 无横向溢出。
+- 已生成 1440 与 375 截图人工检查：桌面信息密度与移动端单列布局正常。
+- **未执行**：Docker 构建/Compose（环境无 docker）；真实数据下的前三名样式仅由 fixture 验证过（当前运行库为空，显示空状态）。
+
 ## 2026年11月04日 00时15分55秒 首页改版：移除营销式 Hero 与口号，改为数据优先布局
 
 **背景**

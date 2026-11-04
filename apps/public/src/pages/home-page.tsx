@@ -116,7 +116,7 @@ export function HomePage() {
           <section aria-label="模式排行榜">
             <SectionHeader
               title="模式排行榜"
-              description="按已完成主线地图数排序；积分算法尚未定义。"
+              description="按已完成主线地图数排序；另有独立的三模式积分榜。"
               to="/leaderboards"
             />
             {modes.isError ? (
@@ -395,7 +395,7 @@ export function HomePage() {
             variant="neutral"
             icon={Database}
             title="数据口径说明"
-            description="玩家排名按“已完成主线地图数”排序；积分显示为 “—” 是因为积分算法尚未定义。完成率 = 已完成地图 / 支持该模式的已上线地图。"
+            description="玩家排名按“已完成主线地图数”排序；积分按 KZT / SKZ / VNL 三个独立积分榜展示。完成率 = 已完成地图 / 支持该模式的已上线地图。"
           />
         </div>
       </div>
