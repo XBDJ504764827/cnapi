@@ -1,6 +1,6 @@
 # CNGOKZAPI
 
-面向 **CS:GO / CS2 KZ 社区** 的独立 API 与数据平台。当前完成**第四阶段：公开玩家门户（Public Portal）**——在管理后台与核心数据模型之上，新增独立的公开数据网站（全球排行榜、玩家资料与地图进度、成绩、地图、玩家比较、服务器），并补充 `/api/v1/public/*` 真实只读接口、SQL 聚合与 Redis 缓存。
+面向 **CS:GO KZ 社区** 的独立 API 与数据平台。当前进行**第八阶段：GOKZ-Global / kzgo.eu 多数据源接入与自有积分系统**。已实现统一原始成绩/来源溯源、跨来源去重、数据源健康监控、kzgo.eu 实时同步、GOKZ-Global 适配器、CNGOKZ 自有积分审计列与外部服务器兜底展示。完整调查、限制与验证结果见 [docs/phase8-multi-source-ingestion.md](docs/phase8-multi-source-ingestion.md)。
 
 > 第一阶段不包含任何模拟业务数据：仪表盘上的所有状态都来自后端真实健康检查，未实现模块显示空状态。
 
@@ -207,6 +207,11 @@ scripts/gen-api.sh
 | GET | `/api/v1/system/status` | 依赖实时状态（200，含 degraded） |
 | GET | `/api/v1/system/events?limit=` | 最近系统事件（1–100，默认 20） |
 | GET | `/swagger-ui` / `/api-docs/openapi.json` | Swagger UI / OpenAPI 3.1 文档 |
+| POST | `/api/v1/game-servers/*` | CS:GO 插件心跳/玩家/成绩/Replay（服务器 Token） |
+| GET/POST | `/api/v1/admin/game-servers/*` | 服务器创建、启停、Token 轮换与同步详情（维护 Token） |
+| GET | `/api/v1/public/players/online` | 心跳正常服务器的真实在线玩家 |
+| GET/PATCH/POST | `/api/v1/admin/sources*` | 数据源状态、启停、手动同步、运行记录（维护 Token） |
+| GET | `/api/v1/admin/records/{id}/sources` | 成绩原始来源与去重审计（维护 Token） |
 
 ## 公开玩家门户（第四阶段）
 

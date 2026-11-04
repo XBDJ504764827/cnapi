@@ -172,6 +172,9 @@ pub async fn recalc_filter(pool: &PgPool, filter_id: i64) -> Result<i64, anyhow:
             pb.pb_count,
             output.points as i32,
             pb.rank_position == 1,
+            output.base,
+            output.rank_factor,
+            output.dist_points,
         ));
     }
 
@@ -179,7 +182,8 @@ pub async fn recalc_filter(pool: &PgPool, filter_id: i64) -> Result<i64, anyhow:
         let mut builder: sqlx::QueryBuilder<Postgres> = sqlx::QueryBuilder::new(
             "INSERT INTO player_filter_points
              (filter_id, account_id, map_id, course_id, mode_id, record_type, pb_record_id,
-              time_ns, rank, tier, wr_time_ns, pb_count, points, is_world_record, calculated_at) ",
+              time_ns, rank, tier, wr_time_ns, pb_count, points, is_world_record,
+              scoring_version, base_points, rank_factor, dist_points, calculated_at) ",
         );
         builder.push_values(calculated.iter(), |mut b, row| {
             b.push_bind(filter_id)
@@ -196,6 +200,10 @@ pub async fn recalc_filter(pool: &PgPool, filter_id: i64) -> Result<i64, anyhow:
                 .push_bind(row.6)
                 .push_bind(row.7)
                 .push_bind(row.8)
+                .push_bind("phase6-v1")
+                .push_bind(row.9)
+                .push_bind(row.10)
+                .push_bind(row.11)
                 .push_bind(chrono::Utc::now());
         });
 

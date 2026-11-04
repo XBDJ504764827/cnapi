@@ -18,6 +18,127 @@
 
 ---
 
+## 2026年11月05日 00时30分00秒 第八阶段：多数据源接入、原始成绩溯源与积分审计
+
+**背景**
+
+需要接入 GOKZ-Global 原始成绩，并由 CNGOKZ 独立计算积分；kzgo.eu 与自有插件作为补充/兜底来源，外部积分不得进入 CNGOKZ 最终积分。首要工作是调查真实接口，而不是假设存在 Webhook/全量 API。
+
+**变更内容**
+
+- 调查确认 GOKZ-Global 即官方 GlobalAPI v2（`kztimerglobal.com/api/v2.0`），有 records/maps/players/player_ranks/jumpstats 等公开 GET 接口，支持 offset/limit 与部分 `created_since` 增量；未发现官方 Webhook 或一次性全量 dump。当前执行环境连接该域名超时，未能在线验证。
+- 真实拉取并验证 kzgo.eu：`/api/maps`、`/api/wrs/{mode}`、`/api/servers`；kzgo 自有 API 不提供完整 records，其前端成绩来自 GlobalAPI。
+- 新增迁移 `20261105000002_phase8_sources_and_scoring_audit.sql`：`record_sources`、`source_sync_runs`、`raw_records`、`record_source_links`、`map_source_links`、`external_servers`、`records.source_server_name`、积分审计列。
+- 新增统一外部成绩入口 `repositories::sources::ingest_external`：原始 payload、幂等、跨来源高置信度匹配、canonical 成绩、WR 条件更新、来源链接。
+- 插件提交也写入 raw/provenance 链路，但仍使用同一 `records` canonical 表与同一积分公式。
+- 新增 `KZGO Adapter`：真实同步地图、Course、Mode、Tier、当前 WR、服务器快照；公开服务器 API 在外部快照新鲜时优先使用 kzgo，否则回退自有心跳。
+- 新增 `GOKZ-Global Adapter`（默认关闭）：`records/top/recent` 增量、Steam2→SteamID64、时间解析、来源审计；因网络不可达未在线验证。
+- 新增数据源管理 API 与 `/admin/sources` 页面：状态、启停、手动同步、运行记录、cursor、错误。
+- 积分为 `player_filter_points` 增加 `scoring_version/base_points/rank_factor/dist_points`，公式保持第六阶段不变。
+- 更新 OpenAPI、生成类型、README、开发/数据库文档，并新增 `docs/phase8-multi-source-ingestion.md`。
+
+**涉及文件**
+
+- 新增：`apps/api/migrations/20261105000002_phase8_sources_and_scoring_audit.sql`、`apps/api/src/{dto,handlers,repositories,services}/source*.rs`、`apps/api/tests/{source_ingestion,source_live}.rs`
+- 修改：`apps/api/src/config/mod.rs`、`apps/api/src/main.rs`、`apps/api/src/routes/*`、`apps/api/src/services/scoring/recalc.rs`、`apps/api/src/repositories/game_servers.rs`、`apps/api/src/services/public/mod.rs`、`apps/api/src/repositories/public/records.rs`、`apps/api/tests/schema_integration.rs`
+- 新增：`apps/web/src/pages/sources-page.tsx`、`apps/web/src/services/sources-service.ts`
+- 修改：`apps/web/src/router/index.tsx`、`apps/web/src/components/layout/nav-config.ts`、`.env.example`
+- 修改：`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`、`README.md`、`docs/{development,database/overview,changelog}.md`
+- 新增：`docs/phase8-multi-source-ingestion.md`
+- 依赖：新增 `reqwest`（rustls/json）
+
+**数据库与 API 变化**
+
+- 数据库：新增 6 张表、2 个 `records`/积分审计列组；全部为增量迁移，不删除历史成绩。
+- API：新增 `/api/v1/admin/sources*`、成绩来源审计、外部服务器快照；公开服务器在外部源新鲜时优先使用 kzgo 快照。
+
+**测试与结果**
+
+- `cargo test --all-targets`：79 个通过，0 失败；1 个 live test 默认忽略。
+- 真实 kzgo live 测试：990 maps、4892 WRs seen、4884 canonical records、2 servers；8 条因地图/Course 不匹配跳过。
+- 跨来源测试：KZGO + GOKZ-Global 同成绩 → 1 canonical + 2 raw + 2 links；超过 600 秒窗口的相同成绩保留为独立记录。
+- 既有第六阶段积分、公开门户、服务器接入测试全部通过。
+- **未验证**：GOKZ-Global 在线请求（当前环境连接超时）、完整历史回填、真实生产网络/授权/限流、GitHub Actions runner。
+
+---
+
+## 2026年11月04日 23时45分00秒 调整第七阶段方向：网站同步 KZGO 优先，插件延期
+
+**背景**
+
+产品方向确认：网站数据应优先同步 kzgo.eu（其成绩历史实际来自 KZTimerGlobal GlobalAPI），自有 CS:GO 插件仅在外部数据不可获取时作为兜底上传。当前单文件 SourceMod 原型目录不符合 `kzcharm/gokz-top-plugins` 规范，暂停继续开发。
+
+**变更内容**
+
+- 从工作区移除未被接受的单文件插件原型与 Replay uploader，不再作为当前交付物。
+- 保留后端 `/api/v1/game-servers/*` 接入 API 与数据库模型，作为未来插件兜底链路。
+- 记录 KZGO 数据源拆解：`kzgo.eu/api/{maps,servers,wrs,completions,steam}` + `kztimerglobal.com/api/v2.0/*`。
+- 更新 README 与 `docs/phase7-game-server-integration.md`，明确插件延期及未来目录规范。
+- KZGO 同步 worker、公开 API 源优先级与后台剩余页面尚未实现，列为下一步网站工作。
+
+**涉及文件**
+
+- 修改：`README.md`、`docs/phase7-game-server-integration.md`、`docs/changelog.md`
+- 删除（未提交的工作区原型）：`addons/`、`tools/`
+
+**数据库与 API 变化**
+
+- 数据库/API 无新增变化；第七阶段既有服务器接入 API 保留。
+- 网站公开数据源尚未切换到 KZGO，当前不能宣称已完成 KZGO 同步。
+
+**测试与结果**
+
+- 本次为方向调整与文档/原型清理，未新增功能测试。
+- 既有后端 74 个测试之前已通过；KZGO 同步与网站改造尚未执行。
+
+---
+
+## 2026年11月04日 23时12分05秒 第七阶段：CS:GO KZ 游戏服务器接入与数据同步
+
+**背景**
+
+在第六阶段积分系统与公开门户之上，需要让真实 CS:GO（Source 1）KZ 服务器通过 LinuxGSM + MetaMod:Source + SourceMod + GOKZ 自动上报心跳、在线玩家、成绩和 Replay。审查确认现有 `servers`、`records`、`replays`、`filter_recalc_tasks` 可复用，缺口是服务器认证接口、CS:GO 元数据、在线会话、成绩幂等键、管理后台与 SourceMod 插件。
+
+**变更内容**
+
+- 新增迁移 `20261105000001_phase7_game_server_sync.sql`：扩展 `servers`（game/region/server_type/query_port/max_players/online_players/current_mode_id/game_version/is_enabled），新增 `server_heartbeats`、`server_player_sessions`、`server_sync_logs`、`server_sync_tasks`，并为 `records` 增加 `submission_key` + `(server_id, submission_key)` 唯一索引；全部为增量变更。
+- 新增服务器侧 API：`/api/v1/game-servers/{heartbeat,players/connect,players/disconnect,players/sync,records,records/status,replays,config/sync,maps/sync}`，使用每服务器独立 Token（只存 SHA-256 哈希），支持轮换/撤销/禁用。
+- 成绩提交按 `server_id + record_identifier` 幂等；自动写 `records`、`record_history`、条件更新 `course_world_records`，由既有 DB trigger 排入对应 Filter 重算；响应区分 duplicate、PB、WR、积分排队、Replay 状态。
+- 新增管理 API：服务器列表/创建/详情/编辑/启停/Token 轮换与撤销/同步任务重试。
+- 新增公开 API `/api/v1/public/players/online`；公开服务器列表改为展示真实人数、最大人数与模式。
+- 管理后台服务器页从空壳改为真实列表与创建表单；详情页加入概览、在线玩家、成绩、Replay、心跳、同步日志/任务/重试。
+- 公开门户服务器页加入当前在线玩家区块，并移除“人数/模式未入库”的旧提示。
+- 新增 SourceMod 插件 `addons/sourcemod/scripting/cngokz_sync.sp`：使用 GOKZ `GOKZ_OnTimerEnd_Post`、`GOKZ_RP_OnTimerEnd_Post`、`GOKZ_GetCoreOption`，SteamWorks 异步 HTTP，本地成绩队列（上限 256、重启恢复、指数退避），Replay manifest 与配置文件。
+- 新增独立 Replay uploader `tools/cngokz-replay-uploader.py`（rclone 上传 + SHA-256 + API 注册 + 失败保留）。
+- 更新 OpenAPI、前端生成类型、README、开发/数据库文档，并新增 `docs/phase7-game-server-integration.md`。
+
+**涉及文件**
+
+- 新增：`apps/api/migrations/20261105000001_phase7_game_server_sync.sql`、`apps/api/src/{dto,handlers,repositories,services}/game_server*.rs`、`apps/api/tests/game_server_sync.rs`
+- 修改：`apps/api/src/routes/*`、`apps/api/src/dto/public/servers.rs`、`apps/api/src/repositories/public/servers.rs`、`apps/api/src/services/public/mod.rs`、`apps/api/src/handlers/public.rs`、相关 `mod.rs`、`apps/api/tests/{public_api,schema_integration}.rs`
+- 新增：`addons/sourcemod/scripting/cngokz_sync.sp`、`addons/sourcemod/configs/cngokz_sync.cfg`、`tools/cngokz-replay-uploader.py`
+- 修改：`apps/web/src/pages/{servers-page,server-detail-page}.tsx`、`apps/web/src/services/game-servers-service.ts`、`apps/web/.env.example`
+- 修改：`apps/public/src/pages/servers-page.tsx`、`apps/public/src/services/public-service.ts`
+- 修改：`packages/api-client/src/{client,index}.ts`、`packages/shared-types/src/api-contract.ts`、`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`
+- 修改：`README.md`、`docs/{development,database/overview,changelog}.md`
+- 新增：`docs/phase7-game-server-integration.md`
+
+**数据库与 API 变化**
+
+- 数据库：新增 4 张服务器接入表与 `records.submission_key`；不删除已有成绩/服务器，不重置数据库。
+- API：新增服务器 Token 认证接口与管理接口；公开新增在线玩家接口；公开服务器字段 `players/max_players/mode/region/server_type/game` 改为真实数据。积分公式与 Replay 保留规则未修改。
+
+**测试与结果**
+
+- `DATABASE_URL=postgres://cnapi@127.0.0.1:55432/cngokzapi_test REDIS_URL=redis://127.0.0.1:56379 cargo test --all-targets`：**74 个通过**，0 失败（含新增 3 个游戏服务器接入端到端用例）。
+- `cargo fmt --all --check`、`cargo clippy --all-targets --all-features -- -D warnings`：通过。
+- `pnpm -r lint`、`pnpm -r typecheck`、`pnpm -r test`：通过（管理后台 21 个、公开门户 17 个）。
+- `pnpm --filter @cngokz/web build`、`pnpm --filter @cngokz/public build`：通过。
+- SourceMod 插件使用 SourceMod 1.11 `spcomp` + GOKZ include 编译通过（0 errors）。
+- **未执行**：真实 CS:GO Dedicated Server / LinuxGSM / GOKZ 在线联调；真实 R2/S3 Replay 上传；GitHub Actions 真实 runner 复跑。上述内容在文档中标记为待验收，不描述为真实环境通过。
+
+---
+
 ## 2026年11月04日 22时43分32秒 修复 GitHub Actions CI：schema 集成测试不再依赖预先迁移的数据库
 
 **背景**

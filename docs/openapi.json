@@ -9,6 +9,436 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/admin/external-servers": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "External server snapshot used for public fallback",
+        "operationId": "list_external_servers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExternalServerListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers": {
+      "get": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "List registered game servers",
+        "operationId": "admin_list",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdminServerListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Create a game server and return its token once",
+        "operationId": "admin_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateServerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateServerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/tasks/{task_id}/retry": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Retry a failed replay / sync task",
+        "operationId": "admin_retry_task",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RetryTaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/{server_id}": {
+      "get": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Server detail with heartbeats, players, records, replays and sync logs",
+        "operationId": "admin_detail",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdminServerDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Update server metadata",
+        "operationId": "admin_update",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateServerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdminServerSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/{server_id}/disable": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Disable a server; all ingestion is rejected immediately",
+        "operationId": "admin_disable",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ServerActionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/{server_id}/enable": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Enable a server",
+        "operationId": "admin_enable",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ServerActionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/{server_id}/token/revoke": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Revoke the server token",
+        "operationId": "admin_revoke_token",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ServerActionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/game-servers/{server_id}/token/rotate": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Rotate the server token; the new token is returned once",
+        "operationId": "admin_rotate_token",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RotateTokenResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/points/initialize": {
       "post": {
         "tags": [
@@ -316,6 +746,616 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_UpdateTierResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/records/{record_id}/sources": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Raw record provenance for one canonical record",
+        "operationId": "record_sources",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecordProvenanceResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sources": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List external data sources and health",
+        "operationId": "list_sources",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SourceListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sources/{code}": {
+      "patch": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Enable or disable a data source",
+        "operationId": "update_source",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SourceSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sources/{code}/runs": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Recent sync runs for a source",
+        "operationId": "list_runs",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SourceRunsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/sources/{code}/sync": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Trigger a source sync in the background",
+        "operationId": "trigger_sync",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SourceSyncResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/config/sync": {
+      "get": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Map, course, mode, style and tier snapshot",
+        "description": "Send the last `version` to receive `changed=false`; heartbeat never carries the full map list.",
+        "operationId": "config_sync",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "query",
+            "description": "Version returned by the previous sync; omit for a full snapshot.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ConfigSyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/heartbeat": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Server heartbeat",
+        "description": "Authenticated with `X-Server-Token`. The API records its own receive time and derives ONLINE/STALE from it.",
+        "operationId": "heartbeat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HeartbeatResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/players/connect": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Player connected / authenticated",
+        "operationId": "connect_player",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlayerSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/players/disconnect": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Player disconnected",
+        "operationId": "disconnect_player",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerDisconnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlayerSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/players/sync": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Full online-player calibration",
+        "description": "Missing players are marked disconnected only on this server; sessions on other servers are untouched.",
+        "operationId": "sync_players",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlayerSyncResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/records": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Submit a GOKZ finish",
+        "description": "Idempotent on (`server_id`, `record_identifier`). PB/WR/points are decided by the API and phase-6 triggers, never by the plugin.",
+        "operationId": "submit_record",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecordSubmissionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/records/status": {
+      "get": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Record / replay / points status",
+        "operationId": "record_status",
+        "parameters": [
+          {
+            "name": "record_identifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RecordStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/game-servers/replays": {
+      "post": {
+        "tags": [
+          "game-servers"
+        ],
+        "summary": "Register replay metadata",
+        "description": "The replay bytes stay in R2/S3. Registration is idempotent on (bucket, object_key); a failed upload leaves the record valid and creates a retryable sync task.",
+        "operationId": "register_replay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ReplayRegistrationResponse"
                 }
               }
             }
@@ -1383,6 +2423,60 @@
         }
       }
     },
+    "/api/v1/public/players/online": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Players currently online on fresh CS:GO servers",
+        "description": "Only sessions on enabled servers with a heartbeat less than 2 minutes old are returned.",
+        "operationId": "online_players",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "query",
+            "description": "Restrict to one server.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OnlinePlayersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/public/players/{steamid}": {
       "get": {
         "tags": [
@@ -2373,6 +3467,527 @@
           }
         }
       },
+      "AdminHeartbeatRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "received_at",
+          "online_players",
+          "max_players"
+        ],
+        "properties": {
+          "game_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "map_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mode_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "online_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminPlayerRow": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "steam_id64",
+          "display_name",
+          "status",
+          "connected_at",
+          "last_seen_at"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "connected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "steam_id64": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminRecordRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "steam_id64",
+          "map_name",
+          "course_stage",
+          "mode_code",
+          "time_type",
+          "time_ns",
+          "time_seconds",
+          "status",
+          "is_world_record",
+          "created_at"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "course_stage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_world_record": {
+            "type": "boolean"
+          },
+          "map_name": {
+            "type": "string"
+          },
+          "mode_code": {
+            "type": "string"
+          },
+          "replay_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "steam_id64": {
+            "type": "string"
+          },
+          "time_ns": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "time_seconds": {
+            "type": "string"
+          },
+          "time_type": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminReplayRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "record_id",
+          "bucket",
+          "object_key",
+          "size_bytes",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "uploaded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminServerDetailResponse": {
+        "type": "object",
+        "required": [
+          "server",
+          "recent_heartbeats",
+          "online_players",
+          "recent_records",
+          "recent_replays",
+          "sync_logs",
+          "sync_tasks"
+        ],
+        "properties": {
+          "online_players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminPlayerRow"
+            }
+          },
+          "recent_heartbeats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminHeartbeatRow"
+            }
+          },
+          "recent_records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRecordRow"
+            }
+          },
+          "recent_replays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminReplayRow"
+            }
+          },
+          "server": {
+            "$ref": "#/components/schemas/AdminServerSummary"
+          },
+          "sync_logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminSyncLogRow"
+            }
+          },
+          "sync_tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminSyncTaskRow"
+            }
+          }
+        }
+      },
+      "AdminServerListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminServerSummary"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        }
+      },
+      "AdminServerQuery": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AdminServerSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "ip",
+          "port",
+          "game",
+          "server_type",
+          "max_players",
+          "online_players",
+          "status",
+          "is_enabled",
+          "is_online",
+          "api_key_prefix",
+          "api_key_created_at",
+          "created_at"
+        ],
+        "properties": {
+          "api_key_created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "api_key_prefix": {
+            "type": "string"
+          },
+          "api_key_revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_map_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "current_map_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "game": {
+            "type": "string"
+          },
+          "heartbeat_age_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "is_online": {
+            "type": "boolean"
+          },
+          "last_heartbeat_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "max_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "online_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "query_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminSyncLogRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "AdminSyncTaskRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "task_type",
+          "status",
+          "attempts",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "task_type": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AdminTierDto": {
         "type": "object",
         "required": [
@@ -2566,6 +4181,256 @@
           }
         }
       },
+      "ApiResponse_AdminServerDetailResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "server",
+              "recent_heartbeats",
+              "online_players",
+              "recent_records",
+              "recent_replays",
+              "sync_logs",
+              "sync_tasks"
+            ],
+            "properties": {
+              "online_players": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminPlayerRow"
+                }
+              },
+              "recent_heartbeats": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminHeartbeatRow"
+                }
+              },
+              "recent_records": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminRecordRow"
+                }
+              },
+              "recent_replays": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminReplayRow"
+                }
+              },
+              "server": {
+                "$ref": "#/components/schemas/AdminServerSummary"
+              },
+              "sync_logs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminSyncLogRow"
+                }
+              },
+              "sync_tasks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminSyncTaskRow"
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_AdminServerListResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminServerSummary"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_AdminServerSummary": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "ip",
+              "port",
+              "game",
+              "server_type",
+              "max_players",
+              "online_players",
+              "status",
+              "is_enabled",
+              "is_online",
+              "api_key_prefix",
+              "api_key_created_at",
+              "created_at"
+            ],
+            "properties": {
+              "api_key_created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "api_key_prefix": {
+                "type": "string"
+              },
+              "api_key_revoked_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "current_map_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "current_map_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "current_mode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "game": {
+                "type": "string"
+              },
+              "heartbeat_age_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "ip": {
+                "type": "string"
+              },
+              "is_enabled": {
+                "type": "boolean"
+              },
+              "is_online": {
+                "type": "boolean"
+              },
+              "last_heartbeat_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "max_players": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "name": {
+                "type": "string"
+              },
+              "online_players": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "plugin_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "query_port": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32"
+              },
+              "region": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "server_type": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_AdminTiersResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -2671,6 +4536,138 @@
           }
         }
       },
+      "ApiResponse_ConfigSyncResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "version",
+              "changed",
+              "generated_at",
+              "modes",
+              "styles",
+              "maps"
+            ],
+            "properties": {
+              "changed": {
+                "type": "boolean"
+              },
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "maps": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConfigMap"
+                }
+              },
+              "modes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConfigMode"
+                }
+              },
+              "styles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConfigStyle"
+                }
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_CreateServerResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "server",
+              "token"
+            ],
+            "properties": {
+              "server": {
+                "$ref": "#/components/schemas/AdminServerSummary"
+              },
+              "token": {
+                "type": "string",
+                "description": "Returned exactly once. Store it on the CS:GO server and never commit it."
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_ExternalServerListResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "source_healthy",
+              "generated_at"
+            ],
+            "properties": {
+              "generated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ExternalServerSnapshot"
+                }
+              },
+              "source_healthy": {
+                "type": "boolean"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_FilterLeaderboardResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -2756,6 +4753,54 @@
                 "format": "date-time"
               },
               "version": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_HeartbeatResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "server_id",
+              "status",
+              "received_at",
+              "heartbeat_interval_seconds",
+              "config_version"
+            ],
+            "properties": {
+              "config_version": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "heartbeat_interval_seconds": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "received_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "server_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "status": {
                 "type": "string"
               }
             }
@@ -3082,6 +5127,42 @@
           }
         }
       },
+      "ApiResponse_OnlinePlayersResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "count"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OnlinePlayerSummary"
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_PlayerDetailResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -3363,6 +5444,45 @@
               },
               "meta": {
                 "$ref": "#/components/schemas/PageMeta"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_PlayerSyncResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "connected",
+              "disconnected",
+              "online"
+            ],
+            "properties": {
+              "connected": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "disconnected": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "online": {
+                "type": "integer",
+                "format": "int64"
               }
             }
           },
@@ -3791,6 +5911,308 @@
           }
         }
       },
+      "ApiResponse_RecordProvenanceResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "record_id",
+              "sources"
+            ],
+            "properties": {
+              "record_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/RawRecordAuditRow"
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RecordStatusResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "record_id",
+              "record_identifier",
+              "status",
+              "time_ns",
+              "time_seconds",
+              "is_pb",
+              "is_world_record",
+              "replay_status",
+              "points_status"
+            ],
+            "properties": {
+              "is_pb": {
+                "type": "boolean"
+              },
+              "is_world_record": {
+                "type": "boolean"
+              },
+              "points_status": {
+                "type": "string"
+              },
+              "record_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "record_identifier": {
+                "type": "string"
+              },
+              "replay_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "replay_status": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "time_ns": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "time_seconds": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RecordSubmissionResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "accepted",
+              "duplicate",
+              "record_id",
+              "record_identifier",
+              "time_ns",
+              "time_seconds",
+              "time_type",
+              "is_pb",
+              "is_world_record",
+              "points_status",
+              "replay_status"
+            ],
+            "properties": {
+              "accepted": {
+                "type": "boolean"
+              },
+              "duplicate": {
+                "type": "boolean"
+              },
+              "is_pb": {
+                "type": "boolean"
+              },
+              "is_world_record": {
+                "type": "boolean"
+              },
+              "points_status": {
+                "type": "string",
+                "description": "`queued` when the database trigger enqueued a Filter recalculation."
+              },
+              "record_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "record_identifier": {
+                "type": "string"
+              },
+              "replay_status": {
+                "type": "string",
+                "description": "`pending` / `available` / `failed` / `not_reported`."
+              },
+              "time_ns": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "time_seconds": {
+                "type": "string"
+              },
+              "time_type": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_ReplayRegistrationResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "record_id",
+              "status",
+              "replay_available",
+              "duplicate"
+            ],
+            "properties": {
+              "duplicate": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "record_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "replay_available": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RetryTaskResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "task_id",
+              "status",
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "task_id": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_RotateTokenResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "server_id",
+              "token",
+              "prefix",
+              "created_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "prefix": {
+                "type": "string"
+              },
+              "server_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "token": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_SearchResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -3822,6 +6244,47 @@
               },
               "query": {
                 "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_ServerActionResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "server_id",
+              "enabled",
+              "token_revoked",
+              "message"
+            ],
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "message": {
+                "type": "string"
+              },
+              "server_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "token_revoked": {
+                "type": "boolean"
               }
             }
           },
@@ -3885,7 +6348,9 @@
               "ip",
               "port",
               "online",
-              "status"
+              "status",
+              "server_type",
+              "game"
             ],
             "properties": {
               "community": {
@@ -3914,6 +6379,9 @@
                   "null"
                 ]
               },
+              "game": {
+                "type": "string"
+              },
               "heartbeat_age_seconds": {
                 "type": [
                   "integer",
@@ -3941,15 +6409,13 @@
                   "integer",
                   "null"
                 ],
-                "format": "int64",
-                "description": "Not stored in the schema yet."
+                "format": "int64"
               },
               "mode": {
                 "type": [
                   "string",
                   "null"
-                ],
-                "description": "Not stored in the schema yet."
+                ]
               },
               "name": {
                 "type": "string"
@@ -3963,8 +6429,7 @@
                   "integer",
                   "null"
                 ],
-                "format": "int64",
-                "description": "Not stored in the schema yet."
+                "format": "int64"
               },
               "plugin_version": {
                 "type": [
@@ -3976,9 +6441,242 @@
                 "type": "integer",
                 "format": "int32"
               },
+              "region": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "server_type": {
+                "type": "string"
+              },
               "status": {
                 "type": "string",
                 "description": "`online` / `offline` / `expired` / `unknown`; derived from heartbeat age."
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SourceListResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SourceSummary"
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SourceRunsResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "meta"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SourceRunDto"
+                }
+              },
+              "meta": {
+                "$ref": "#/components/schemas/PageMeta"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SourceSummary": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "code",
+              "source_type",
+              "display_name",
+              "is_enabled",
+              "priority",
+              "status",
+              "consecutive_failures",
+              "cursor",
+              "config",
+              "raw_records",
+              "canonical_links"
+            ],
+            "properties": {
+              "canonical_links": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "code": {
+                "type": "string"
+              },
+              "config": {},
+              "consecutive_failures": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "cursor": {},
+              "display_name": {
+                "type": "string"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "is_enabled": {
+                "type": "boolean"
+              },
+              "last_attempt_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "last_error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "last_failure_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "last_success_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "latest_run_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "latest_run_status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "priority": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "raw_records": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "source_type": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SourceSyncResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "source",
+              "status",
+              "message",
+              "stats"
+            ],
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "run_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "source": {
+                "type": "string"
+              },
+              "stats": {},
+              "status": {
+                "type": "string"
               }
             }
           },
@@ -4534,6 +7232,185 @@
           }
         }
       },
+      "ConfigCourse": {
+        "type": "object",
+        "required": [
+          "id",
+          "stage",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConfigMap": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "modes",
+          "courses",
+          "tiers"
+        ],
+        "properties": {
+          "courses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigCourse"
+            }
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigTier"
+            }
+          }
+        }
+      },
+      "ConfigMode": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "display_name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConfigStyle": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "display_name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConfigSyncQuery": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Version returned by the previous sync; omit for a full snapshot."
+          }
+        }
+      },
+      "ConfigSyncResponse": {
+        "type": "object",
+        "required": [
+          "version",
+          "changed",
+          "generated_at",
+          "modes",
+          "styles",
+          "maps"
+        ],
+        "properties": {
+          "changed": {
+            "type": "boolean"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "maps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigMap"
+            }
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigMode"
+            }
+          },
+          "styles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigStyle"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ConfigTier": {
+        "type": "object",
+        "required": [
+          "course_id",
+          "mode",
+          "tier"
+        ],
+        "properties": {
+          "course_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string",
+            "description": "Scoring mode code: KZT, SKZ or VNL."
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "CourseRef": {
         "type": "object",
         "required": [
@@ -4553,6 +7430,86 @@
             "type": "integer",
             "format": "int32",
             "description": "0 = main course, >0 = bonus stage."
+          }
+        }
+      },
+      "CreateServerRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "ip",
+          "port",
+          "owner_steam_id64"
+        ],
+        "properties": {
+          "ip": {
+            "type": "string"
+          },
+          "max_players": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner_steam_id64": {
+            "type": "string",
+            "description": "Account that owns the server. Created if it does not exist yet."
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "query_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`community`, `official`, `event` or `testing`."
+          }
+        }
+      },
+      "CreateServerResponse": {
+        "type": "object",
+        "required": [
+          "server",
+          "token"
+        ],
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/AdminServerSummary"
+          },
+          "token": {
+            "type": "string",
+            "description": "Returned exactly once. Store it on the CS:GO server and never commit it."
           }
         }
       },
@@ -4602,6 +7559,100 @@
           "internal_error",
           "rate_limited"
         ]
+      },
+      "ExternalServerListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "source_healthy",
+          "generated_at"
+        ],
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalServerSnapshot"
+            }
+          },
+          "source_healthy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ExternalServerSnapshot": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_code",
+          "external_id",
+          "name",
+          "host",
+          "port",
+          "online_players",
+          "max_players",
+          "is_online",
+          "last_seen_at"
+        ],
+        "properties": {
+          "external_id": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_online": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "map_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "map_tier": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "online_players": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "port": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "source_code": {
+            "type": "string"
+          }
+        }
       },
       "FilterLeaderboardEntry": {
         "type": "object",
@@ -4748,6 +7799,103 @@
             "format": "date-time"
           },
           "version": {
+            "type": "string"
+          }
+        }
+      },
+      "HeartbeatRequest": {
+        "type": "object",
+        "properties": {
+          "game_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "map": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "BSP name without `.bsp`, e.g. `kz_example`."
+          },
+          "max_players": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "GOKZ / scoring mode: `KZT`, `SKZ`, `VNL` (or `kztimer` / `simple` / `vanilla`)."
+          },
+          "online_players": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Plugin clock; the API records its own receive time as the source of truth."
+          }
+        }
+      },
+      "HeartbeatResponse": {
+        "type": "object",
+        "required": [
+          "server_id",
+          "status",
+          "received_at",
+          "heartbeat_interval_seconds",
+          "config_version"
+        ],
+        "properties": {
+          "config_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "heartbeat_interval_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "server_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
             "type": "string"
           }
         }
@@ -5399,6 +8547,92 @@
           }
         }
       },
+      "OnlinePlayerSummary": {
+        "type": "object",
+        "required": [
+          "player",
+          "server_id",
+          "server_name",
+          "status",
+          "connected_at",
+          "online_seconds"
+        ],
+        "properties": {
+          "connected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_map_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "online_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "player": {
+            "$ref": "#/components/schemas/PlayerRef"
+          },
+          "server_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "server_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "OnlinePlayersQuery": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "server_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Restrict to one server."
+          }
+        }
+      },
+      "OnlinePlayersResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnlinePlayerSummary"
+            }
+          }
+        }
+      },
       "PageMeta": {
         "type": "object",
         "required": [
@@ -5495,6 +8729,65 @@
               "$ref": "#/components/schemas/TierProgressDto"
             },
             "description": "Tier completion counts for the selected `scope`."
+          }
+        }
+      },
+      "PlayerDisconnectRequest": {
+        "type": "object",
+        "required": [
+          "steam_id64"
+        ],
+        "properties": {
+          "disconnected_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "steam_id64": {
+            "type": "string"
+          }
+        }
+      },
+      "PlayerEventRequest": {
+        "type": "object",
+        "required": [
+          "steam_id64",
+          "display_name"
+        ],
+        "properties": {
+          "connected_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "map": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`connected`, `spectating` or `afk`; default `connected`."
+          },
+          "steam_id64": {
+            "type": "string"
           }
         }
       },
@@ -6310,6 +9603,43 @@
           }
         }
       },
+      "PlayerSyncRequest": {
+        "type": "object",
+        "required": [
+          "players"
+        ],
+        "properties": {
+          "players": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlayerEventRequest"
+            },
+            "description": "Full snapshot of the players currently on this server. The API marks\nmissing sessions disconnected only for this server."
+          }
+        }
+      },
+      "PlayerSyncResponse": {
+        "type": "object",
+        "required": [
+          "connected",
+          "disconnected",
+          "online"
+        ],
+        "properties": {
+          "connected": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disconnected": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "online": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "PointsLeaderboardEntry": {
         "type": "object",
         "required": [
@@ -6517,6 +9847,76 @@
           "world_records": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "RawRecordAuditRow": {
+        "type": "object",
+        "required": [
+          "raw_record_id",
+          "source_code",
+          "source_type",
+          "external_record_id",
+          "processing_status",
+          "field_conflicts",
+          "received_at",
+          "raw_payload"
+        ],
+        "properties": {
+          "canonical_record_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "external_record_id": {
+            "type": "string"
+          },
+          "field_conflicts": {},
+          "match_confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "match_method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processing_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processing_status": {
+            "type": "string"
+          },
+          "raw_payload": {},
+          "raw_record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source_code": {
+            "type": "string"
+          },
+          "source_recorded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "source_type": {
+            "type": "string"
           }
         }
       },
@@ -6790,6 +10190,25 @@
           }
         }
       },
+      "RecordProvenanceResponse": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "sources"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RawRecordAuditRow"
+            }
+          }
+        }
+      },
       "RecordQuery": {
         "type": "object",
         "properties": {
@@ -6877,6 +10296,214 @@
               "null"
             ],
             "description": "`true` = only current world records, `false` = only non-WR."
+          }
+        }
+      },
+      "RecordStatusQuery": {
+        "type": "object",
+        "required": [
+          "record_identifier"
+        ],
+        "properties": {
+          "record_identifier": {
+            "type": "string"
+          }
+        }
+      },
+      "RecordStatusResponse": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "record_identifier",
+          "status",
+          "time_ns",
+          "time_seconds",
+          "is_pb",
+          "is_world_record",
+          "replay_status",
+          "points_status"
+        ],
+        "properties": {
+          "is_pb": {
+            "type": "boolean"
+          },
+          "is_world_record": {
+            "type": "boolean"
+          },
+          "points_status": {
+            "type": "string"
+          },
+          "record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "record_identifier": {
+            "type": "string"
+          },
+          "replay_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "replay_status": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "time_ns": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "time_seconds": {
+            "type": "string"
+          }
+        }
+      },
+      "RecordSubmissionRequest": {
+        "type": "object",
+        "required": [
+          "steam_id64",
+          "map",
+          "course",
+          "mode",
+          "tickrate",
+          "teleports",
+          "record_identifier"
+        ],
+        "properties": {
+          "course": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "map": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "description": "`KZT`, `SKZ`, `VNL` (case-insensitive)."
+          },
+          "player_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SourceMod plugin version reporting this run (optional)."
+          },
+          "record_identifier": {
+            "type": "string",
+            "description": "Stable plugin-side idempotency key (unique per server)."
+          },
+          "replay_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional path reported by GOKZ replays; stored only in audit metadata."
+          },
+          "steam_id64": {
+            "type": "string"
+          },
+          "style": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Defaults to `normal`; GOKZ only has Style_Normal."
+          },
+          "teleports": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tickrate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "time": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Run duration in seconds. Exactly one of `time` / `time_ns` is required."
+          },
+          "time_ns": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Run duration in nanoseconds (preferred; no float conversion)."
+          }
+        }
+      },
+      "RecordSubmissionResponse": {
+        "type": "object",
+        "required": [
+          "accepted",
+          "duplicate",
+          "record_id",
+          "record_identifier",
+          "time_ns",
+          "time_seconds",
+          "time_type",
+          "is_pb",
+          "is_world_record",
+          "points_status",
+          "replay_status"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "is_pb": {
+            "type": "boolean"
+          },
+          "is_world_record": {
+            "type": "boolean"
+          },
+          "points_status": {
+            "type": "string",
+            "description": "`queued` when the database trigger enqueued a Filter recalculation."
+          },
+          "record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "record_identifier": {
+            "type": "string"
+          },
+          "replay_status": {
+            "type": "string",
+            "description": "`pending` / `available` / `failed` / `not_reported`."
+          },
+          "time_ns": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "time_seconds": {
+            "type": "string"
+          },
+          "time_type": {
+            "type": "string"
           }
         }
       },
@@ -6969,6 +10596,137 @@
           }
         }
       },
+      "ReplayRegistrationRequest": {
+        "type": "object",
+        "required": [
+          "record_identifier",
+          "bucket",
+          "object_key",
+          "size_bytes",
+          "checksum_sha256"
+        ],
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "checksum_sha256": {
+            "type": "string",
+            "description": "Lowercase or uppercase hex SHA-256 (64 characters)."
+          },
+          "object_key": {
+            "type": "string"
+          },
+          "record_identifier": {
+            "type": "string"
+          },
+          "replay_format_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`pending`, `available` or `failed`; default `available`."
+          },
+          "storage_provider": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`r2`, `s3` or `local`; default `r2`."
+          },
+          "uploaded_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ReplayRegistrationResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "record_id",
+          "status",
+          "replay_available",
+          "duplicate"
+        ],
+        "properties": {
+          "duplicate": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "record_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "replay_available": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "RetryTaskResponse": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "status",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RotateTokenResponse": {
+        "type": "object",
+        "required": [
+          "server_id",
+          "token",
+          "prefix",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "server_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
       "ScoringModeDto": {
         "type": "object",
         "required": [
@@ -7026,6 +10784,30 @@
           },
           "query": {
             "type": "string"
+          }
+        }
+      },
+      "ServerActionResponse": {
+        "type": "object",
+        "required": [
+          "server_id",
+          "enabled",
+          "token_revoked",
+          "message"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "server_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "token_revoked": {
+            "type": "boolean"
           }
         }
       },
@@ -7105,7 +10887,9 @@
           "ip",
           "port",
           "online",
-          "status"
+          "status",
+          "server_type",
+          "game"
         ],
         "properties": {
           "community": {
@@ -7134,6 +10918,9 @@
               "null"
             ]
           },
+          "game": {
+            "type": "string"
+          },
           "heartbeat_age_seconds": {
             "type": [
               "integer",
@@ -7161,15 +10948,13 @@
               "integer",
               "null"
             ],
-            "format": "int64",
-            "description": "Not stored in the schema yet."
+            "format": "int64"
           },
           "mode": {
             "type": [
               "string",
               "null"
-            ],
-            "description": "Not stored in the schema yet."
+            ]
           },
           "name": {
             "type": "string"
@@ -7183,8 +10968,7 @@
               "integer",
               "null"
             ],
-            "format": "int64",
-            "description": "Not stored in the schema yet."
+            "format": "int64"
           },
           "plugin_version": {
             "type": [
@@ -7196,9 +10980,240 @@
             "type": "integer",
             "format": "int32"
           },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_type": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "description": "`online` / `offline` / `expired` / `unknown`; derived from heartbeat age."
+          }
+        }
+      },
+      "SourceListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceSummary"
+            }
+          }
+        }
+      },
+      "SourceRunDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "run_type",
+          "status",
+          "started_at",
+          "stats"
+        ],
+        "properties": {
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "run_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stats": {},
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceRunsQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "SourceRunsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "meta"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRunDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        }
+      },
+      "SourceSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "source_type",
+          "display_name",
+          "is_enabled",
+          "priority",
+          "status",
+          "consecutive_failures",
+          "cursor",
+          "config",
+          "raw_records",
+          "canonical_links"
+        ],
+        "properties": {
+          "canonical_links": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "string"
+          },
+          "config": {},
+          "consecutive_failures": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cursor": {},
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "last_attempt_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_failure_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_success_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "latest_run_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "latest_run_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "raw_records": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceSyncResponse": {
+        "type": "object",
+        "required": [
+          "source",
+          "status",
+          "message",
+          "stats"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "source": {
+            "type": "string"
+          },
+          "stats": {},
+          "status": {
+            "type": "string"
           }
         }
       },
@@ -7436,6 +11451,60 @@
           }
         }
       },
+      "UpdateServerRequest": {
+        "type": "object",
+        "properties": {
+          "max_players": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plugin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "query_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "server_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateSourceRequest": {
+        "type": "object",
+        "properties": {
+          "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
       "UpdateTierRequest": {
         "type": "object",
         "required": [
@@ -7515,6 +11584,14 @@
     {
       "name": "public",
       "description": "Public portal read-only data (players, maps, records, leaderboards, servers)"
+    },
+    {
+      "name": "game-servers",
+      "description": "CS:GO / GOKZ server ingestion and administration (SourceMod cngokz_sync)"
+    },
+    {
+      "name": "sources",
+      "description": "Multi-source sync health, raw record provenance and external server snapshots"
     }
   ]
 }

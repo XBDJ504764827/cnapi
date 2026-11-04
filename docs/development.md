@@ -145,6 +145,9 @@ cargo test --all-targets
 
 - `tests/http_api.rs`：不依赖外部服务（依赖指向关闭的端口），验证响应结构、状态码、CORS、OpenAPI、Swagger UI、404。
 - `tests/schema_integration.rs`：第二阶段 schema 测试（表/索引/约束/枚举/触发器/SteamID64/WR 并发/软删除唯一性），每个用例临时建库并执行迁移、结束后删库；事务回滚，可重复执行，不依赖预先迁移的数据库。
+- `tests/source_ingestion.rs`：第八阶段多来源原始成绩、跨来源去重、来源溯源、数据源健康与外部服务器快照测试。
+- `tests/source_live.rs`：真实 kzgo.eu 同步测试，默认忽略，需显式 `--ignored`。
+- `tests/game_server_sync.rs`：第七阶段 CS:GO 接入端到端测试（服务器 Token、心跳、玩家多服务器隔离、成绩幂等/PB/WR、Replay、配置版本、禁用服务器），临时建库并执行全部迁移。
 - `tests/service_integration.rs`：需要真实服务；未设置 `DATABASE_URL` 时**跳过并打印原因**：
 
 ```bash
@@ -167,7 +170,7 @@ pnpm --filter @cngokz/public test     # 公开门户 vitest（jsdom）
 前端测试规模（第四阶段结束）：管理后台 6 文件 / 21 用例；公开门户 2 文件 / 5 用例。
 > 管理后台现在以 `/admin` 为 basename，独立开发时地址是 `http://localhost:5174/admin/`。
 
-后端测试规模（第四阶段结束）：29 个单元测试 + 10 个 HTTP 契约测试 + 11 个 schema 集成测试 + 3 个真实依赖集成测试 + 1 个公开 API 端到端测试（临时数据库 + 真实 fixtures）。
+后端测试规模（第八阶段）：79 个测试（46 单元 + 3 游戏服务器接入 + 2 数据源接入 + 10 HTTP 契约 + 1 积分 + 3 公开 API + 11 schema + 3 真实依赖）；另有 1 个需要真实 kzgo.eu 网络的 `source_live` 忽略测试。
 
 ### 全部检查
 

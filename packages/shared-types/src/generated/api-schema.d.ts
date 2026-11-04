@@ -4,6 +4,144 @@
  */
 
 export interface paths {
+    "/api/v1/admin/external-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** External server snapshot used for public fallback */
+        get: operations["list_external_servers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List registered game servers */
+        get: operations["admin_list"];
+        put?: never;
+        /** Create a game server and return its token once */
+        post: operations["admin_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/tasks/{task_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry a failed replay / sync task */
+        post: operations["admin_retry_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/{server_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Server detail with heartbeats, players, records, replays and sync logs */
+        get: operations["admin_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update server metadata */
+        patch: operations["admin_update"];
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/{server_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable a server; all ingestion is rejected immediately */
+        post: operations["admin_disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/{server_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable a server */
+        post: operations["admin_enable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/{server_id}/token/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke the server token */
+        post: operations["admin_revoke_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/game-servers/{server_id}/token/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate the server token; the new token is returned once */
+        post: operations["admin_rotate_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/points/initialize": {
         parameters: {
             query?: never;
@@ -121,6 +259,242 @@ export interface paths {
         head?: never;
         /** Update a course tier (triggers Filter recalculation) */
         patch: operations["update_tier"];
+        trace?: never;
+    };
+    "/api/v1/admin/records/{record_id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Raw record provenance for one canonical record */
+        get: operations["record_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List external data sources and health */
+        get: operations["list_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sources/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Enable or disable a data source */
+        patch: operations["update_source"];
+        trace?: never;
+    };
+    "/api/v1/admin/sources/{code}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent sync runs for a source */
+        get: operations["list_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sources/{code}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Trigger a source sync in the background */
+        post: operations["trigger_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/config/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Map, course, mode, style and tier snapshot
+         * @description Send the last `version` to receive `changed=false`; heartbeat never carries the full map list.
+         */
+        get: operations["config_sync"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Server heartbeat
+         * @description Authenticated with `X-Server-Token`. The API records its own receive time and derives ONLINE/STALE from it.
+         */
+        post: operations["heartbeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/players/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Player connected / authenticated */
+        post: operations["connect_player"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/players/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Player disconnected */
+        post: operations["disconnect_player"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/players/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Full online-player calibration
+         * @description Missing players are marked disconnected only on this server; sessions on other servers are untouched.
+         */
+        post: operations["sync_players"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a GOKZ finish
+         * @description Idempotent on (`server_id`, `record_identifier`). PB/WR/points are decided by the API and phase-6 triggers, never by the plugin.
+         */
+        post: operations["submit_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/records/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Record / replay / points status */
+        get: operations["record_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game-servers/replays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register replay metadata
+         * @description The replay bytes stay in R2/S3. Registration is idempotent on (bucket, object_key); a failed upload leaves the record valid and creates a retryable sync task.
+         */
+        post: operations["register_replay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/leaderboards/filters": {
@@ -376,6 +750,26 @@ export interface paths {
         };
         /** Compare two players */
         get: operations["compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/players/online": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players currently online on fresh CS:GO servers
+         * @description Only sessions on enabled servers with a heartbeat less than 2 minutes old are returned.
+         */
+        get: operations["online_players"];
         put?: never;
         post?: never;
         delete?: never;
@@ -716,6 +1110,150 @@ export interface components {
             days: number;
             items: components["schemas"]["ActivePlayer"][];
         };
+        AdminHeartbeatRow: {
+            game_version?: string | null;
+            /** Format: int64 */
+            id: number;
+            map_name?: string | null;
+            /** Format: int32 */
+            max_players: number;
+            mode_code?: string | null;
+            /** Format: int32 */
+            online_players: number;
+            plugin_version?: string | null;
+            /** Format: date-time */
+            received_at: string;
+        };
+        AdminPlayerRow: {
+            /** Format: int64 */
+            account_id: number;
+            /** Format: date-time */
+            connected_at: string;
+            display_name: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            status: string;
+            steam_id64: string;
+        };
+        AdminRecordRow: {
+            /** Format: int64 */
+            account_id: number;
+            /** Format: int32 */
+            course_stage: number;
+            /** Format: date-time */
+            created_at: string;
+            display_name?: string | null;
+            /** Format: int64 */
+            id: number;
+            is_world_record: boolean;
+            map_name: string;
+            mode_code: string;
+            replay_status?: string | null;
+            status: string;
+            steam_id64: string;
+            /** Format: int64 */
+            time_ns: number;
+            time_seconds: string;
+            time_type: string;
+        };
+        AdminReplayRow: {
+            bucket: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            object_key: string;
+            /** Format: int64 */
+            record_id: number;
+            /** Format: int64 */
+            size_bytes: number;
+            status: string;
+            /** Format: date-time */
+            uploaded_at?: string | null;
+        };
+        AdminServerDetailResponse: {
+            online_players: components["schemas"]["AdminPlayerRow"][];
+            recent_heartbeats: components["schemas"]["AdminHeartbeatRow"][];
+            recent_records: components["schemas"]["AdminRecordRow"][];
+            recent_replays: components["schemas"]["AdminReplayRow"][];
+            server: components["schemas"]["AdminServerSummary"];
+            sync_logs: components["schemas"]["AdminSyncLogRow"][];
+            sync_tasks: components["schemas"]["AdminSyncTaskRow"][];
+        };
+        AdminServerListResponse: {
+            items: components["schemas"]["AdminServerSummary"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        AdminServerQuery: {
+            enabled?: boolean | null;
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+            search?: string | null;
+        };
+        AdminServerSummary: {
+            /** Format: date-time */
+            api_key_created_at: string;
+            api_key_prefix: string;
+            /** Format: date-time */
+            api_key_revoked_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            current_map_id?: number | null;
+            current_map_name?: string | null;
+            current_mode?: string | null;
+            game: string;
+            /** Format: int64 */
+            heartbeat_age_seconds?: number | null;
+            /** Format: int64 */
+            id: number;
+            ip: string;
+            is_enabled: boolean;
+            is_online: boolean;
+            /** Format: date-time */
+            last_heartbeat_at?: string | null;
+            /** Format: int32 */
+            max_players: number;
+            name: string;
+            /** Format: int32 */
+            online_players: number;
+            plugin_version?: string | null;
+            /** Format: int32 */
+            port: number;
+            /** Format: int32 */
+            query_port?: number | null;
+            region?: string | null;
+            server_type: string;
+            status: string;
+        };
+        AdminSyncLogRow: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            message?: string | null;
+            /** Format: int64 */
+            record_id?: number | null;
+            status: string;
+        };
+        AdminSyncTaskRow: {
+            /** Format: int32 */
+            attempts: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            last_error?: string | null;
+            /** Format: int64 */
+            record_id?: number | null;
+            status: string;
+            task_type: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         AdminTierDto: {
             completed: boolean;
             /** Format: int64 */
@@ -774,6 +1312,70 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_AdminServerDetailResponse: {
+            data: {
+                online_players: components["schemas"]["AdminPlayerRow"][];
+                recent_heartbeats: components["schemas"]["AdminHeartbeatRow"][];
+                recent_records: components["schemas"]["AdminRecordRow"][];
+                recent_replays: components["schemas"]["AdminReplayRow"][];
+                server: components["schemas"]["AdminServerSummary"];
+                sync_logs: components["schemas"]["AdminSyncLogRow"][];
+                sync_tasks: components["schemas"]["AdminSyncTaskRow"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_AdminServerListResponse: {
+            data: {
+                items: components["schemas"]["AdminServerSummary"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_AdminServerSummary: {
+            data: {
+                /** Format: date-time */
+                api_key_created_at: string;
+                api_key_prefix: string;
+                /** Format: date-time */
+                api_key_revoked_at?: string | null;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: int64 */
+                current_map_id?: number | null;
+                current_map_name?: string | null;
+                current_mode?: string | null;
+                game: string;
+                /** Format: int64 */
+                heartbeat_age_seconds?: number | null;
+                /** Format: int64 */
+                id: number;
+                ip: string;
+                is_enabled: boolean;
+                is_online: boolean;
+                /** Format: date-time */
+                last_heartbeat_at?: string | null;
+                /** Format: int32 */
+                max_players: number;
+                name: string;
+                /** Format: int32 */
+                online_players: number;
+                plugin_version?: string | null;
+                /** Format: int32 */
+                port: number;
+                /** Format: int32 */
+                query_port?: number | null;
+                region?: string | null;
+                server_type: string;
+                status: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_AdminTiersResponse: {
             data: {
                 items: components["schemas"]["AdminTierDto"][];
@@ -795,6 +1397,42 @@ export interface components {
                 right: components["schemas"]["ComparePlayerSide"];
                 tiers: components["schemas"]["CompareTier"][];
                 time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ConfigSyncResponse: {
+            data: {
+                changed: boolean;
+                /** Format: date-time */
+                generated_at: string;
+                maps: components["schemas"]["ConfigMap"][];
+                modes: components["schemas"]["ConfigMode"][];
+                styles: components["schemas"]["ConfigStyle"][];
+                /** Format: int64 */
+                version: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_CreateServerResponse: {
+            data: {
+                server: components["schemas"]["AdminServerSummary"];
+                /** @description Returned exactly once. Store it on the CS:GO server and never commit it. */
+                token: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ExternalServerListResponse: {
+            data: {
+                /** Format: date-time */
+                generated_at: string;
+                items: components["schemas"]["ExternalServerSnapshot"][];
+                source_healthy: boolean;
             };
             message: string;
             success: boolean;
@@ -825,6 +1463,22 @@ export interface components {
                 /** Format: date-time */
                 timestamp: string;
                 version: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_HeartbeatResponse: {
+            data: {
+                /** Format: int64 */
+                config_version: number;
+                /** Format: int64 */
+                heartbeat_interval_seconds: number;
+                /** Format: date-time */
+                received_at: string;
+                /** Format: int64 */
+                server_id: number;
+                status: string;
             };
             message: string;
             success: boolean;
@@ -925,6 +1579,15 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_OnlinePlayersResponse: {
+            data: {
+                count: number;
+                items: components["schemas"]["OnlinePlayerSummary"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_PlayerDetailResponse: {
             data: {
                 /** @description Per-mode breakdown across all time types/styles. */
@@ -998,6 +1661,19 @@ export interface components {
                 account: components["schemas"]["PlayerRef"];
                 items: components["schemas"]["RecordSummary"][];
                 meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_PlayerSyncResponse: {
+            data: {
+                /** Format: int64 */
+                connected: number;
+                /** Format: int64 */
+                disconnected: number;
+                /** Format: int64 */
+                online: number;
             };
             message: string;
             success: boolean;
@@ -1124,11 +1800,113 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_RecordProvenanceResponse: {
+            data: {
+                /** Format: int64 */
+                record_id: number;
+                sources: components["schemas"]["RawRecordAuditRow"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecordStatusResponse: {
+            data: {
+                is_pb: boolean;
+                is_world_record: boolean;
+                points_status: string;
+                /** Format: int64 */
+                record_id: number;
+                record_identifier: string;
+                /** Format: int64 */
+                replay_id?: number | null;
+                replay_status: string;
+                status: string;
+                /** Format: int64 */
+                time_ns: number;
+                time_seconds: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RecordSubmissionResponse: {
+            data: {
+                accepted: boolean;
+                duplicate: boolean;
+                is_pb: boolean;
+                is_world_record: boolean;
+                /** @description `queued` when the database trigger enqueued a Filter recalculation. */
+                points_status: string;
+                /** Format: int64 */
+                record_id: number;
+                record_identifier: string;
+                /** @description `pending` / `available` / `failed` / `not_reported`. */
+                replay_status: string;
+                /** Format: int64 */
+                time_ns: number;
+                time_seconds: string;
+                time_type: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ReplayRegistrationResponse: {
+            data: {
+                duplicate: boolean;
+                /** Format: int64 */
+                id: number;
+                /** Format: int64 */
+                record_id: number;
+                replay_available: boolean;
+                status: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RetryTaskResponse: {
+            data: {
+                message: string;
+                status: string;
+                /** Format: int64 */
+                task_id: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_RotateTokenResponse: {
+            data: {
+                /** Format: date-time */
+                created_at: string;
+                prefix: string;
+                /** Format: int64 */
+                server_id: number;
+                token: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_SearchResponse: {
             data: {
                 maps: components["schemas"]["MapRef"][];
                 players: components["schemas"]["PlayerRef"][];
                 query: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_ServerActionResponse: {
+            data: {
+                enabled: boolean;
+                message: string;
+                /** Format: int64 */
+                server_id: number;
+                token_revoked: boolean;
             };
             message: string;
             success: boolean;
@@ -1151,6 +1929,7 @@ export interface components {
                 current_map_id?: number | null;
                 current_map_name?: string | null;
                 current_map_slug?: string | null;
+                game: string;
                 /**
                  * Format: int64
                  * @description Seconds since the last heartbeat; `null` when no heartbeat exists.
@@ -1161,25 +1940,84 @@ export interface components {
                 ip: string;
                 /** Format: date-time */
                 last_heartbeat_at?: string | null;
-                /**
-                 * Format: int64
-                 * @description Not stored in the schema yet.
-                 */
+                /** Format: int64 */
                 max_players?: number | null;
-                /** @description Not stored in the schema yet. */
                 mode?: string | null;
                 name: string;
                 /** @description Fresh heartbeat within the last 2 minutes. */
                 online: boolean;
-                /**
-                 * Format: int64
-                 * @description Not stored in the schema yet.
-                 */
+                /** Format: int64 */
                 players?: number | null;
                 plugin_version?: string | null;
                 /** Format: int32 */
                 port: number;
+                region?: string | null;
+                server_type: string;
                 /** @description `online` / `offline` / `expired` / `unknown`; derived from heartbeat age. */
+                status: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SourceListResponse: {
+            data: {
+                items: components["schemas"]["SourceSummary"][];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SourceRunsResponse: {
+            data: {
+                items: components["schemas"]["SourceRunDto"][];
+                meta: components["schemas"]["PageMeta"];
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SourceSummary: {
+            data: {
+                /** Format: int64 */
+                canonical_links: number;
+                code: string;
+                config: unknown;
+                /** Format: int32 */
+                consecutive_failures: number;
+                cursor: unknown;
+                display_name: string;
+                /** Format: int64 */
+                id: number;
+                is_enabled: boolean;
+                /** Format: date-time */
+                last_attempt_at?: string | null;
+                last_error?: string | null;
+                /** Format: date-time */
+                last_failure_at?: string | null;
+                /** Format: date-time */
+                last_success_at?: string | null;
+                /** Format: date-time */
+                latest_run_at?: string | null;
+                latest_run_status?: string | null;
+                /** Format: int32 */
+                priority: number;
+                /** Format: int64 */
+                raw_records: number;
+                source_type: string;
+                status: string;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_SourceSyncResponse: {
+            data: {
+                message: string;
+                /** Format: int64 */
+                run_id?: number | null;
+                source: string;
+                stats: unknown;
                 status: string;
             };
             message: string;
@@ -1353,6 +2191,59 @@ export interface components {
             /** Format: int64 */
             total_maps: number;
         };
+        ConfigCourse: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int32 */
+            stage: number;
+        };
+        ConfigMap: {
+            courses: components["schemas"]["ConfigCourse"][];
+            /** Format: int64 */
+            id: number;
+            modes: string[];
+            name: string;
+            status: string;
+            tiers: components["schemas"]["ConfigTier"][];
+        };
+        ConfigMode: {
+            code: string;
+            display_name: string;
+            /** Format: int32 */
+            id: number;
+        };
+        ConfigStyle: {
+            code: string;
+            display_name: string;
+            /** Format: int32 */
+            id: number;
+        };
+        ConfigSyncQuery: {
+            /**
+             * Format: int64
+             * @description Version returned by the previous sync; omit for a full snapshot.
+             */
+            version?: number | null;
+        };
+        ConfigSyncResponse: {
+            changed: boolean;
+            /** Format: date-time */
+            generated_at: string;
+            maps: components["schemas"]["ConfigMap"][];
+            modes: components["schemas"]["ConfigMode"][];
+            styles: components["schemas"]["ConfigStyle"][];
+            /** Format: int64 */
+            version: number;
+        };
+        ConfigTier: {
+            /** Format: int64 */
+            course_id: number;
+            /** @description Scoring mode code: KZT, SKZ or VNL. */
+            mode: string;
+            /** Format: int32 */
+            tier: number;
+        };
         CourseRef: {
             /** Format: int64 */
             id: number;
@@ -1362,6 +2253,28 @@ export interface components {
              * @description 0 = main course, >0 = bonus stage.
              */
             stage: number;
+        };
+        CreateServerRequest: {
+            ip: string;
+            /** Format: int32 */
+            max_players?: number | null;
+            name: string;
+            owner_display_name?: string | null;
+            /** @description Account that owns the server. Created if it does not exist yet. */
+            owner_steam_id64: string;
+            plugin_version?: string | null;
+            /** Format: int32 */
+            port: number;
+            /** Format: int32 */
+            query_port?: number | null;
+            region?: string | null;
+            /** @description `community`, `official`, `event` or `testing`. */
+            server_type?: string | null;
+        };
+        CreateServerResponse: {
+            server: components["schemas"]["AdminServerSummary"];
+            /** @description Returned exactly once. Store it on the CS:GO server and never commit it. */
+            token: string;
         };
         /** @description Sanitized state of a single dependency. */
         DependencyStatusDto: {
@@ -1380,6 +2293,33 @@ export interface components {
          * @enum {string}
          */
         ErrorCode: "validation_error" | "unauthorized" | "forbidden" | "not_found" | "database_error" | "redis_error" | "dependency_unavailable" | "not_ready" | "internal_error" | "rate_limited";
+        ExternalServerListResponse: {
+            /** Format: date-time */
+            generated_at: string;
+            items: components["schemas"]["ExternalServerSnapshot"][];
+            source_healthy: boolean;
+        };
+        ExternalServerSnapshot: {
+            external_id: string;
+            host: string;
+            /** Format: int64 */
+            id: number;
+            is_online: boolean;
+            label?: string | null;
+            /** Format: date-time */
+            last_seen_at: string;
+            map_name?: string | null;
+            /** Format: int32 */
+            map_tier?: number | null;
+            /** Format: int32 */
+            max_players: number;
+            name: string;
+            /** Format: int32 */
+            online_players: number;
+            /** Format: int32 */
+            port: number;
+            source_code: string;
+        };
         FilterLeaderboardEntry: {
             /** Format: int64 */
             account_id: number;
@@ -1427,6 +2367,37 @@ export interface components {
             /** Format: date-time */
             timestamp: string;
             version: string;
+        };
+        HeartbeatRequest: {
+            game_version?: string | null;
+            /** @description BSP name without `.bsp`, e.g. `kz_example`. */
+            map?: string | null;
+            /** Format: int64 */
+            max_players?: number | null;
+            /** @description GOKZ / scoring mode: `KZT`, `SKZ`, `VNL` (or `kztimer` / `simple` / `vanilla`). */
+            mode?: string | null;
+            /** Format: int64 */
+            online_players?: number | null;
+            plugin_version?: string | null;
+            server_name?: string | null;
+            /** Format: int32 */
+            server_port?: number | null;
+            /**
+             * Format: date-time
+             * @description Plugin clock; the API records its own receive time as the source of truth.
+             */
+            timestamp?: string | null;
+        };
+        HeartbeatResponse: {
+            /** Format: int64 */
+            config_version: number;
+            /** Format: int64 */
+            heartbeat_interval_seconds: number;
+            /** Format: date-time */
+            received_at: string;
+            /** Format: int64 */
+            server_id: number;
+            status: string;
         };
         LeaderboardEntry: {
             /** Format: int64 */
@@ -1634,6 +2605,32 @@ export interface components {
             /** Format: int32 */
             id: number;
         };
+        OnlinePlayerSummary: {
+            /** Format: date-time */
+            connected_at: string;
+            current_map_name?: string | null;
+            mode?: string | null;
+            /** Format: int64 */
+            online_seconds: number;
+            player: components["schemas"]["PlayerRef"];
+            /** Format: int64 */
+            server_id: number;
+            server_name: string;
+            status: string;
+        };
+        OnlinePlayersQuery: {
+            /** Format: int32 */
+            limit?: number | null;
+            /**
+             * Format: int64
+             * @description Restrict to one server.
+             */
+            server_id?: number | null;
+        };
+        OnlinePlayersResponse: {
+            count: number;
+            items: components["schemas"]["OnlinePlayerSummary"][];
+        };
         PageMeta: {
             /** Format: int32 */
             page: number;
@@ -1664,6 +2661,21 @@ export interface components {
             scoped: components["schemas"]["PlayerOverallStats"];
             /** @description Tier completion counts for the selected `scope`. */
             tiers: components["schemas"]["TierProgressDto"][];
+        };
+        PlayerDisconnectRequest: {
+            /** Format: date-time */
+            disconnected_at?: string | null;
+            steam_id64: string;
+        };
+        PlayerEventRequest: {
+            /** Format: date-time */
+            connected_at?: string | null;
+            display_name: string;
+            map?: string | null;
+            mode?: string | null;
+            /** @description `connected`, `spectating` or `afk`; default `connected`. */
+            status?: string | null;
+            steam_id64: string;
         };
         PlayerFilterPointsDto: {
             /** Format: date-time */
@@ -1926,6 +2938,21 @@ export interface components {
             /** Format: int64 */
             wr_count: number;
         };
+        PlayerSyncRequest: {
+            /**
+             * @description Full snapshot of the players currently on this server. The API marks
+             *     missing sessions disconnected only for this server.
+             */
+            players: components["schemas"]["PlayerEventRequest"][];
+        };
+        PlayerSyncResponse: {
+            /** Format: int64 */
+            connected: number;
+            /** Format: int64 */
+            disconnected: number;
+            /** Format: int64 */
+            online: number;
+        };
         PointsLeaderboardEntry: {
             /** Format: int64 */
             account_id: number;
@@ -1993,6 +3020,26 @@ export interface components {
             servers_online: number;
             /** Format: int64 */
             world_records: number;
+        };
+        RawRecordAuditRow: {
+            /** Format: int64 */
+            canonical_record_id?: number | null;
+            external_record_id: string;
+            field_conflicts: unknown;
+            /** Format: double */
+            match_confidence?: number | null;
+            match_method?: string | null;
+            processing_error?: string | null;
+            processing_status: string;
+            raw_payload: unknown;
+            /** Format: int64 */
+            raw_record_id: number;
+            /** Format: date-time */
+            received_at: string;
+            source_code: string;
+            /** Format: date-time */
+            source_recorded_at?: string | null;
+            source_type: string;
         };
         /** @description Response of `GET /health/ready`. */
         ReadinessResponse: {
@@ -2075,6 +3122,11 @@ export interface components {
             items: components["schemas"]["RecordSummary"][];
             meta: components["schemas"]["PageMeta"];
         };
+        RecordProvenanceResponse: {
+            /** Format: int64 */
+            record_id: number;
+            sources: components["schemas"]["RawRecordAuditRow"][];
+        };
         RecordQuery: {
             /** @description RFC3339 lower bound on upload time. */
             from?: string | null;
@@ -2101,6 +3153,74 @@ export interface components {
             to?: string | null;
             /** @description `true` = only current world records, `false` = only non-WR. */
             world_record?: boolean | null;
+        };
+        RecordStatusQuery: {
+            record_identifier: string;
+        };
+        RecordStatusResponse: {
+            is_pb: boolean;
+            is_world_record: boolean;
+            points_status: string;
+            /** Format: int64 */
+            record_id: number;
+            record_identifier: string;
+            /** Format: int64 */
+            replay_id?: number | null;
+            replay_status: string;
+            status: string;
+            /** Format: int64 */
+            time_ns: number;
+            time_seconds: string;
+        };
+        RecordSubmissionRequest: {
+            /** Format: int32 */
+            course: number;
+            /** Format: date-time */
+            created_at?: string | null;
+            map: string;
+            /** @description `KZT`, `SKZ`, `VNL` (case-insensitive). */
+            mode: string;
+            player_name?: string | null;
+            /** @description SourceMod plugin version reporting this run (optional). */
+            plugin_version?: string | null;
+            /** @description Stable plugin-side idempotency key (unique per server). */
+            record_identifier: string;
+            /** @description Optional path reported by GOKZ replays; stored only in audit metadata. */
+            replay_path?: string | null;
+            steam_id64: string;
+            /** @description Defaults to `normal`; GOKZ only has Style_Normal. */
+            style?: string | null;
+            /** Format: int32 */
+            teleports: number;
+            /** Format: int32 */
+            tickrate: number;
+            /**
+             * Format: double
+             * @description Run duration in seconds. Exactly one of `time` / `time_ns` is required.
+             */
+            time?: number | null;
+            /**
+             * Format: int64
+             * @description Run duration in nanoseconds (preferred; no float conversion).
+             */
+            time_ns?: number | null;
+        };
+        RecordSubmissionResponse: {
+            accepted: boolean;
+            duplicate: boolean;
+            is_pb: boolean;
+            is_world_record: boolean;
+            /** @description `queued` when the database trigger enqueued a Filter recalculation. */
+            points_status: string;
+            /** Format: int64 */
+            record_id: number;
+            record_identifier: string;
+            /** @description `pending` / `available` / `failed` / `not_reported`. */
+            replay_status: string;
+            /** Format: int64 */
+            time_ns: number;
+            time_seconds: string;
+            time_type: string;
         };
         RecordSummary: {
             course: components["schemas"]["CourseRef"];
@@ -2144,6 +3264,46 @@ export interface components {
             time_seconds: string;
             time_type: components["schemas"]["TimeType"];
         };
+        ReplayRegistrationRequest: {
+            bucket: string;
+            /** @description Lowercase or uppercase hex SHA-256 (64 characters). */
+            checksum_sha256: string;
+            object_key: string;
+            record_identifier: string;
+            /** Format: int32 */
+            replay_format_version?: number | null;
+            /** Format: int64 */
+            size_bytes: number;
+            /** @description `pending`, `available` or `failed`; default `available`. */
+            status?: string | null;
+            /** @description `r2`, `s3` or `local`; default `r2`. */
+            storage_provider?: string | null;
+            /** Format: date-time */
+            uploaded_at?: string | null;
+        };
+        ReplayRegistrationResponse: {
+            duplicate: boolean;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            record_id: number;
+            replay_available: boolean;
+            status: string;
+        };
+        RetryTaskResponse: {
+            message: string;
+            status: string;
+            /** Format: int64 */
+            task_id: number;
+        };
+        RotateTokenResponse: {
+            /** Format: date-time */
+            created_at: string;
+            prefix: string;
+            /** Format: int64 */
+            server_id: number;
+            token: string;
+        };
         ScoringModeDto: {
             code: string;
             display_name: string;
@@ -2158,6 +3318,13 @@ export interface components {
             maps: components["schemas"]["MapRef"][];
             players: components["schemas"]["PlayerRef"][];
             query: string;
+        };
+        ServerActionResponse: {
+            enabled: boolean;
+            message: string;
+            /** Format: int64 */
+            server_id: number;
+            token_revoked: boolean;
         };
         ServerListResponse: {
             items: components["schemas"]["ServerSummary"][];
@@ -2184,6 +3351,7 @@ export interface components {
             current_map_id?: number | null;
             current_map_name?: string | null;
             current_map_slug?: string | null;
+            game: string;
             /**
              * Format: int64
              * @description Seconds since the last heartbeat; `null` when no heartbeat exists.
@@ -2194,25 +3362,84 @@ export interface components {
             ip: string;
             /** Format: date-time */
             last_heartbeat_at?: string | null;
-            /**
-             * Format: int64
-             * @description Not stored in the schema yet.
-             */
+            /** Format: int64 */
             max_players?: number | null;
-            /** @description Not stored in the schema yet. */
             mode?: string | null;
             name: string;
             /** @description Fresh heartbeat within the last 2 minutes. */
             online: boolean;
-            /**
-             * Format: int64
-             * @description Not stored in the schema yet.
-             */
+            /** Format: int64 */
             players?: number | null;
             plugin_version?: string | null;
             /** Format: int32 */
             port: number;
+            region?: string | null;
+            server_type: string;
             /** @description `online` / `offline` / `expired` / `unknown`; derived from heartbeat age. */
+            status: string;
+        };
+        SourceListResponse: {
+            items: components["schemas"]["SourceSummary"][];
+        };
+        SourceRunDto: {
+            /** Format: date-time */
+            completed_at?: string | null;
+            error?: string | null;
+            /** Format: int64 */
+            id: number;
+            run_type: string;
+            /** Format: int64 */
+            source_id: number;
+            /** Format: date-time */
+            started_at: string;
+            stats: unknown;
+            status: string;
+        };
+        SourceRunsQuery: {
+            /** Format: int32 */
+            page?: number | null;
+            /** Format: int32 */
+            page_size?: number | null;
+        };
+        SourceRunsResponse: {
+            items: components["schemas"]["SourceRunDto"][];
+            meta: components["schemas"]["PageMeta"];
+        };
+        SourceSummary: {
+            /** Format: int64 */
+            canonical_links: number;
+            code: string;
+            config: unknown;
+            /** Format: int32 */
+            consecutive_failures: number;
+            cursor: unknown;
+            display_name: string;
+            /** Format: int64 */
+            id: number;
+            is_enabled: boolean;
+            /** Format: date-time */
+            last_attempt_at?: string | null;
+            last_error?: string | null;
+            /** Format: date-time */
+            last_failure_at?: string | null;
+            /** Format: date-time */
+            last_success_at?: string | null;
+            /** Format: date-time */
+            latest_run_at?: string | null;
+            latest_run_status?: string | null;
+            /** Format: int32 */
+            priority: number;
+            /** Format: int64 */
+            raw_records: number;
+            source_type: string;
+            status: string;
+        };
+        SourceSyncResponse: {
+            message: string;
+            /** Format: int64 */
+            run_id?: number | null;
+            source: string;
+            stats: unknown;
             status: string;
         };
         StyleRef: {
@@ -2301,6 +3528,19 @@ export interface components {
             records: number;
             time_type: string;
         };
+        UpdateServerRequest: {
+            /** Format: int32 */
+            max_players?: number | null;
+            name?: string | null;
+            plugin_version?: string | null;
+            /** Format: int32 */
+            query_port?: number | null;
+            region?: string | null;
+            server_type?: string | null;
+        };
+        UpdateSourceRequest: {
+            is_enabled?: boolean | null;
+        };
         UpdateTierRequest: {
             /** Format: int32 */
             tier: number;
@@ -2335,6 +3575,311 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_external_servers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ExternalServerListResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_list: {
+        parameters: {
+            query?: {
+                search?: string;
+                enabled?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdminServerListResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CreateServerResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_retry_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RetryTaskResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdminServerDetailResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateServerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdminServerSummary"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ServerActionResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_enable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ServerActionResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_revoke_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ServerActionResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    admin_rotate_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                server_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RotateTokenResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
     initialize: {
         parameters: {
             query?: never;
@@ -2533,6 +4078,465 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_UpdateTierResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    record_sources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecordProvenanceResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    list_sources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SourceListResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    update_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSourceRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SourceSummary"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    list_runs: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SourceRunsResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    trigger_sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SourceSyncResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    config_sync: {
+        parameters: {
+            query?: {
+                /** @description Version returned by the previous sync; omit for a full snapshot. */
+                version?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ConfigSyncResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    heartbeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeartbeatRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HeartbeatResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    connect_player: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerEventRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerSyncResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    disconnect_player: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerDisconnectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerSyncResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    sync_players: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerSyncRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PlayerSyncResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    submit_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordSubmissionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecordSubmissionResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    record_status: {
+        parameters: {
+            query: {
+                record_identifier: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_RecordStatusResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    register_replay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayRegistrationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_ReplayRegistrationResponse"];
                 };
             };
             400: {
@@ -3072,6 +5076,37 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    online_players: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one server. */
+                server_id?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_OnlinePlayersResponse"];
+                };
+            };
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

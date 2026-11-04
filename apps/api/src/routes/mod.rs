@@ -16,6 +16,8 @@ use crate::state::AppState;
 /// Path map:
 /// - `/health`, `/health/live`, `/health/ready`
 /// - `/api/v1/system/{info,status,events}`
+/// - `/api/v1/game-servers/*` (server-token ingestion)
+/// - `/api/v1/admin/game-servers/*` (maintenance-token administration)
 /// - `/swagger-ui`, `/api-docs/openapi.json`
 pub fn build_router(state: AppState) -> Router {
     let swagger =
@@ -30,6 +32,11 @@ pub fn build_router(state: AppState) -> Router {
         .merge(handlers::health::router())
         .nest("/api/v1", handlers::system::router())
         .nest("/api/v1", handlers::points::router())
+        .nest("/api/v1/game-servers", handlers::game_servers::router())
+        .nest(
+            "/api/v1/admin/game-servers",
+            handlers::game_servers::admin_router(),
+        )
         .nest("/api/v1/public", handlers::public::router())
         .merge(swagger)
         .fallback(not_found)

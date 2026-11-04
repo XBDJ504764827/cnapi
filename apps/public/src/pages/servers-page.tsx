@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { FilterX, Search, Server as ServerIcon } from 'lucide-react';
+import { FilterX, Search, Server as ServerIcon, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { EmptyState } from '@/components/common/empty-state';
@@ -17,7 +17,7 @@ import { useListParams } from '@/hooks/use-list-params';
 import { formatDateTime } from '@/lib/format';
 import { publicQueries } from '@/services/public-service';
 import { usePageMeta } from '@/seo/use-page-meta';
-import type { ServerSummaryPayload } from '@cngokz/shared-types';
+import type { OnlinePlayerSummaryPayload, ServerSummaryPayload } from '@cngokz/shared-types';
 
 export function ServersPage() {
   usePageMeta({
@@ -39,6 +39,7 @@ export function ServersPage() {
       page_size: list.pageSize,
     }),
   );
+  const onlinePlayers = useQuery(publicQueries.onlinePlayers({ limit: 100 }));
 
   const columns: DataTableColumn<ServerSummaryPayload>[] = [
     {
@@ -123,8 +124,8 @@ export function ServersPage() {
 
       <Callout
         variant="neutral"
-        title="数据来源与缺失字段"
-        description="online = 2 分钟内有心跳；offline = 明确离线；expired = 心跳过期；unknown = 从未上报。当前玩家数、最大人数与服务器级模式尚未入库，显示为 “—”。"
+        title="数据来源"
+        description="online = 2 分钟内有心跳；offline = 明确离线；expired = 心跳过期；unknown = 从未上报。玩家数、最大人数与模式来自真实心跳；在线玩家列表只展示心跳未过期且未被禁用的服务器。"
       />
 
       <Card className="overflow-hidden">
@@ -200,6 +201,48 @@ export function ServersPage() {
             onPageSizeChange={list.setPageSize}
           />
         </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Users className="size-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">当前在线玩家</h2>
+            <Badge variant="outline">{onlinePlayers.data?.count ?? 0}</Badge>
+          </div>
+          <span className="text-[11px] text-muted-foreground">仅来自心跳正常的服务器</span>
+        </div>
+        {onlinePlayers.isError ? (
+          <div className="p-4 text-xs text-danger">{onlinePlayers.error.message}</div>
+        ) : onlinePlayers.isLoading ? (
+          <div className="p-4 text-xs text-muted-foreground">正在加载在线玩家…</div>
+        ) : (onlinePlayers.data?.items.length ?? 0) === 0 ? (
+          <div className="p-4">
+            <EmptyState icon={Users} title="暂无在线玩家" description="没有心跳正常的服务器上报在线玩家。" compact />
+          </div>
+        ) : (
+          <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            {onlinePlayers.data?.items.map((player: OnlinePlayerSummaryPayload) => (
+              <div
+                key={`${player.server_id}-${player.player.steam_id64}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium">{player.player.display_name}</p>
+                  <p className="truncate font-mono text-[10px] text-muted-foreground">
+                    {player.server_name} · {player.current_map_name ?? '—'}
+                  </p>
+                </div>
+                <div className="text-right text-[10px] text-muted-foreground">
+                  <p>
+                    {player.mode ?? '—'} · {player.status}
+                  </p>
+                  <p>{Math.floor(player.online_seconds / 60)} 分钟</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

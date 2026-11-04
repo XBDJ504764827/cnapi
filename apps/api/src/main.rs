@@ -33,6 +33,11 @@ async fn main() -> anyhow::Result<()> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
     let worker_state = state.clone();
     let worker = tokio::spawn(async move { recalc::run_worker(worker_state, shutdown_rx).await });
+    let source_shutdown = shutdown_tx.subscribe();
+    let source_state = state.clone();
+    let source_worker = tokio::spawn(async move {
+        cngokz_api::services::sources::run_worker(source_state, source_shutdown).await
+    });
     let router = routes::build_router(state.clone());
     let addr = config.socket_addr()?;
 
@@ -59,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
     info!("shutdown signal received, closing resources");
     let _ = shutdown_tx.send(true);
     let _ = tokio::time::timeout(std::time::Duration::from_secs(5), worker).await;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), source_worker).await;
     state.db().close().await;
     info!("bye");
 

@@ -318,7 +318,8 @@ async fn public_portal_endpoints_work_against_real_schema() {
     let (status, body) = get_json(&app, "/api/v1/public/servers?online=true").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["data"]["items"].as_array().map(Vec::len), Some(1));
-    assert!(body["data"]["items"][0]["players"].is_null());
+    assert_eq!(body["data"]["items"][0]["players"], 0);
+    assert_eq!(body["data"]["items"][0]["max_players"], 24);
 
     let (status, body) = get_json(&app, "/api/v1/public/search?q=fixture").await;
     assert_eq!(status, StatusCode::OK, "{body}");
@@ -535,7 +536,8 @@ async fn phase5_cache_rate_limit_and_scope() {
     assert_eq!(alpha["status"], "online");
     assert_eq!(beta["status"], "expired");
     assert!(alpha["heartbeat_age_seconds"].is_number());
-    assert!(alpha["players"].is_null());
+    assert_eq!(alpha["players"], 0);
+    assert_eq!(alpha["max_players"], 24);
 
     pool.close().await;
     sqlx::raw_sql(AssertSqlSafe(format!(

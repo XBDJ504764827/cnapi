@@ -21,6 +21,7 @@ const LeaderboardPage = lazy(async () => ({ default: (await import('@/pages/lead
 const JumpstatsPage = lazy(async () => ({ default: (await import('@/pages/jumpstats-page')).JumpstatsPage }));
 const ReplaysPage = lazy(async () => ({ default: (await import('@/pages/replays-page')).ReplaysPage }));
 const ServersPage = lazy(async () => ({ default: (await import('@/pages/servers-page')).ServersPage }));
+const SourcesPage = lazy(async () => ({ default: (await import('@/pages/sources-page')).SourcesPage }));
 const ServerDetailPage = lazy(async () => ({ default: (await import('@/pages/server-detail-page')).ServerDetailPage }));
 const BansPage = lazy(async () => ({ default: (await import('@/pages/bans-page')).BansPage }));
 const ApiKeysPage = lazy(async () => ({ default: (await import('@/pages/api-keys-page')).ApiKeysPage }));
@@ -60,6 +61,7 @@ export const router = createBrowserRouter(
         { path: 'replays', element: withSuspense(<ReplaysPage />) },
 
         { path: 'servers', element: withSuspense(<ServersPage />) },
+        { path: 'sources', element: withSuspense(<SourcesPage />) },
         { path: 'servers/:serverId', element: withSuspense(<ServerDetailPage />) },
 
         { path: 'bans', element: withSuspense(<BansPage />) },

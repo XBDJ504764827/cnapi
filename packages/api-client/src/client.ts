@@ -79,6 +79,8 @@ export function createApiClient({ baseUrl, fetch }: ApiClientOptions) {
         request(http.GET('/api/v1/public/players', { params: { query: query ?? {} } })),
       getActivePlayers: (query?: PublicActivePlayersQuery) =>
         request(http.GET('/api/v1/public/players/active', { params: { query: query ?? {} } })),
+      getOnlinePlayers: (query?: PublicOnlinePlayersQuery) =>
+        request(http.GET('/api/v1/public/players/online', { params: { query: query ?? {} } })),
       comparePlayers: (query: PublicCompareQuery) =>
         request(http.GET('/api/v1/public/players/compare', { params: { query } })),
       getPlayer: (steamid: string, query?: PublicPlayerDetailQuery) =>
@@ -131,6 +133,7 @@ export type PublicRecentRecordsQuery = NonNullable<QueryOf<'/api/v1/public/recor
 export type PublicRecentWorldRecordsQuery = NonNullable<QueryOf<'/api/v1/public/records/world-records', 'get'>>;
 export type PublicPlayerListQuery = NonNullable<QueryOf<'/api/v1/public/players', 'get'>>;
 export type PublicActivePlayersQuery = NonNullable<QueryOf<'/api/v1/public/players/active', 'get'>>;
+export type PublicOnlinePlayersQuery = NonNullable<QueryOf<'/api/v1/public/players/online', 'get'>>;
 export type PublicCompareQuery = NonNullable<QueryOf<'/api/v1/public/players/compare', 'get'>>;
 export type PublicPlayerDetailQuery = NonNullable<QueryOf<'/api/v1/public/players/{steamid}', 'get'>>;
 export type PublicPlayerMapsQuery = NonNullable<QueryOf<'/api/v1/public/players/{steamid}/maps', 'get'>>;

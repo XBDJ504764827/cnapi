@@ -3,6 +3,7 @@ export {
   type ApiClient,
   type ApiClientOptions,
   type PublicActivePlayersQuery,
+  type PublicOnlinePlayersQuery,
   type PublicCompareQuery,
   type PublicLeaderboardQuery,
   type PublicMapDetailQuery,

@@ -6,6 +6,7 @@ import type {
   PublicMapDetailQuery,
   PublicMapLeaderboardQuery,
   PublicMapListQuery,
+  PublicOnlinePlayersQuery,
   PublicPlayerDetailQuery,
   PublicPlayerListQuery,
   PublicPlayerMapsQuery,
@@ -53,6 +54,13 @@ export const publicQueries = {
       queryKey: ['public', 'players', 'active', query],
       queryFn: () => api.public.getActivePlayers(query),
       staleTime: 60_000,
+    }),
+  onlinePlayers: (query?: PublicOnlinePlayersQuery) =>
+    queryOptions({
+      queryKey: ['public', 'players', 'online', query],
+      queryFn: () => api.public.getOnlinePlayers(query),
+      staleTime: 15_000,
+      refetchInterval: 30_000,
     }),
   player: (steamid: string, query: PublicPlayerDetailQuery) =>
     queryOptions({

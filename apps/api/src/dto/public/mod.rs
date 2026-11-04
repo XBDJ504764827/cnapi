@@ -30,5 +30,8 @@ pub use records::{
     RecordQuery, RecordSummary, ServerRef, WorldRecordEntry,
 };
 pub use search::{SearchQuery, SearchResponse};
-pub use servers::{ServerListResponse, ServerQuery, ServerSummary};
+pub use servers::{
+    OnlinePlayerSummary, OnlinePlayersQuery, OnlinePlayersResponse, ServerListResponse,
+    ServerQuery, ServerSummary,
+};
 pub use stats::{PublicModesResponse, PublicStatistics};

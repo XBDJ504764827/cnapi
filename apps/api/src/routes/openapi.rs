@@ -3,6 +3,7 @@
 
 use utoipa::OpenApi;
 
+use crate::dto::game_server as server_dto;
 use crate::dto::points as points_dto;
 use crate::dto::public as public_dto;
 use crate::dto::public::leaderboards::{LeaderboardEntry, LeaderboardQuery, LeaderboardResponse};
@@ -23,8 +24,12 @@ use crate::dto::public::records::{
     RecordQuery, RecordSummary, ServerRef, WorldRecordEntry,
 };
 use crate::dto::public::search::{SearchQuery, SearchResponse};
-use crate::dto::public::servers::{ServerListResponse, ServerQuery, ServerSummary};
+use crate::dto::public::servers::{
+    OnlinePlayerSummary, OnlinePlayersQuery, OnlinePlayersResponse, ServerListResponse,
+    ServerQuery, ServerSummary,
+};
 use crate::dto::public::stats::{PublicMode, PublicModesResponse, PublicStatistics};
+use crate::dto::source as source_dto;
 use crate::dto::{
     ApiErrorBody, ApiErrorDetail, ErrorCode,
     health::{DependencyStatusDto, HealthResponse, LivenessResponse, ReadinessResponse},
@@ -34,7 +39,7 @@ use crate::dto::{
         SystemStatusResponse,
     },
 };
-use crate::handlers::{health, points, public, system};
+use crate::handlers::{game_servers, health, points, public, sources, system};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -60,6 +65,7 @@ use crate::handlers::{health, points, public, system};
         public::record_detail,
         public::players,
         public::active_players,
+        public::online_players,
         public::compare,
         public::player_detail,
         public::player_records,
@@ -84,6 +90,29 @@ use crate::handlers::{health, points, public, system};
         points::recalc_filter,
         points::recalc_mode,
         points::initialize,
+        game_servers::heartbeat,
+        game_servers::connect_player,
+        game_servers::disconnect_player,
+        game_servers::sync_players,
+        game_servers::submit_record,
+        game_servers::record_status,
+        game_servers::register_replay,
+        game_servers::config_sync,
+        game_servers::admin_list,
+        game_servers::admin_create,
+        game_servers::admin_detail,
+        game_servers::admin_update,
+        game_servers::admin_enable,
+        game_servers::admin_disable,
+        game_servers::admin_rotate_token,
+        game_servers::admin_revoke_token,
+        game_servers::admin_retry_task,
+        sources::list_sources,
+        sources::update_source,
+        sources::list_runs,
+        sources::trigger_sync,
+        sources::record_sources,
+        sources::list_external_servers,
     ),
     components(schemas(
         ApiResponse<HealthResponse>,
@@ -164,6 +193,9 @@ use crate::handlers::{health, points, public, system};
         ServerQuery,
         ServerSummary,
         ServerListResponse,
+        OnlinePlayersQuery,
+        OnlinePlayerSummary,
+        OnlinePlayersResponse,
         SearchQuery,
         SearchResponse,
         ApiResponse<PublicStatistics>,
@@ -185,6 +217,7 @@ use crate::handlers::{health, points, public, system};
         ApiResponse<MapStatistics>,
         ApiResponse<ServerListResponse>,
         ApiResponse<ServerSummary>,
+        ApiResponse<OnlinePlayersResponse>,
         ApiResponse<SearchResponse>,
         points_dto::PlayerPointsResponse,
         points_dto::ModePointsDto,
@@ -218,11 +251,78 @@ use crate::handlers::{health, points, public, system};
         ApiResponse<points_dto::UpdateTierResponse>,
         ApiResponse<points_dto::RecalcRunsResponse>,
         ApiResponse<points_dto::RecalcResponse>,
+        server_dto::HeartbeatRequest,
+        server_dto::HeartbeatResponse,
+        server_dto::PlayerEventRequest,
+        server_dto::PlayerDisconnectRequest,
+        server_dto::PlayerSyncRequest,
+        server_dto::PlayerSyncResponse,
+        server_dto::RecordSubmissionRequest,
+        server_dto::RecordSubmissionResponse,
+        server_dto::RecordStatusQuery,
+        server_dto::RecordStatusResponse,
+        server_dto::ReplayRegistrationRequest,
+        server_dto::ReplayRegistrationResponse,
+        server_dto::ConfigSyncQuery,
+        server_dto::ConfigMode,
+        server_dto::ConfigStyle,
+        server_dto::ConfigCourse,
+        server_dto::ConfigTier,
+        server_dto::ConfigMap,
+        server_dto::ConfigSyncResponse,
+        server_dto::AdminServerQuery,
+        server_dto::CreateServerRequest,
+        server_dto::UpdateServerRequest,
+        server_dto::AdminServerSummary,
+        server_dto::AdminServerListResponse,
+        server_dto::CreateServerResponse,
+        server_dto::RotateTokenResponse,
+        server_dto::AdminHeartbeatRow,
+        server_dto::AdminPlayerRow,
+        server_dto::AdminRecordRow,
+        server_dto::AdminReplayRow,
+        server_dto::AdminSyncLogRow,
+        server_dto::AdminSyncTaskRow,
+        server_dto::AdminServerDetailResponse,
+        server_dto::ServerActionResponse,
+        server_dto::RetryTaskResponse,
+        ApiResponse<server_dto::HeartbeatResponse>,
+        ApiResponse<server_dto::PlayerSyncResponse>,
+        ApiResponse<server_dto::RecordSubmissionResponse>,
+        ApiResponse<server_dto::RecordStatusResponse>,
+        ApiResponse<server_dto::ReplayRegistrationResponse>,
+        ApiResponse<server_dto::ConfigSyncResponse>,
+        ApiResponse<server_dto::AdminServerListResponse>,
+        ApiResponse<server_dto::CreateServerResponse>,
+        ApiResponse<server_dto::AdminServerSummary>,
+        ApiResponse<server_dto::AdminServerDetailResponse>,
+        ApiResponse<server_dto::RotateTokenResponse>,
+        ApiResponse<server_dto::ServerActionResponse>,
+        ApiResponse<server_dto::RetryTaskResponse>,
+        source_dto::SourceSummary,
+        source_dto::SourceListResponse,
+        source_dto::SourceRunsQuery,
+        source_dto::SourceRunDto,
+        source_dto::SourceRunsResponse,
+        source_dto::UpdateSourceRequest,
+        source_dto::SourceSyncResponse,
+        source_dto::RawRecordAuditRow,
+        source_dto::RecordProvenanceResponse,
+        source_dto::ExternalServerSnapshot,
+        source_dto::ExternalServerListResponse,
+        ApiResponse<source_dto::SourceListResponse>,
+        ApiResponse<source_dto::SourceSummary>,
+        ApiResponse<source_dto::SourceRunsResponse>,
+        ApiResponse<source_dto::SourceSyncResponse>,
+        ApiResponse<source_dto::RecordProvenanceResponse>,
+        ApiResponse<source_dto::ExternalServerListResponse>,
     )),
     tags(
         (name = "health", description = "Liveness and readiness probes"),
         (name = "system", description = "System information, status and events"),
-        (name = "public", description = "Public portal read-only data (players, maps, records, leaderboards, servers)")
+        (name = "public", description = "Public portal read-only data (players, maps, records, leaderboards, servers)"),
+        (name = "game-servers", description = "CS:GO / GOKZ server ingestion and administration (SourceMod cngokz_sync)"),
+        (name = "sources", description = "Multi-source sync health, raw record provenance and external server snapshots")
     )
 )]
 pub struct ApiDoc;

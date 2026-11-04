@@ -1,5 +1,6 @@
 import {
   Activity,
+  Database,
   Ban,
   FileCode2,
   Film,
@@ -129,6 +130,13 @@ export const navSections: NavSection[] = [
         icon: Server,
         description: '服务器注册、在线状态与插件版本',
         keywords: ['server', 'servers', 'heartbeat', 'plugin'],
+      },
+      {
+        label: '数据源管理',
+        to: '/sources',
+        icon: Database,
+        description: 'GOKZ-Global / kzgo.eu 同步、健康状态与原始成绩溯源',
+        keywords: ['source', 'kzgo', 'gokz global', 'sync', 'provenance'],
       },
     ],
   },

@@ -57,7 +57,7 @@
 | 地图 | `map_courses` | 关卡（stage 0 = 主线，1.. = bonus） |
 | 地图 | `map_modes` | 地图支持的移动模式 |
 | 地图 | `course_tiers` | 按关卡+模式的 NUB/PRO 难度与排名状态 |
-| 服务器 | `servers` | 服务器注册、API Key 哈希、心跳、当前地图 |
+| 服务器 | `servers` | 服务器注册、Token 哈希、CS:GO 元数据、心跳、当前地图/模式、启用开关 |
 | 成绩 | `records` | 单次跑图成绩（含 TP/PRO、tickrate、来源服务器、审核） |
 | 成绩 | `record_history` | 成绩变更审计（审核、修正、软删除） |
 | 成绩 | `course_world_records` | 每个（关卡, 模式, 风格, TP/PRO）当前 WR 指针 |
@@ -65,6 +65,13 @@
 | Replay | `replays` | Replay 对象元数据（R2 object key、大小、校验值、保留期） |
 | 管理 | `bans` | 封禁记录（追加式，过期由时间推导） |
 | 管理 | `ban_revocations` | 解封记录 |
+| 服务器接入 | `server_heartbeats` | 心跳历史 |
+| 服务器接入 | `server_player_sessions` | 真实在线会话（支持同一玩家多服务器） |
+| 服务器接入 | `server_sync_logs` | 接入审计/拒绝原因 |
+| 服务器接入 | `server_sync_tasks` | Replay 补偿与重试任务 |
+| 多数据源 | `record_sources` / `source_sync_runs` | 来源注册、健康状态、同步游标与运行记录 |
+| 多数据源 | `raw_records` / `record_source_links` | 原始 payload、canonical 来源溯源、匹配方式 |
+| 多数据源 | `map_source_links` / `external_servers` | 外部地图 ID 映射、kzgo 服务器快照 |
 
 ## 4. 迁移清单
 
@@ -79,6 +86,10 @@
 | 20261103000007 | `jumpstats.sql` | `jumpstats` |
 | 20261103000008 | `replays.sql` | `replays` |
 | 20261103000009 | `moderation.sql` | `bans`、`ban_revocations` |
+| 20261104000001 | `phase5_indexes.sql` | 公开门户查询索引 |
+| 20261104000002 | `points_system.sql` | 第六阶段 Filter/积分/重算 |
+| 20261105000001 | `phase7_game_server_sync.sql` | 第七阶段服务器 Token/心跳/玩家/Replay 任务；`records.submission_key` |
+| 20261105000002 | `phase8_sources_and_scoring_audit.sql` | 第八阶段多来源/原始记录/来源链接/外部服务器；积分版本与公式审计列 |
 
 迁移在 API 启动时自动执行（`sqlx::migrate!`）。`apps/api/build.rs` 让 Cargo 监听 `migrations/` 目录，新增迁移会触发重新编译（否则宏内嵌的迁移列表不会更新）。
 

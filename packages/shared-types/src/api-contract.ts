@@ -76,6 +76,8 @@ export type MapLeaderboardPayload = components['schemas']['MapLeaderboardRespons
 export type MapCoursePayload = components['schemas']['MapCourseDto'];
 export type ServerSummaryPayload = components['schemas']['ServerSummary'];
 export type ServerListPayload = components['schemas']['ServerListResponse'];
+export type OnlinePlayerSummaryPayload = components['schemas']['OnlinePlayerSummary'];
+export type OnlinePlayersPayload = components['schemas']['OnlinePlayersResponse'];
 export type SearchPayload = components['schemas']['SearchResponse'];
 
 export type PlayerStatScopePayload = components['schemas']['PlayerStatScope'];

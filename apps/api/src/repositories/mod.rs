@@ -1,9 +1,11 @@
 //! Data access layer. Repositories only translate between SQL/Redis and
 //! [`crate::models`]; business rules live in `services`.
 
+pub mod game_servers;
 pub mod health_repository;
 pub mod points;
 pub mod public;
+pub mod sources;
 pub mod system_event_repository;
 
 pub use health_repository as health;

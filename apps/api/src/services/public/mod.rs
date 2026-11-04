@@ -31,10 +31,14 @@ use crate::dto::public::records::{
     RecordQuery, RecordSummary, ServerRef, WorldRecordEntry,
 };
 use crate::dto::public::search::{SearchQuery, SearchResponse};
-use crate::dto::public::servers::{ServerListResponse, ServerQuery, ServerSummary};
+use crate::dto::public::servers::{
+    OnlinePlayerSummary, OnlinePlayersQuery, OnlinePlayersResponse, ServerListResponse,
+    ServerQuery, ServerSummary,
+};
 use crate::dto::public::stats::{PublicModesResponse, PublicStatistics};
 use crate::errors::AppError;
 use crate::models::TimeType;
+use crate::repositories::game_servers as game_server_repo;
 use crate::repositories::public::directory::{self, ModeRow, StyleRow};
 use crate::repositories::public::leaderboards;
 use crate::repositories::public::maps as map_repo;
@@ -42,6 +46,7 @@ use crate::repositories::public::players as player_repo;
 use crate::repositories::public::records::{self as record_repo, RecordFilters, RecordRow};
 use crate::repositories::public::servers as server_repo;
 use crate::repositories::public::stats as stats_repo;
+use crate::repositories::sources as source_repo;
 use crate::state::AppState;
 
 pub const RANKING_METRIC: &str = "completed_maps";
@@ -1247,6 +1252,61 @@ pub async fn servers(
 ) -> Result<ServerListResponse, AppError> {
     let page = query.page_params()?;
     let search = validate_search(query.search.as_deref())?;
+    let max_age = state.config().source_fallback_max_age.as_secs() as i64;
+    if source_repo::external_source_fresh(state.db(), max_age).await? {
+        let external = source_repo::list_external_servers(state.db(), max_age).await?;
+        if !external.is_empty() {
+            let filtered: Vec<_> = external
+                .into_iter()
+                .filter(|server| {
+                    query.online != Some(false)
+                        && search.as_deref().is_none_or(|needle| {
+                            server.name.to_lowercase().contains(&needle.to_lowercase())
+                                || server.host.contains(needle)
+                        })
+                })
+                .collect();
+            let total = filtered.len() as i64;
+            let start = page.offset as usize;
+            let items = filtered
+                .into_iter()
+                .skip(start)
+                .take(page.limit as usize)
+                .map(|server| ServerSummary {
+                    id: server.id,
+                    name: server.name,
+                    community: server.label,
+                    ip: server.host,
+                    port: server.port,
+                    online: server.is_online,
+                    status: if server.is_online {
+                        "online"
+                    } else {
+                        "offline"
+                    }
+                    .to_owned(),
+                    heartbeat_age_seconds: Some(
+                        (Utc::now() - server.last_seen_at).num_seconds().max(0),
+                    ),
+                    current_map_id: None,
+                    current_map_slug: server.map_name.as_deref().map(map_slug),
+                    current_map_name: server.map_name,
+                    plugin_version: None,
+                    last_heartbeat_at: Some(server.last_seen_at),
+                    players: Some(i64::from(server.online_players)),
+                    max_players: Some(i64::from(server.max_players)),
+                    mode: None,
+                    region: None,
+                    server_type: "external".to_owned(),
+                    game: "csgo".to_owned(),
+                })
+                .collect();
+            return Ok(ServerListResponse {
+                items,
+                meta: PageMeta::from_total(total, page),
+            });
+        }
+    }
     let key = format!(
         "servers:{}:{}:{}:{}",
         search.as_deref().unwrap_or(""),
@@ -1303,10 +1363,42 @@ fn server_summary(row: server_repo::ServerRow) -> ServerSummary {
         current_map_name: row.current_map_name,
         plugin_version: row.plugin_version,
         last_heartbeat_at: row.last_heartbeat_at,
-        players: None,
-        max_players: None,
-        mode: None,
+        players: Some(i64::from(row.online_players)),
+        max_players: Some(i64::from(row.max_players)),
+        mode: row.current_mode,
+        region: row.region,
+        server_type: row.server_type,
+        game: row.game,
     }
+}
+
+pub async fn online_players(
+    state: &AppState,
+    query: &OnlinePlayersQuery,
+) -> Result<OnlinePlayersResponse, AppError> {
+    let limit = query.limit.unwrap_or(100);
+    if !(1..=200).contains(&limit) {
+        return Err(AppError::validation("`limit` must be between 1 and 200"));
+    }
+    let rows =
+        game_server_repo::public_online_players(state.db(), query.server_id, i64::from(limit))
+            .await?;
+    Ok(OnlinePlayersResponse {
+        count: rows.len(),
+        items: rows
+            .into_iter()
+            .map(|row| OnlinePlayerSummary {
+                player: player_ref(row.account_id, row.steam_id64, Some(row.display_name)),
+                server_id: row.server_id,
+                server_name: row.server_name,
+                current_map_name: row.map_name,
+                mode: row.mode_code,
+                status: row.status,
+                connected_at: row.connected_at,
+                online_seconds: (Utc::now() - row.connected_at).num_seconds().max(0),
+            })
+            .collect(),
+    })
 }
 
 pub async fn server_detail(state: &AppState, server_id: i64) -> Result<ServerSummary, AppError> {

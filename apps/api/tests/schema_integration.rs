@@ -133,6 +133,16 @@ async fn all_phase_two_tables_exist() {
         "replays",
         "bans",
         "ban_revocations",
+        "server_heartbeats",
+        "server_player_sessions",
+        "server_sync_logs",
+        "server_sync_tasks",
+        "record_sources",
+        "source_sync_runs",
+        "raw_records",
+        "record_source_links",
+        "external_servers",
+        "map_source_links",
     ];
 
     let tables: Vec<String> =

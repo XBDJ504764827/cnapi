@@ -17,6 +17,12 @@ pub struct ServerRow {
     pub current_map_name: Option<String>,
     pub plugin_version: Option<String>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
+    pub online_players: i32,
+    pub max_players: i32,
+    pub current_mode: Option<String>,
+    pub region: Option<String>,
+    pub server_type: String,
+    pub game: String,
 }
 
 impl ServerRow {
@@ -57,11 +63,18 @@ SELECT s.id,
        s.current_map_id,
        m.name AS current_map_name,
        s.plugin_version,
-       s.last_heartbeat_at
+       s.last_heartbeat_at,
+       s.online_players,
+       s.max_players,
+       mm.code AS current_mode,
+       s.region,
+       s.server_type,
+       s.game
 FROM servers s
 LEFT JOIN accounts a ON a.id = s.owner_account_id
 LEFT JOIN player_profiles p ON p.account_id = a.id
 LEFT JOIN maps m ON m.id = s.current_map_id
+LEFT JOIN movement_modes mm ON mm.id = s.current_mode_id
 "#;
 
 pub async fn list_servers(

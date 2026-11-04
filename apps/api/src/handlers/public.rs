@@ -22,7 +22,9 @@ use crate::dto::public::records::{
     WorldRecordEntry,
 };
 use crate::dto::public::search::{SearchQuery, SearchResponse};
-use crate::dto::public::servers::{ServerListResponse, ServerQuery, ServerSummary};
+use crate::dto::public::servers::{
+    OnlinePlayersQuery, OnlinePlayersResponse, ServerListResponse, ServerQuery, ServerSummary,
+};
 use crate::dto::public::stats::{PublicModesResponse, PublicStatistics};
 use crate::dto::response::{ApiErrorBody, ApiResponse};
 use crate::errors::AppError;
@@ -41,6 +43,7 @@ pub fn router() -> Router<AppState> {
         .route("/records/{id}", get(record_detail))
         .route("/players", get(players))
         .route("/players/active", get(active_players))
+        .route("/players/online", get(online_players))
         .route("/players/compare", get(compare))
         .route("/players/{steamid}", get(player_detail))
         .route("/players/{steamid}/records", get(player_records))
@@ -318,6 +321,28 @@ pub async fn active_players(
 ) -> Result<Json<ApiResponse<ActivePlayersResponse>>, AppError> {
     Ok(Json(ApiResponse::ok(
         public_service::active_players(&state, &query).await?,
+    )))
+}
+
+/// `GET /api/v1/public/players/online`
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/players/online",
+    tag = "public",
+    summary = "Players currently online on fresh CS:GO servers",
+    description = "Only sessions on enabled servers with a heartbeat less than 2 minutes old are returned.",
+    params(OnlinePlayersQuery),
+    responses(
+        (status = 200, body = ApiResponse<OnlinePlayersResponse>),
+        (status = 400, body = ApiErrorBody),
+    ),
+)]
+pub async fn online_players(
+    State(state): State<AppState>,
+    Query(query): Query<OnlinePlayersQuery>,
+) -> Result<Json<ApiResponse<OnlinePlayersResponse>>, AppError> {
+    Ok(Json(ApiResponse::ok(
+        public_service::online_players(&state, &query).await?,
     )))
 }
 

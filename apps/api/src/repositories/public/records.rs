@@ -142,7 +142,7 @@ SELECT r.id,
        (replay.id IS NOT NULL) AS replay_available,
        replay.id AS replay_id,
        sv.id AS server_id,
-       sv.name AS server_name,
+       COALESCE(sv.name, r.source_server_name) AS server_name,
        NULL::timestamptz AS achieved_at
 FROM records r
 JOIN accounts a ON a.id = r.account_id AND a.deleted_at IS NULL
@@ -357,7 +357,7 @@ pub async fn recent_world_records(
                (replay.id IS NOT NULL) AS replay_available,
                replay.id AS replay_id,
                sv.id AS server_id,
-               sv.name AS server_name,
+               COALESCE(sv.name, r.source_server_name) AS server_name,
                w.achieved_at AS achieved_at
         FROM course_world_records w
         JOIN records r ON r.id = w.record_id

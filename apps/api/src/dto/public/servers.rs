@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
-use super::common::{PageMeta, PageParams, PageQuery};
+use super::common::{PageMeta, PageParams, PageQuery, PlayerRef};
 use crate::errors::AppError;
 
 #[derive(Debug, Clone, Default, Deserialize, IntoParams, ToSchema)]
@@ -51,16 +51,43 @@ pub struct ServerSummary {
     pub current_map_slug: Option<String>,
     pub plugin_version: Option<String>,
     pub last_heartbeat_at: Option<DateTime<Utc>>,
-    /// Not stored in the schema yet.
     pub players: Option<i64>,
-    /// Not stored in the schema yet.
     pub max_players: Option<i64>,
-    /// Not stored in the schema yet.
     pub mode: Option<String>,
+    pub region: Option<String>,
+    pub server_type: String,
+    pub game: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ServerListResponse {
     pub items: Vec<ServerSummary>,
     pub meta: PageMeta,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Query)]
+pub struct OnlinePlayersQuery {
+    /// Restrict to one server.
+    pub server_id: Option<i64>,
+    #[param(default = 100, minimum = 1, maximum = 200)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnlinePlayerSummary {
+    pub player: PlayerRef,
+    pub server_id: i64,
+    pub server_name: String,
+    pub current_map_name: Option<String>,
+    pub mode: Option<String>,
+    pub status: String,
+    pub connected_at: DateTime<Utc>,
+    pub online_seconds: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OnlinePlayersResponse {
+    pub items: Vec<OnlinePlayerSummary>,
+    pub count: usize,
 }

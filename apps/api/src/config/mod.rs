@@ -18,6 +18,9 @@ const DEFAULT_MAX_CONNECTIONS: u32 = 10;
 const DEFAULT_MIN_CONNECTIONS: u32 = 1;
 const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 5;
 const DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE: u32 = 120;
+const DEFAULT_SOURCE_SYNC_INTERVAL_SECS: u64 = 300;
+const DEFAULT_SOURCE_HTTP_TIMEOUT_MS: u64 = 15_000;
+const DEFAULT_SOURCE_STALE_SECS: u64 = 900;
 
 /// Runtime environment of the service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +95,14 @@ pub struct AppConfig {
     pub public_rate_limit_per_minute: u32,
     /// Optional token for protected cache maintenance endpoints.
     pub maintenance_token: Option<String>,
+    pub kzgo_base_url: String,
+    pub kzgo_sync_enabled: bool,
+    pub gokz_global_base_url: String,
+    pub gokz_global_sync_enabled: bool,
+    pub source_sync_interval: Duration,
+    pub source_http_timeout: Duration,
+    /// External snapshot age after which public reads fall back to plugin data.
+    pub source_fallback_max_age: Duration,
 }
 
 impl AppConfig {
@@ -193,6 +204,35 @@ impl AppConfig {
             10_000,
         )?;
         let maintenance_token = get("MAINTENANCE_TOKEN").filter(|value| !value.is_empty());
+        let kzgo_base_url = optional_url(&vars, "KZGO_BASE_URL", "https://kzgo.eu")?;
+        let gokz_global_base_url = optional_url(
+            &vars,
+            "GOKZ_GLOBAL_BASE_URL",
+            "https://kztimerglobal.com/api/v2.0",
+        )?;
+        let kzgo_sync_enabled = parse_bool(&vars, "KZGO_SYNC_ENABLED", true)?;
+        let gokz_global_sync_enabled = parse_bool(&vars, "GOKZ_GLOBAL_SYNC_ENABLED", false)?;
+        let source_sync_interval_secs = parse_u64(
+            &vars,
+            "SOURCE_SYNC_INTERVAL_SECS",
+            DEFAULT_SOURCE_SYNC_INTERVAL_SECS,
+            30,
+            86_400,
+        )?;
+        let source_http_timeout_ms = parse_u64(
+            &vars,
+            "SOURCE_HTTP_TIMEOUT_MS",
+            DEFAULT_SOURCE_HTTP_TIMEOUT_MS,
+            1_000,
+            120_000,
+        )?;
+        let source_stale_secs = parse_u64(
+            &vars,
+            "SOURCE_FALLBACK_MAX_AGE_SECS",
+            DEFAULT_SOURCE_STALE_SECS,
+            60,
+            86_400,
+        )?;
         let health_check_timeout_ms = parse_u64(
             &vars,
             "HEALTH_CHECK_TIMEOUT_MS",
@@ -217,6 +257,13 @@ impl AppConfig {
             health_check_timeout: Duration::from_millis(health_check_timeout_ms),
             public_rate_limit_per_minute,
             maintenance_token,
+            kzgo_base_url,
+            kzgo_sync_enabled,
+            gokz_global_base_url,
+            gokz_global_sync_enabled,
+            source_sync_interval: Duration::from_secs(source_sync_interval_secs),
+            source_http_timeout: Duration::from_millis(source_http_timeout_ms),
+            source_fallback_max_age: Duration::from_secs(source_stale_secs),
         })
     }
 
@@ -259,7 +306,58 @@ impl fmt::Debug for AppConfig {
                 "maintenance_token",
                 &self.maintenance_token.as_ref().map(|_| "***"),
             )
+            .field("kzgo_base_url", &redact_url(&self.kzgo_base_url))
+            .field("kzgo_sync_enabled", &self.kzgo_sync_enabled)
+            .field(
+                "gokz_global_base_url",
+                &redact_url(&self.gokz_global_base_url),
+            )
+            .field("gokz_global_sync_enabled", &self.gokz_global_sync_enabled)
+            .field("source_sync_interval", &self.source_sync_interval)
+            .field("source_http_timeout", &self.source_http_timeout)
+            .field("source_fallback_max_age", &self.source_fallback_max_age)
             .finish()
+    }
+}
+
+fn optional_url(
+    vars: &HashMap<String, String>,
+    key: &'static str,
+    default: &str,
+) -> Result<String, ConfigError> {
+    let value = vars
+        .get(key)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(default);
+    if !value.starts_with("http://") && !value.starts_with("https://") {
+        return Err(ConfigError::Invalid {
+            key,
+            reason: "expected an http:// or https:// URL".to_owned(),
+        });
+    }
+    Ok(value.trim_end_matches('/').to_owned())
+}
+
+fn parse_bool(
+    vars: &HashMap<String, String>,
+    key: &'static str,
+    default: bool,
+) -> Result<bool, ConfigError> {
+    match vars
+        .get(key)
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+    {
+        Some(value) => match value.as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(ConfigError::Invalid {
+                key,
+                reason: format!("expected true/false, got `{value}`"),
+            }),
+        },
+        None => Ok(default),
     }
 }
 
