@@ -70,16 +70,16 @@ open http://localhost:8080/swagger-ui
 ## 4. 启动前端
 
 ```bash
-pnpm --filter @cngokz/web dev
+pnpm --filter @cngokz/frontend dev
 ```
 
 - 公开门户（默认站点）：<http://localhost:5173>，代理 `/api`、`/health`、`/swagger-ui`、`/api-docs`，并把 `/admin` 代理到管理后台开发服务器。
 - 管理后台：<http://localhost:5173/admin>（内部开发端口 5174，base `/admin/`）。
 - 一键同时启动：`pnpm dev`（并行启动 web + public）；单独启动：`pnpm dev:admin` / `pnpm dev:public`。
 - 开发服务器把 `/api`、`/health`、`/swagger-ui`、`/api-docs` 代理到 `VITE_API_PROXY_TARGET`（默认 `http://localhost:8080`），因此前端代码使用相对路径即可。
-- 如需直连其他 API 地址，在 `apps/web/.env.local` 中设置 `VITE_API_BASE_URL=http://host:port`（此时后端需在 `CORS_ALLOWED_ORIGINS` 中放行前端来源）。
+- 如需直连其他 API 地址，在 `apps/frontend/.env.local` 中设置 `VITE_API_BASE_URL=http://host:port`（此时后端需在 `CORS_ALLOWED_ORIGINS` 中放行前端来源）。
 
-前端环境变量见 `apps/web/.env.example`：
+前端环境变量见 `apps/frontend/.env.example`：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -92,8 +92,8 @@ pnpm --filter @cngokz/web dev
 生产构建：
 
 ```bash
-pnpm --filter @cngokz/web build     # 先 tsc --noEmit，再 vite build → apps/web/dist
-pnpm --filter @cngokz/web preview   # 本地预览（同样带代理）
+pnpm --filter @cngokz/frontend build     # 先 tsc --noEmit，再 vite build → apps/frontend/dist
+pnpm --filter @cngokz/frontend preview   # 本地预览（同样带代理）
 ```
 
 ## 5. 数据库迁移
@@ -176,8 +176,8 @@ cargo test --all-targets
 ### 前端
 
 ```bash
-pnpm --filter @cngokz/web test        # 管理后台 vitest（jsdom）
-pnpm --filter @cngokz/public test     # 公开门户 vitest（jsdom）
+pnpm --filter @cngokz/frontend test        # 管理后台 vitest（jsdom）
+pnpm --filter @cngokz/frontend test     # 公开门户 vitest（jsdom）
 ```
 
 覆盖：格式化工具、状态映射、状态徽章渲染、仪表盘数据/错误/占位渲染、分页交互、导航搜索、主题默认值；公开门户的秒数/百分比格式化与难度标识。
@@ -203,8 +203,8 @@ pnpm -r format:check
 
 - Rust：`cargo fmt`、`cargo clippy -D warnings`；错误使用 `thiserror`，禁止 `unwrap()` 出现在请求路径（测试与启动阶段除外）。
 - TypeScript：strict + `noUncheckedIndexedAccess` + `verbatimModuleSyntax`；类型导入使用 `import type`。
-- ESLint flat config（`apps/web/eslint.config.js`）；Prettier 配置在 `apps/web/.prettierrc.json`（含 Tailwind class 排序）。
-- 统一使用 `@/` 路径别名访问 `apps/web/src`。
+- ESLint flat config（`apps/frontend/eslint.config.js`）；Prettier 配置在 `apps/frontend/.prettierrc.json`（含 Tailwind class 排序）。
+- 统一使用 `@/` 路径别名访问 `apps/frontend/src`。
 - 页面不放请求逻辑：请求写在 `services/`，用 `hooks/` 暴露给组件。
 - UI 必须复用设计系统：颜色/圆角/字体使用 token，基础组件来自 `components/ui`，列表页使用 `ListPanel` + `FilterBar` + `DataTable` + `Pagination`。规范见 [design-system.md](design-system.md)。
 - 没有后端接口的页面使用 `Callout` + `EmptyState` 明确说明，不写模拟数据或假成功操作。
@@ -213,9 +213,9 @@ pnpm -r format:check
 
 ## 9. 新增一个页面（示例）
 
-1. `apps/web/src/pages/xyz-page.tsx`：命名导出 `XyzPage`，使用 `PageHeader`；列表页复用 `ListPanel` / `FilterBar` / `DataTable` / `Pagination`。
-2. `apps/web/src/components/layout/nav-config.ts`：在对应分组添加 `{ label, to, icon, description, keywords }`（同时驱动侧边栏、面包屑与 ⌘K 搜索）。
-3. `apps/web/src/router/index.tsx`：添加 `lazy` 导入与路由项；旧路径如需兼容用 `<Navigate replace />`。
+1. `apps/frontend/src/pages/xyz-page.tsx`：命名导出 `XyzPage`，使用 `PageHeader`；列表页复用 `ListPanel` / `FilterBar` / `DataTable` / `Pagination`。
+2. `apps/frontend/src/components/layout/nav-config.ts`：在对应分组添加 `{ label, to, icon, description, keywords }`（同时驱动侧边栏、面包屑与 ⌘K 搜索）。
+3. `apps/frontend/src/router/index.tsx`：添加 `lazy` 导入与路由项；旧路径如需兼容用 `<Navigate replace />`。
 4. 若需要接口：`services/xyz-service.ts`（`queryOptions`）→ `hooks/use-xyz.ts` → 页面组件。
 5. 若后端无接口：先按 [architecture.md](architecture.md#8-扩展指引第二阶段起) 完成后端分层，再 `scripts/gen-api.sh`。
 

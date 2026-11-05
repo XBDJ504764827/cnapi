@@ -16,7 +16,7 @@ target/
 .env.*
 !.env.example
 !.env.production.example
-!apps/web/.env.example
+!apps/frontend/.env.example
 
 # Editor / OS
 .vscode/*

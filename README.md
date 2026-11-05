@@ -6,7 +6,7 @@
 
 ## 技术栈
 
-### 前端 `apps/web`
+### 前端 `apps/frontend`
 
 | 依赖 | 版本 |
 | --- | --- |
@@ -103,24 +103,24 @@ CNGOKZAPI/
 发布链路：
 
 ```text
-本地 git push develop
-        ↓
-不会自动部署
-        ↓
 手动运行 GitHub Actions: Deploy production (manual)
         ↓
-构建前后端包 → Cloudflare R2 → SSH 生产服务器从 R2 下载安装
+构建统一前端 + 后端二进制
+        ↓
+SSH/rsync 上传到 /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+        ↓
+systemd 重启 API + reload OpenResty
 ```
 
-只有手动触发工作流、且分支必须是 `main` 或 `develop` 才会部署。生产服务器不访问 GitHub，也不需要保留拉取脚本。
+只支持手动触发，允许从 `main` 或 `develop` 分支运行；push 不会自动部署。
 
 部署结构：
 
 ```text
 Nginx
-  ├── /        → /var/www/cngokzapi/public
-  ├── /admin/  → /var/www/cngokzapi/admin
-  └── /api     → 127.0.0.1:8080
+  ├── /        → 统一前端 dist
+  ├── /admin/  → 同一前端内的管理路由
+  └── /api     → 127.0.0.1:28080
                     │
                     ▼
               systemd: cngokz-api
@@ -186,7 +186,7 @@ pnpm -r test
 
 # 构建
 cargo build --release --bin cngokz-api
-pnpm --filter @cngokz/web build
+pnpm --filter @cngokz/frontend build
 
 # OpenAPI → TypeScript 类型
 scripts/gen-api.sh
@@ -221,7 +221,7 @@ scripts/gen-api.sh
 
 ## 公开玩家门户（第四阶段）
 
-- 独立应用 `apps/public` 作为默认站点（`/`）；管理后台挂载在同一端口下 ` /admin`（同一 IP、同一端口，无需分开部署）。两者共用 API、数据库、API Client 与设计 Token，但保持独立页面布局与独立构建。
+- 统一前端 `apps/frontend` 作为唯一静态站点（`/`）；公开门户与管理后台由 React Router 在同一 SPA 中按 `/` 与 `/admin/` 区分。
 - 页面：首页（统计/模式 Top10/最近 20 条成绩/最近 WR/活跃玩家/在线服务器/全局搜索）、排行榜、玩家目录、玩家详情（综合/模式/难度进度/地图完成与未完成/成绩历史）、玩家比较（综合/模式/难度/逐地图）、地图列表与详情（课程/统计/排行榜）、成绩查询（多维筛选/排序/详情）、服务器列表。
 - 后端新增 `/api/v1/public/*` 只读接口（统计、模式、排行榜、玩家、地图、成绩、服务器、搜索），分页上限 100，统一响应结构并纳入 OpenAPI；SQL 聚合（`LATERAL` 最佳成绩、`RANK()`、`count(DISTINCT)`），避免 N+1。
 - Redis 缓存：统计 30s、排行榜 60s、最近成绩 15s、玩家/地图 30–120s；`public:version` 计数器可一次性失效；Redis 故障时 300ms 超时快速回源。
@@ -231,7 +231,7 @@ scripts/gen-api.sh
 ## 界面设计（第三阶段）
 
 - 默认深色主题，支持浅色与跟随系统；主题、侧边栏折叠状态持久化在浏览器。
-- 设计 token 集中在 `apps/web/src/styles/index.css`，组件在 `apps/web/src/components/ui/`，页面不写一次性样式。
+- 设计 token 集中在 `apps/frontend/src/styles/index.css`；公开组件在 `src/public/components`，管理组件在 `src/admin/components`。
 - 布局：240/64px 可折叠侧边栏 + 56px 顶栏（面包屑、页面搜索 ⌘K、通知、主题、账号）+ 1500px 内容区。
 - 已实现 15 个导航入口 + 2 个详情页、7 个导航分组；旧路径（`/kz/*`、`/data/*`）自动重定向。
 - 所有未实现接口的页面使用真实空状态与"接口未接入"说明，**不伪造统计或业务数据**；系统健康数据来自 `/api/v1/system/status` 与 `/api/v1/system/info`。

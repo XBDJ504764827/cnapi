@@ -2,7 +2,7 @@
 
 ## 1. 目标与边界
 
-公开门户 `apps/public` 面向所有 KZ 玩家，是一个**独立的 React 应用**，与 `apps/web`（管理后台）共用同一个 Rust API、PostgreSQL、Redis、API Client 和设计 Token，但拥有独立的布局与导航。
+公开门户 `apps/frontend` 面向所有 KZ 玩家，是一个**独立的 React 应用**，与 `apps/frontend`（管理后台）共用同一个 Rust API、PostgreSQL、Redis、API Client 和设计 Token，但拥有独立的布局与导航。
 
 - 公开门户不依赖管理后台运行。
 - 管理后台不受影响，原有路由、组件保持不变。
@@ -24,8 +24,8 @@ packages/
 公开门户是独立的 Vite 应用，作为默认站点运行在 **5173**；管理后台挂载在同端口的 `/admin`：
 
 ```text
-http://host:5173/          → apps/public（公开门户，默认）
-http://host:5173/admin/    → apps/web（管理后台，basename=/admin）
+http://host:5173/          → apps/frontend（公开门户，默认）
+http://host:5173/admin/    → apps/frontend（管理后台，basename=/admin）
 http://host:5173/api/...   → Rust API
 ```
 
@@ -126,7 +126,7 @@ CNGOKZAPI **尚未实现积分算法**。为避免编造数据：
 
 - 每个页面通过 `usePageMeta` 设置独立 `title`、`description`、Open Graph、Twitter、canonical。
 - 玩家/地图详情页使用稳定 URL：`/players/:steamid64`、`/maps/:slug`（slug = 地图名小写化）。
-- `sitemap.xml`、`robots.txt` 在构建时由 `apps/public/scripts/generate-seo.mjs` 生成（核心页面），`VITE_SITE_URL` 控制绝对地址。
+- `sitemap.xml`、`robots.txt` 在构建时由 `apps/frontend/scripts/generate-seo.mjs` 生成（核心页面），`VITE_SITE_URL` 控制绝对地址。
 - 404 页面、`robots` noindex。
 
 已知限制：
@@ -138,7 +138,7 @@ CNGOKZAPI **尚未实现积分算法**。为避免编造数据：
 ## 9. 部署
 
 - 开发：`pnpm dev` 同时启动门户（5173）与后台（内部 5174）；`/admin` 由门户代理。
-- 生产：`scripts/build-native.sh` 构建 public/admin 静态文件；Nginx 从 `/var/www/cngokzapi/public` 与 `/var/www/cngokzapi/admin` 提供服务，并把 `/api`、`/health` 反向代理到 `127.0.0.1:8080`。
+- 生产：`scripts/build-native.sh` 构建 unified frontend 静态文件；Nginx 从 `/www/sites/test.cngokz.com/index/cnapi` 与 `/www/sites/test.cngokz.com/index/cnapi` 提供服务，并把 `/api`、`/health` 反向代理到 `127.0.0.1:8080`。
 - 站点 URL 是构建参数 `VITE_SITE_URL`，更换域名后需重新执行 native 构建并发布静态文件。
 
 ## 10. 已知缺口与阶段 5 建议

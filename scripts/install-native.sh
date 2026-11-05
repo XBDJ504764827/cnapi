@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 # Installs a CNGOKZAPI native bundle on the server.
+#
+# Final production layout (host path):
+#   /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/
+#     ├── .env
+#     ├── bin/cngokz-api
+#     ├── index.html
+#     ├── assets/
+#     ├── robots.txt
+#     └── sitemap.xml
+#
+# OpenResty container sees this directory as:
+#   /www/sites/test.cngokz.com/index/cnapi/
+#
 # Run from the extracted bundle directory as root:
-#   sudo APP_DIR=/mnt/1panel/apps/cnapi STATIC_ROOT=/var/www/cngokzapi bash install-native.sh
+#   sudo bash install-native.sh
 set -euo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="${APP_DIR:-/mnt/1panel/apps/cnapi}"
-STATIC_ROOT="${STATIC_ROOT:-/var/www/cngokzapi}"
+APP_DIR="${APP_DIR:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}"
 SERVICE_NAME="${SERVICE_NAME:-cngokz-api}"
 SERVICE_USER="${SERVICE_USER:-www-data}"
 SERVICE_GROUP="${SERVICE_GROUP:-www-data}"
@@ -20,6 +32,10 @@ if [[ ! -x "${BUNDLE_DIR}/bin/cngokz-api" ]]; then
   echo "bundle is missing bin/cngokz-api: ${BUNDLE_DIR}" >&2
   exit 1
 fi
+if [[ ! -d "${BUNDLE_DIR}/static" ]]; then
+  echo "bundle is missing static/: ${BUNDLE_DIR}" >&2
+  exit 1
+fi
 
 if ! getent group "${SERVICE_GROUP}" >/dev/null 2>&1; then
   echo "service group does not exist: ${SERVICE_GROUP}" >&2
@@ -30,24 +46,35 @@ if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> installing backend binary"
+echo "==> target directory: ${APP_DIR}"
 mkdir -p "${APP_DIR}/bin"
+
+echo "==> installing backend binary"
 if [[ -f "${APP_DIR}/bin/cngokz-api" ]]; then
   cp -a "${APP_DIR}/bin/cngokz-api" "${APP_DIR}/bin/cngokz-api.prev"
 fi
 install -m 0755 "${BUNDLE_DIR}/bin/cngokz-api" "${APP_DIR}/bin/cngokz-api"
-chmod 0755 "${APP_DIR}" "${APP_DIR}/bin"
+chmod 0755 "${APP_DIR}" "${APP_DIR}/bin" "${APP_DIR}/bin/cngokz-api"
 
-echo "==> installing public/admin static files"
-mkdir -p "${STATIC_ROOT}"
-for portal in public admin; do
-  staging="${STATIC_ROOT}/.${portal}.new"
-  rm -rf "${staging}"
-  cp -a "${BUNDLE_DIR}/static/${portal}" "${staging}"
-  rm -rf "${STATIC_ROOT:?}/${portal}"
-  mv "${staging}" "${STATIC_ROOT}/${portal}"
+echo "==> installing unified frontend static files"
+# Remove only old frontend outputs. Never remove APP_DIR itself: it also
+# contains .env and bin/.
+rm -rf "${APP_DIR}/public" "${APP_DIR}/admin" "${APP_DIR}/assets"
+rm -f "${APP_DIR}/index.html" "${APP_DIR}/robots.txt" "${APP_DIR}/sitemap.xml"
+cp -a "${BUNDLE_DIR}/static/." "${APP_DIR}/"
+
+# Make public static files readable by OpenResty, but keep .env restricted.
+chmod 0755 "${APP_DIR}"
+chmod 0755 "${APP_DIR}/bin"
+chmod 0755 "${APP_DIR}/bin/cngokz-api"
+if [[ -d "${APP_DIR}/assets" ]]; then
+  chmod -R a+rX "${APP_DIR}/assets"
+fi
+for file in index.html robots.txt sitemap.xml; do
+  if [[ -f "${APP_DIR}/${file}" ]]; then
+    chmod 0644 "${APP_DIR}/${file}"
+  fi
 done
-chmod -R a+rX "${STATIC_ROOT}"
 
 CONFIG_MISSING=0
 if [[ ! -f "${APP_DIR}/.env" ]]; then
@@ -63,25 +90,15 @@ fi
 echo "==> installing systemd unit"
 service_tmp="$(mktemp)"
 sed \
-  -e "s|/mnt/1panel/apps/cnapi|${APP_DIR}|g" \
+  -e "s|/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi|${APP_DIR}|g" \
   -e "s|^User=.*|User=${SERVICE_USER}|" \
   -e "s|^Group=.*|Group=${SERVICE_GROUP}|" \
   "${BUNDLE_DIR}/deploy/cngokz-api.service" > "${service_tmp}"
 install -m 0644 "${service_tmp}" "/etc/systemd/system/${SERVICE_NAME}.service"
 rm -f "${service_tmp}"
 
-echo "==> installing nginx site (only if absent)"
-NGINX_CONF="/etc/nginx/conf.d/cngokzapi.conf"
-if [[ ! -f "${NGINX_CONF}" ]]; then
-  nginx_tmp="$(mktemp)"
-  sed "s|/var/www/cngokzapi|${STATIC_ROOT}|g" \
-    "${BUNDLE_DIR}/deploy/nginx-ban.cngokz.com.conf" > "${nginx_tmp}"
-  install -m 0644 "${nginx_tmp}" "${NGINX_CONF}"
-  rm -f "${nginx_tmp}"
-  echo "    installed ${NGINX_CONF}"
-else
-  echo "    ${NGINX_CONF} already exists; left unchanged"
-fi
+echo "==> nginx site config is managed by 1Panel/OpenResty; not overwritten"
+echo "    reference file: ${BUNDLE_DIR}/deploy/nginx-test.cngokz.com.conf"
 
 systemctl daemon-reload
 
@@ -108,4 +125,4 @@ echo
 echo "Installed ${SERVICE_NAME}."
 echo "  systemctl status ${SERVICE_NAME}"
 echo "  journalctl -u ${SERVICE_NAME} -f"
-echo "  curl -fsS http://127.0.0.1:8080/health/ready | jq"
+echo "  curl -fsS http://127.0.0.1:28080/health/ready | jq"

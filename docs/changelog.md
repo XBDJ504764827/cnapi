@@ -18,6 +18,94 @@
 
 ---
 
+## 2026年11月06日 01时18分00秒 合并公开门户与管理后台为单一前端应用
+
+**背景**
+
+双 SPA（`apps/public` + `apps/web`）导致生产 Nginx 需要两个 root、两套 assets、两套 index.html，容易出现 `/admin` basename、内部重定向循环和部署目录复杂。参考 LumiAdmin 改为单一前端应用。
+
+**变更内容**
+
+- 删除 `apps/public/`、`apps/web/` 两个独立 Vite 应用。
+- 新增 `apps/frontend/`：
+  - 单一 Vite 应用，`base=/`。
+  - 公开页面在 `src/public/`，管理页面在 `src/admin/`。
+  - 统一 `src/router/index.tsx`：`/` 为公开门户，`/admin/*` 为管理后台。
+  - 统一 `src/providers.tsx`：一个 QueryClient，按路径切换 admin/public 主题 store。
+  - 统一 `index.html`：根据路径读取对应 localStorage 主题 key。
+  - 统一 `scripts/generate-seo.mjs`，生成 sitemap/robots，管理后台不索引。
+- 根 `package.json`、pnpm workspace、CI、部署 workflow、native 构建脚本、安装脚本改为只构建/上传 `apps/frontend/dist`。
+- Nginx 改为单 root、单 SPA fallback：
+  - `root /www/sites/test.cngokz.com/index/cnapi`
+  - `/assets/` 静态缓存
+  - `/` → `/index.html`
+  - `/admin/` → 同一个 `/index.html`
+- 部署路径改为用户指定的 OpenResty 目录：
+  - 宿主机：`/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi`
+  - 容器内：`/www/sites/test.cngokz.com/index/cnapi`
+- API 端口统一文档/配置为 `28080`。
+
+**涉及文件**
+
+- 新增：`apps/frontend/**`
+- 删除：`apps/public/**`、`apps/web/**`
+- 修改：`package.json`、`pnpm-lock.yaml`、`.gitignore`、`.github/workflows/{ci,deploy}.yml`、`scripts/{gen-api,build-native,install-native}.sh`、`deploy/nginx-ban.cngokz.com.conf`、`.env.production.example`、`README.md`、`docs/*`
+
+**数据库与 API 变化**
+
+- 无数据库/API 变化。
+- 前端路由从双应用改为单应用；公开与管理后台共用同一组静态文件。
+
+**测试与结果**
+
+- `pnpm -r typecheck`：通过。
+- `pnpm -r lint`：通过。
+- `pnpm -r test`：38 个通过。
+- `pnpm -r format:check`：通过。
+- `VITE_SITE_URL=https://test.cngokz.com pnpm --filter @cngokz/frontend build`：通过，生成单一 `dist/index.html`、`dist/assets/`、`dist/robots.txt`、`dist/sitemap.xml`。
+- `TAG=20261105-unified VITE_SITE_URL=https://test.cngokz.com ./scripts/build-native.sh`：通过。
+- 产物：`native-bundles/cngokzapi-native-20261105-unified.tar.gz`。
+- **未执行**：真实服务器 OpenResty 部署与浏览器验收。
+
+---
+
+## 2026年11月05日 23时29分26秒 改为 LumiAdmin 风格：GitHub Actions 直接 SSH 发布
+
+**背景**
+
+R2 中转增加了额外配置和中间依赖。根据反馈改为参考 LumiAdmin：GitHub Actions 手动构建前后端，直接通过 SSH/rsync 上传到生产服务器，不再使用 R2 中转。
+
+**变更内容**
+
+- 删除 `.github/workflows/publish-r2.yml`。
+- 新增 `.github/workflows/deploy.yml`：
+  - 仅 `workflow_dispatch` 手动触发；
+  - component 可选 `all` / `frontend` / `backend`；
+  - 仅允许从 `main` 或 `develop` 分支运行；
+  - 前端构建后直接 rsync 到 `/mnt/1panel/apps/cnapi/static/{public,admin}`，再 reload Nginx；
+  - 后端 release 构建后 scp 到服务器，备份 `.prev`、替换二进制、重启 systemd 并检查 `/health/ready`。
+  - 路径、服务名、站点 URL 固定在 workflow：`/mnt/1panel/apps/cnapi`、`/mnt/1panel/apps/cnapi/static`、`cngokz-api`、`https://ban.cngokz.com`；GitHub Variables 只需 `DEPLOY_HOST`、`DEPLOY_USER`、可选 `DEPLOY_PORT`。
+- 更新 `docs/deployment.md` 与 README，移除 R2 中转流程，改为直接 SSH 发布配置。
+
+**涉及文件**
+
+- 新增：`.github/workflows/deploy.yml`
+- 删除：`.github/workflows/publish-r2.yml`
+- 修改：`README.md`、`docs/deployment.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+- 无数据库/API 变化。
+- 部署链路：GitHub Actions 手动构建 → SSH/rsync 直传生产服务器。
+
+**测试与结果**
+
+- GitHub Actions YAML 解析：通过。
+- `pnpm -r format:check`：通过。
+- **未执行**：真实 SSH 发布、生产服务器 systemd/nginx 实际安装（缺少生产密钥和访问）。
+
+---
+
 ## 2026年11月05日 23时06分09秒 增加 GitHub Actions + Cloudflare R2 + SSH 发布链路
 
 **背景**

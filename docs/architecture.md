@@ -6,11 +6,11 @@
 
 ```text
                      ┌──────────────────────────────┐
-  浏览器 ──────────▶ │ apps/web (管理后台 SPA)       │
+  浏览器 ──────────▶ │ apps/frontend (管理后台 SPA)       │
                      │ 静态资源 + 同源反向代理       │
                      └──────────────┬───────────────┘
                      ┌──────────────────────────────┐
-  浏览器 ──────────▶ │ apps/public (公开门户 SPA)    │
+  浏览器 ──────────▶ │ apps/frontend (公开门户 SPA)    │
                      │ `/` 公开站 + `/admin` 后台     │
                      │ 独立布局 + 同源反向代理       │
                      └──────────────┬───────────────┘
@@ -33,7 +33,7 @@
 设计约束：
 
 - **不拆分微服务**。KZ 业务按模块（players、maps、records、jumpstats、replays、servers、bans、auth）在同一进程内扩展。
-- 前后端各自独立构建：API 由 systemd 运行，public/admin 静态文件由 Nginx 提供，Nginx 反向代理 `/api`、`/health`。
+- 前后端各自独立构建：API 由 systemd 运行，unified frontend 静态文件由 Nginx 提供，Nginx 反向代理 `/api`、`/health`。
 - API 只监听 `127.0.0.1:8080`；数据库与 Redis 通过宿主机回环地址访问，不直接暴露到公网。
 
 ## 2. 前后端关系
@@ -44,7 +44,7 @@
 | 地址配置 | 浏览器默认访问同源（`VITE_API_BASE_URL` 为空）；开发环境由 Vite `server.proxy` 转发，生产环境由 Nginx 转发到 `127.0.0.1:8080` |
 | 类型来源 | 后端 `Utoipa` 生成 `docs/openapi.json` → `openapi-typescript` 生成 `packages/shared-types/src/generated/api-schema.d.ts` → `openapi-fetch` 提供类型化请求 |
 | 数据获取 | TanStack Query 统一缓存、轮询、错误重试；页面不直接调用 `fetch` |
-| 公开门户 | `apps/public` 独立 Vite 应用，默认站点 `/`，同一端口下 `/admin` 反向代理管理后台；共享 API Client、shared-types 与设计 Token（`packages/ui`）；详见 [public-portal/architecture.md](public-portal/architecture.md) |
+| 公开门户 | `apps/frontend` 独立 Vite 应用，默认站点 `/`，同一端口下 `/admin` 反向代理管理后台；共享 API Client、shared-types 与设计 Token（`packages/ui`）；详见 [public-portal/architecture.md](public-portal/architecture.md) |
 | UI 状态 | Zustand（主题、侧边栏折叠），持久化到 `localStorage` |
 | 主题 | Tailwind v4 CSS 变量 + `<html class="dark">`；`index.html` 首屏前应用持久化主题，避免闪烁；默认深色 |
 | 设计系统 | Token 在 `styles/index.css`，基础组件在 `components/ui`，页面只组合组件；规范见 [design-system.md](design-system.md) |
@@ -198,7 +198,7 @@ pnpm --filter @cngokz/shared-types gen:api
 packages/shared-types/src/generated/api-schema.d.ts
    │
    ▼
-@cngokz/api-client（openapi-fetch）──▶ apps/web
+@cngokz/api-client（openapi-fetch）──▶ apps/frontend
 ```
 
 - `routes/openapi.rs` 显式登记所有 path 与 schema；新增接口必须同时登记，否则文档缺失（CI 会校验 `docs/openapi.json` 是否与代码一致）。
@@ -214,7 +214,7 @@ packages/shared-types/src/generated/api-schema.d.ts
 3. `handlers/player.rs` — `router()` + `#[utoipa::path]`，响应使用 `ApiResponse<T>`。
 4. `routes/mod.rs` — 挂载 `handlers::player::router()`；`routes/openapi.rs` — 登记 path/schema（`dto` 中的类型已实现 `ToSchema`）。
 5. `scripts/gen-api.sh` — 重新生成 `docs/openapi.json` 与 TypeScript 类型。
-6. `apps/web/src/{services,hooks,pages}` — 用真实接口替换占位页面。
+6. `apps/frontend/src/{services,hooks,pages}` — 用真实接口替换占位页面。
 
 新增表时：
 

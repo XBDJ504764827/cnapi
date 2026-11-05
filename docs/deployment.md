@@ -15,13 +15,13 @@ CNGOKZAPI 的 API、管理后台、公开门户**不再使用 Docker**。
 
 ```text
 Nginx :443
-  ├── /              → /var/www/cngokzapi/public
-  ├── /admin/        → /var/www/cngokzapi/admin
-  └── /api, /health  → http://127.0.0.1:8080
+  ├── /              → /www/sites/test.cngokz.com/index/cnapi
+  ├── /admin/        → /www/sites/test.cngokz.com/index/cnapi
+  └── /api, /health  → http://127.0.0.1:28080
                               │
                               ▼
                     systemd: cngokz-api
-                    /mnt/1panel/apps/cnapi/bin/cngokz-api
+                    /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/cngokz-api
                               │
                 ┌─────────────┴─────────────┐
                 ▼                           ▼
@@ -34,12 +34,12 @@ Nginx :443
 ## 2. 目录约定
 
 ```text
-/mnt/1panel/apps/cnapi/
+/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/
 ├── bin/cngokz-api
 ├── .env
 └── migrations/              # 仅参考；迁移已编译进二进制
 
-/var/www/cngokzapi/
+/www/sites/test.cngokz.com/index/cnapi/
 ├── public/                  # 公开门户
 └── admin/                   # 管理后台
 ```
@@ -126,7 +126,7 @@ DATABASE_URL=postgres://cngokz:密码@127.0.0.1:5432/cngokzapi
 cd /path/to/cnapi
 
 TAG=20261105-01 \
-VITE_SITE_URL=https://ban.cngokz.com \
+VITE_SITE_URL=https://test.cngokz.com \
 ./scripts/build-native.sh
 ```
 
@@ -135,10 +135,10 @@ VITE_SITE_URL=https://ban.cngokz.com \
 ```text
 native-bundles/20261105-01/
 ├── bin/cngokz-api
-├── static/public/
-├── static/admin/
+├── index.html
+├── assets/
 ├── deploy/cngokz-api.service
-├── deploy/nginx-ban.cngokz.com.conf
+├── deploy/nginx-test.cngokz.com.conf
 ├── .env.production.example
 ├── install-native.sh
 └── migrations/
@@ -151,8 +151,8 @@ native-bundles/cngokzapi-native-20261105-01.tar.gz.sha256
 
 ```bash
 cargo build --release --locked --bin cngokz-api
-pnpm --filter @cngokz/web build
-pnpm --filter @cngokz/public build
+pnpm --filter @cngokz/frontend build
+pnpm --filter @cngokz/frontend build
 ```
 
 ---
@@ -181,17 +181,17 @@ cd cngokzapi-native-20261105-01
 首次安装：
 
 ```bash
-sudo APP_DIR=/mnt/1panel/apps/cnapi \
-     STATIC_ROOT=/var/www/cngokzapi \
+sudo APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi \
+     STATIC_ROOT=/www/sites/test.cngokz.com/index/cnapi \
      bash install-native.sh
 ```
 
 首次执行会：
 
 - 安装后端二进制
-- 安装 public/admin 静态文件
+- 安装 unified frontend 静态文件
 - 安装 systemd unit
-- 生成 `/mnt/1panel/apps/cnapi/.env`
+- 生成 `/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env`
 - 安装 Nginx 配置（如果不存在）
 
 脚本会提示先编辑 `.env`。
@@ -201,9 +201,9 @@ sudo APP_DIR=/mnt/1panel/apps/cnapi \
 ## 7. 配置 `.env`
 
 ```bash
-nano /mnt/1panel/apps/cnapi/.env
-chmod 640 /mnt/1panel/apps/cnapi/.env
-chown www-data:www-data /mnt/1panel/apps/cnapi/.env
+nano /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env
+chmod 640 /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env
+chown www-data:www-data /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env
 ```
 
 必填：
@@ -211,7 +211,7 @@ chown www-data:www-data /mnt/1panel/apps/cnapi/.env
 ```env
 APP_ENV=production
 APP_HOST=127.0.0.1
-APP_PORT=8080
+APP_PORT=28080
 
 DATABASE_URL=postgres://cngokz:密码@127.0.0.1:5432/cngokzapi
 REDIS_URL=redis://127.0.0.1:6379/3
@@ -228,8 +228,8 @@ GOKZ_GLOBAL_SYNC_ENABLED=false
 重新执行安装脚本：
 
 ```bash
-sudo APP_DIR=/mnt/1panel/apps/cnapi \
-     STATIC_ROOT=/var/www/cngokzapi \
+sudo APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi \
+     STATIC_ROOT=/www/sites/test.cngokz.com/index/cnapi \
      bash install-native.sh
 ```
 
@@ -264,8 +264,8 @@ API 启动时自动执行数据库迁移。
 健康检查：
 
 ```bash
-curl -fsS http://127.0.0.1:8080/health/ready | jq
-curl -fsS http://127.0.0.1:8080/api/v1/public/statistics | jq
+curl -fsS http://127.0.0.1:28080/health/ready | jq
+curl -fsS http://127.0.0.1:28080/api/v1/public/statistics | jq
 ```
 
 ---
@@ -275,13 +275,13 @@ curl -fsS http://127.0.0.1:8080/api/v1/public/statistics | jq
 配置文件：
 
 ```text
-deploy/nginx-ban.cngokz.com.conf
+deploy/nginx-test.cngokz.com.conf
 ```
 
 安装：
 
 ```bash
-sudo cp deploy/nginx-ban.cngokz.com.conf \
+sudo cp deploy/nginx-test.cngokz.com.conf \
   /etc/nginx/conf.d/cngokzapi.conf
 sudo nginx -t
 sudo systemctl reload nginx
@@ -290,11 +290,11 @@ sudo systemctl reload nginx
 访问：
 
 ```text
-https://ban.cngokz.com/
-https://ban.cngokz.com/admin/
+https://test.cngokz.com/
+https://test.cngokz.com/admin/
 ```
 
-如果你的证书路径不是 `/etc/letsencrypt/live/ban.cngokz.com/`，修改 Nginx 配置里的证书路径。
+如果你的证书路径不是 `/www/sites/test.cngokz.com/ssl/`，修改 Nginx 配置里的证书路径。
 
 ---
 
@@ -304,15 +304,15 @@ https://ban.cngokz.com/admin/
 
 ```bash
 TAG=20261106-01 \
-VITE_SITE_URL=https://ban.cngokz.com \
+VITE_SITE_URL=https://test.cngokz.com \
 ./scripts/build-native.sh
 ```
 
 上传新 tar 包，服务器解压后执行同样的安装脚本：
 
 ```bash
-sudo APP_DIR=/mnt/1panel/apps/cnapi \
-     STATIC_ROOT=/var/www/cngokzapi \
+sudo APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi \
+     STATIC_ROOT=/www/sites/test.cngokz.com/index/cnapi \
      bash install-native.sh
 ```
 
@@ -320,222 +320,159 @@ sudo APP_DIR=/mnt/1panel/apps/cnapi \
 
 - 备份旧二进制为 `bin/cngokz-api.prev`
 - 替换二进制
-- 替换 public/admin 静态文件
+- 替换 unified frontend 静态文件
 - 重启 `cngokz-api`
 - 不覆盖已有 `.env`
 - 不覆盖已有 Nginx 配置
 
 ---
 
-## 10.1 GitHub Actions + Cloudflare R2 + SSH 发布
+## 10.1 GitHub Actions 手动发布（直接 SSH 上传）
 
-生产服务器不访问 GitHub。完整链路：
-
-```text
-本地 git push develop
-        │
-        ▼
-不会自动部署
-        │
-        ▼
-手动运行 GitHub Actions: Deploy production (manual)
-        │
-        ├── cargo build --release
-        ├── pnpm build admin/public
-        ├── 打包 backend / frontend
-        ├── 上传 Cloudflare R2
-        └── SSH 到生产服务器，执行下载/安装命令
-        │
-        ▼
-生产服务器
-  ├── 从 R2 下载 backend/frontend
-  ├── 校验 sha256
-  ├── 安装后端二进制 / 前端静态文件
-  └── 重启 cngokz-api + reload nginx
-```
-
-生产服务器不需要安装 R2 拉取脚本，也不需要访问 GitHub。
-GitHub Actions 负责构建、上传 R2，并通过 SSH 触发服务器从 R2 下载。
+按照 LumiAdmin 的方式：GitHub Actions 构建单一前端和后端二进制，直接通过 SSH/rsync 上传到生产服务器指定目录。
 
 工作流：
 
 ```text
-.github/workflows/publish-r2.yml
+.github/workflows/deploy.yml
 ```
 
-触发：
-
-- **只支持 `workflow_dispatch` 手动触发**；
-- **只能从 `main` 或 `develop` 分支运行**；其他分支会立即失败；
-- push 到 `develop` 不会触发部署；
-- 手动运行时可填写可选 tag。
-
-### R2 Bucket
-
-创建：
+只能手动触发：
 
 ```text
-R2 → Bucket → cngokzapi-deploy
+Actions
+→ Deploy production (manual)
+→ Run workflow
+→ component: all / frontend / backend
 ```
 
-绑定自定义域名，例如：
+允许从 `main` 或 `develop` 分支运行；其他分支会立即失败。
+
+### 统一目标目录
+
+宿主机：
 
 ```text
-dl.cngokz.com
+/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
 ```
 
-R2 目录：
+OpenResty 容器内：
 
 ```text
-backend/<tag>/cngokzapi-backend-<tag>.tar.gz
-frontend/<tag>/cngokzapi-frontend-<tag>.tar.gz
-native/<tag>/manifest.json
-native/latest.json
+/www/sites/test.cngokz.com/index/cnapi
 ```
 
-`latest.json` 示例：
+目标目录内容：
 
-```json
-{
-  "tag": "20261106-abc1234",
-  "commit": "abcdef...",
-  "created_at": "2026-11-06T10:00:00Z",
-  "backend": {
-    "object": "backend/20261106-abc1234/cngokzapi-backend-20261106-abc1234.tar.gz",
-    "sha256": "..."
-  },
-  "frontend": {
-    "object": "frontend/20261106-abc1234/cngokzapi-frontend-20261106-abc1234.tar.gz",
-    "sha256": "..."
-  }
-}
+```text
+cnapi/
+├── .env
+├── bin/
+│   └── cngokz-api
+├── index.html
+├── assets/
+├── robots.txt
+└── sitemap.xml
 ```
+
+前端：
+
+1. 构建 `apps/frontend`；
+2. 上传 `dist/` 内容到 `cnapi/` 根目录；
+3. 删除旧 `assets/`、`index.html`、`robots.txt`、`sitemap.xml` 以及历史 `public/`、`admin/`；
+4. **不会删除** `bin/` 和 `.env`；
+5. `chmod -R a+rX`；
+6. reload OpenResty。
+
+后端：
+
+1. `cargo build --release --locked --bin cngokz-api`；
+2. scp 到 `/tmp`；
+3. 备份当前 `bin/cngokz-api` 为 `bin/cngokz-api.prev`；
+4. 安装到 `cnapi/bin/cngokz-api`；
+5. `systemctl restart cngokz-api`；
+6. 轮询 `http://127.0.0.1:28080/health/ready`。
+
+数据库迁移由后端启动时自动执行。
 
 ### GitHub Secrets
 
-```text
-Settings → Secrets and variables → Actions → Secrets
-```
-
 | Secret | 说明 |
 |---|---|
-| `R2_ACCOUNT_ID` | Cloudflare Account ID |
-| `R2_ACCESS_KEY_ID` | R2 API Token Access Key |
-| `R2_SECRET_ACCESS_KEY` | R2 API Token Secret |
 | `DEPLOY_SSH_KEY` | 生产服务器 SSH 私钥 |
 
-R2 API Token 建议只授权：
+创建专用 SSH 密钥：
 
-```text
-Bucket: cngokzapi-deploy
-Permission: Object Read & Write
+```bash
+ssh-keygen -t ed25519 -a 100 -C "github-actions-cngokz" \
+  -f ~/.ssh/cngokz_deploy
+
+ssh-copy-id -i ~/.ssh/cngokz_deploy.pub root@103.120.89.225
+```
+
+把私钥内容填入 `DEPLOY_SSH_KEY`：
+
+```bash
+cat ~/.ssh/cngokz_deploy
 ```
 
 ### GitHub Variables
 
-```text
-Settings → Secrets and variables → Actions → Variables
-```
+| Variable | 示例 |
+|---|---|
+| `DEPLOY_HOST` | `103.120.89.225` |
+| `DEPLOY_USER` | `root` |
+| `DEPLOY_PORT` | `22` |
 
-| Variable | 示例 | 说明 |
-|---|---|---|
-| `R2_BUCKET` | `cngokzapi-deploy` | 必填 |
-| `R2_PUBLIC_BASE_URL` | `https://dl.cngokz.com` | R2 自定义域名 |
-| `VITE_SITE_URL` | `https://ban.cngokz.com` | 前端构建地址 |
-| `DEPLOY_HOST` | 服务器 IP / 域名 | 必填 |
-| `DEPLOY_USER` | `root` | 必填 |
-| `DEPLOY_PORT` | `22` | 可省略 |
-| `BACKEND_PATH` | `/mnt/1panel/apps/cnapi` | 可省略 |
-| `SERVICE_NAME` | `cngokz-api` | 可省略 |
-| `STATIC_ROOT` | `/var/www/cngokzapi` | 可省略 |
-| `STATIC_OWNER` | `www-data:www-data` | 可省略 |
+路径、服务名和站点域名已固定在 workflow 中：
+
+```text
+ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+SERVICE_NAME=cngokz-api
+VITE_SITE_URL=https://test.cngokz.com
+APP_PORT=28080
+```
 
 ### 服务器前置条件
 
-首次仍需要安装好：
+首次仍需：
 
 ```text
-/mnt/1panel/apps/cnapi/.env
-/mnt/1panel/apps/cnapi/bin/cngokz-api
+cnapi/.env
+cnapi/bin/cngokz-api
 /etc/systemd/system/cngokz-api.service
-/etc/nginx/conf.d/cngokzapi.conf
-/var/www/cngokzapi
+OpenResty 站点配置
 ```
 
 服务器需要：
 
 ```bash
+rsync
 curl
-tar
-sha256sum
-rsync
 nginx
 systemctl
 ```
 
-如果 `DEPLOY_USER` 不是 `root`，需要免密码 sudo，至少允许：
-
-```text
-install
-cp
-rsync
-chown
-systemctl
-nginx
-```
-
-### 工作流部署行为
-
-后端：
-
-1. 从 `https://dl.cngokz.com/backend/<tag>/...` 下载；
-2. 校验 SHA-256；
-3. 备份当前二进制为 `bin/cngokz-api.prev`；
-4. 替换 `bin/cngokz-api`；
-5. `systemctl restart cngokz-api`；
-6. 轮询 `http://127.0.0.1:8080/health/ready`。
-
-前端：
-
-1. 从 `https://dl.cngokz.com/frontend/<tag>/...` 下载；
-2. 校验 SHA-256；
-3. 安装 `/var/www/cngokzapi/public`、`/var/www/cngokzapi/admin`；
-4. `chown www-data:www-data`；
-5. `nginx -t`；
-6. `systemctl reload nginx`。
-
-整个部署命令由 GitHub Actions 通过 SSH 内联执行，服务器上不需要保留拉取脚本。
-
-### 回滚
-
-后端保留 `bin/cngokz-api.prev`：
-
-```bash
-sudo systemctl stop cngokz-api
-sudo cp -a /mnt/1panel/apps/cnapi/bin/cngokz-api.prev            /mnt/1panel/apps/cnapi/bin/cngokz-api
-sudo systemctl start cngokz-api
-```
-
-前端回滚：重新运行工作流并指定历史 tag，或用旧 R2 包重新安装。
+如果使用 `root`，不需要 sudo 配置。
 
 ## 11. 回滚
 
 查看旧二进制：
 
 ```bash
-ls -l /mnt/1panel/apps/cnapi/bin/
+ls -l /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/
 ```
 
 回滚：
 
 ```bash
 sudo systemctl stop cngokz-api
-sudo cp -a /mnt/1panel/apps/cnapi/bin/cngokz-api.prev \
-           /mnt/1panel/apps/cnapi/bin/cngokz-api
+sudo cp -a /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/cngokz-api.prev \
+           /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/cngokz-api
 sudo systemctl start cngokz-api
 ```
 
-静态文件回滚需要保留上一版本 bundle，重新覆盖 `/var/www/cngokzapi`。
+静态文件回滚需要保留上一版本 bundle，重新覆盖 `/www/sites/test.cngokz.com/index/cnapi`。
 
 数据库迁移只向前；回滚代码前确认迁移兼容性，必要时使用数据库备份。
 
@@ -572,8 +509,8 @@ docker-compose.dev.yml
 infrastructure/docker/
 infrastructure/postgres/
 infrastructure/redis/
-apps/web/server/
-apps/public/server/
+apps/frontend/server/
+apps/frontend/server/
 scripts/dev-up.sh
 ```
 
@@ -583,7 +520,7 @@ scripts/dev-up.sh
 scripts/build-native.sh
 scripts/install-native.sh
 deploy/cngokz-api.service
-deploy/nginx-ban.cngokz.com.conf
+deploy/nginx-test.cngokz.com.conf
 ```
 
 如果你仍然用 Docker 运行 PostgreSQL/Redis，那只是外部基础设施，不属于 CNGOKZAPI 应用部署。
@@ -596,9 +533,9 @@ deploy/nginx-ban.cngokz.com.conf
 |---|---|
 | `cngokz-api` 启动失败 | `journalctl -u cngokz-api -n 100 --no-pager` |
 | `health/ready` 返回 503 | 检查 PostgreSQL/Redis 是否监听 `127.0.0.1`，`.env` 是否正确 |
-| 页面 404 | 检查 `/var/www/cngokzapi/public`、`/var/www/cngokzapi/admin` 是否存在 |
+| 页面 404 | 检查 `/www/sites/test.cngokz.com/index/cnapi`、`/www/sites/test.cngokz.com/index/cnapi` 是否存在 |
 | `/admin` 空白 | 检查 Nginx `/admin/` 配置和 Vite `base=/admin/` |
-| API 502 | 检查 `cngokz-api` 是否监听 `127.0.0.1:8080` |
+| API 502 | 检查 `cngokz-api` 是否监听 `127.0.0.1:28080` |
 | 数据库迁移失败 | 查看 journald 日志；不要手工删表 |
 | KZGO 同步失败 | 查看 `journalctl` 与 `/api/v1/admin/sources` |
 | 前端操作 401/403 | 检查 `MAINTENANCE_TOKEN`；当前前端受保护操作还需要运行时 Token 改造 |
@@ -609,12 +546,12 @@ deploy/nginx-ban.cngokz.com.conf
 
 ```bash
 systemctl status cngokz-api
-curl -fsS http://127.0.0.1:8080/health/ready | jq
-curl -fsS http://127.0.0.1:8080/api/v1/system/status | jq
-curl -fsS http://127.0.0.1:8080/api/v1/public/statistics | jq
-curl -fsS https://ban.cngokz.com/health | jq
-curl -fsS https://ban.cngokz.com/api/v1/public/statistics | jq
-curl -fsS https://ban.cngokz.com/admin/ -o /dev/null -w '%{http_code}\n'
+curl -fsS http://127.0.0.1:28080/health/ready | jq
+curl -fsS http://127.0.0.1:28080/api/v1/system/status | jq
+curl -fsS http://127.0.0.1:28080/api/v1/public/statistics | jq
+curl -fsS https://test.cngokz.com/health | jq
+curl -fsS https://test.cngokz.com/api/v1/public/statistics | jq
+curl -fsS https://test.cngokz.com/admin/ -o /dev/null -w '%{http_code}\n'
 ```
 
 管理 API：
@@ -622,5 +559,5 @@ curl -fsS https://ban.cngokz.com/admin/ -o /dev/null -w '%{http_code}\n'
 ```bash
 curl -fsS \
   -H "X-Maintenance-Token: $MAINTENANCE_TOKEN" \
-  http://127.0.0.1:8080/api/v1/admin/sources | jq
+  http://127.0.0.1:28080/api/v1/admin/sources | jq
 ```

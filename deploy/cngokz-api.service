@@ -1,28 +1,34 @@
 [Unit]
 Description=CNGOKZAPI backend (cngokz-api)
 Documentation=https://github.com/XBDJ504764827/cnapi
-Wants=network-online.target
-After=network-online.target
-# If PostgreSQL/Redis are installed as native services, uncomment:
-# After=postgresql.service redis-server.service
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+StartLimitIntervalSec=60s
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/mnt/1panel/apps/cnapi
-ExecStart=/mnt/1panel/apps/cnapi/bin/cngokz-api
-# dotenvy loads /mnt/1panel/apps/cnapi/.env from WorkingDirectory.
+WorkingDirectory=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+ExecStart=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/cngokz-api
+
+Environment=APP_ENV=production
+Environment=APP_HOST=127.0.0.1
+Environment=APP_PORT=28080
+Environment=LOG_LEVEL=info
 Environment=RUST_LOG=info
 
+# dotenvy loads:
+# /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env
+
 Restart=on-failure
-RestartSec=5s
+RestartSec=10s
 KillSignal=SIGTERM
 TimeoutStopSec=30
 KillMode=mixed
 
 LimitNOFILE=65535
-MemoryMax=2G
 
 StandardOutput=journal
 StandardError=journal

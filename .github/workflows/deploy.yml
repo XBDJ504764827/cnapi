@@ -1,0 +1,254 @@
+name: Deploy production (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: '选择要部署的内容'
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - frontend
+          - backend
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Validate branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main or develop branch
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/main|refs/heads/develop) ;;
+            *)
+              echo "Production deploy is only allowed from main or develop (current: ${GITHUB_REF})." >&2
+              exit 1
+              ;;
+          esac
+
+  build-frontend:
+    name: Build frontend
+    needs: [preflight]
+    if: inputs.component == 'frontend' || inputs.component == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build unified frontend
+        env:
+          VITE_SITE_URL: https://test.cngokz.com
+        run: |
+          pnpm --filter @cngokz/frontend build
+
+      - name: Collect frontend files
+        run: |
+          mkdir -p frontend-out
+          cp -a apps/frontend/dist/. frontend-out/
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-output
+          path: frontend-out
+          retention-days: 1
+
+  build-backend:
+    name: Build backend
+    needs: [preflight]
+    if: inputs.component == 'backend' || inputs.component == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release --locked --bin cngokz-api
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-output
+          path: target/release/cngokz-api
+          retention-days: 1
+
+  deploy-frontend:
+    name: Deploy frontend
+    needs: [build-frontend]
+    if: inputs.component == 'frontend' || inputs.component == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-output
+          path: frontend-out
+
+      - name: Setup SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
+          PORT="${DEPLOY_PORT:-22}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload frontend files
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
+          PORT="${DEPLOY_PORT:-22}"
+          ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$ROOT'"
+
+          # Do not use --delete here: the same directory also contains
+          # bin/cngokz-api and .env.
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "rm -rf '$ROOT/assets' '$ROOT/public' '$ROOT/admin' '$ROOT/index.html' '$ROOT/robots.txt' '$ROOT/sitemap.xml'"
+          rsync -az -e "ssh $SSH_OPTS" \
+            frontend-out/ "$DEPLOY_USER@$DEPLOY_HOST:$ROOT/"
+
+      - name: Reload Nginx
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          PORT="${DEPLOY_PORT:-22}"
+          ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ROOT='$ROOT' bash -s" <<'REMOTE'
+          set -euo pipefail
+          run_root() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$@"
+            else
+              sudo -n "$@"
+            fi
+          }
+          run_root chmod -R a+rX "$ROOT"
+          run_root nginx -t
+          run_root systemctl reload nginx
+          REMOTE
+
+  deploy-backend:
+    name: Deploy backend
+    needs: [build-backend]
+    if: inputs.component == 'backend' || inputs.component == 'all'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-output
+          path: backend-bin
+
+      - name: Setup SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
+          PORT="${DEPLOY_PORT:-22}"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload and install backend
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
+          PORT="${DEPLOY_PORT:-22}"
+          APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+          SERVICE=cngokz-api
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+
+          scp $SSH_OPTS backend-bin/cngokz-api \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/cngokz-api-${{ github.sha }}"
+
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR='$APP_DIR' SERVICE='$SERVICE' FILE='/tmp/cngokz-api-${{ github.sha }}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          run_root() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$@"
+            else
+              sudo -n "$@"
+            fi
+          }
+          test -f "$APP_DIR/.env"
+          test -x "$APP_DIR/bin/cngokz-api"
+          run_root cp -a "$APP_DIR/bin/cngokz-api" "$APP_DIR/bin/cngokz-api.prev"
+          run_root install -m 0755 "$FILE" "$APP_DIR/bin/cngokz-api"
+          run_root systemctl restart "$SERVICE"
+
+          healthy=0
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:28080/health/ready >/dev/null 2>&1; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$healthy" -ne 1 ]; then
+            run_root systemctl status "$SERVICE" --no-pager >&2 || true
+            echo "backend health check failed" >&2
+            exit 1
+          fi
+          echo "backend deployed"
+          REMOTE
