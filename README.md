@@ -100,15 +100,19 @@ CNGOKZAPI/
 
 生产环境使用 **Rust release 二进制 + systemd + Nginx + 静态前端**。后端和前端不通过 Docker 运行。
 
-```bash
-# 构建机
-TAG=20261105-01 VITE_SITE_URL=https://ban.cngokz.com ./scripts/build-native.sh
+发布链路：
 
-# 上传 native-bundles/cngokzapi-native-20261105-01.tar.gz 到服务器后
-sudo APP_DIR=/mnt/1panel/apps/cnapi \
-     STATIC_ROOT=/var/www/cngokzapi \
-     bash install-native.sh
+```text
+本地 git push develop
+        ↓
+不会自动部署
+        ↓
+手动运行 GitHub Actions: Deploy production (manual)
+        ↓
+构建前后端包 → Cloudflare R2 → SSH 生产服务器从 R2 下载安装
 ```
+
+只有手动触发工作流、且分支必须是 `main` 或 `develop` 才会部署。生产服务器不访问 GitHub，也不需要保留拉取脚本。
 
 部署结构：
 

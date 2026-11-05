@@ -327,6 +327,197 @@ sudo APP_DIR=/mnt/1panel/apps/cnapi \
 
 ---
 
+## 10.1 GitHub Actions + Cloudflare R2 + SSH 发布
+
+生产服务器不访问 GitHub。完整链路：
+
+```text
+本地 git push develop
+        │
+        ▼
+不会自动部署
+        │
+        ▼
+手动运行 GitHub Actions: Deploy production (manual)
+        │
+        ├── cargo build --release
+        ├── pnpm build admin/public
+        ├── 打包 backend / frontend
+        ├── 上传 Cloudflare R2
+        └── SSH 到生产服务器，执行下载/安装命令
+        │
+        ▼
+生产服务器
+  ├── 从 R2 下载 backend/frontend
+  ├── 校验 sha256
+  ├── 安装后端二进制 / 前端静态文件
+  └── 重启 cngokz-api + reload nginx
+```
+
+生产服务器不需要安装 R2 拉取脚本，也不需要访问 GitHub。
+GitHub Actions 负责构建、上传 R2，并通过 SSH 触发服务器从 R2 下载。
+
+工作流：
+
+```text
+.github/workflows/publish-r2.yml
+```
+
+触发：
+
+- **只支持 `workflow_dispatch` 手动触发**；
+- **只能从 `main` 或 `develop` 分支运行**；其他分支会立即失败；
+- push 到 `develop` 不会触发部署；
+- 手动运行时可填写可选 tag。
+
+### R2 Bucket
+
+创建：
+
+```text
+R2 → Bucket → cngokzapi-deploy
+```
+
+绑定自定义域名，例如：
+
+```text
+dl.cngokz.com
+```
+
+R2 目录：
+
+```text
+backend/<tag>/cngokzapi-backend-<tag>.tar.gz
+frontend/<tag>/cngokzapi-frontend-<tag>.tar.gz
+native/<tag>/manifest.json
+native/latest.json
+```
+
+`latest.json` 示例：
+
+```json
+{
+  "tag": "20261106-abc1234",
+  "commit": "abcdef...",
+  "created_at": "2026-11-06T10:00:00Z",
+  "backend": {
+    "object": "backend/20261106-abc1234/cngokzapi-backend-20261106-abc1234.tar.gz",
+    "sha256": "..."
+  },
+  "frontend": {
+    "object": "frontend/20261106-abc1234/cngokzapi-frontend-20261106-abc1234.tar.gz",
+    "sha256": "..."
+  }
+}
+```
+
+### GitHub Secrets
+
+```text
+Settings → Secrets and variables → Actions → Secrets
+```
+
+| Secret | 说明 |
+|---|---|
+| `R2_ACCOUNT_ID` | Cloudflare Account ID |
+| `R2_ACCESS_KEY_ID` | R2 API Token Access Key |
+| `R2_SECRET_ACCESS_KEY` | R2 API Token Secret |
+| `DEPLOY_SSH_KEY` | 生产服务器 SSH 私钥 |
+
+R2 API Token 建议只授权：
+
+```text
+Bucket: cngokzapi-deploy
+Permission: Object Read & Write
+```
+
+### GitHub Variables
+
+```text
+Settings → Secrets and variables → Actions → Variables
+```
+
+| Variable | 示例 | 说明 |
+|---|---|---|
+| `R2_BUCKET` | `cngokzapi-deploy` | 必填 |
+| `R2_PUBLIC_BASE_URL` | `https://dl.cngokz.com` | R2 自定义域名 |
+| `VITE_SITE_URL` | `https://ban.cngokz.com` | 前端构建地址 |
+| `DEPLOY_HOST` | 服务器 IP / 域名 | 必填 |
+| `DEPLOY_USER` | `root` | 必填 |
+| `DEPLOY_PORT` | `22` | 可省略 |
+| `BACKEND_PATH` | `/mnt/1panel/apps/cnapi` | 可省略 |
+| `SERVICE_NAME` | `cngokz-api` | 可省略 |
+| `STATIC_ROOT` | `/var/www/cngokzapi` | 可省略 |
+| `STATIC_OWNER` | `www-data:www-data` | 可省略 |
+
+### 服务器前置条件
+
+首次仍需要安装好：
+
+```text
+/mnt/1panel/apps/cnapi/.env
+/mnt/1panel/apps/cnapi/bin/cngokz-api
+/etc/systemd/system/cngokz-api.service
+/etc/nginx/conf.d/cngokzapi.conf
+/var/www/cngokzapi
+```
+
+服务器需要：
+
+```bash
+curl
+tar
+sha256sum
+rsync
+nginx
+systemctl
+```
+
+如果 `DEPLOY_USER` 不是 `root`，需要免密码 sudo，至少允许：
+
+```text
+install
+cp
+rsync
+chown
+systemctl
+nginx
+```
+
+### 工作流部署行为
+
+后端：
+
+1. 从 `https://dl.cngokz.com/backend/<tag>/...` 下载；
+2. 校验 SHA-256；
+3. 备份当前二进制为 `bin/cngokz-api.prev`；
+4. 替换 `bin/cngokz-api`；
+5. `systemctl restart cngokz-api`；
+6. 轮询 `http://127.0.0.1:8080/health/ready`。
+
+前端：
+
+1. 从 `https://dl.cngokz.com/frontend/<tag>/...` 下载；
+2. 校验 SHA-256；
+3. 安装 `/var/www/cngokzapi/public`、`/var/www/cngokzapi/admin`；
+4. `chown www-data:www-data`；
+5. `nginx -t`；
+6. `systemctl reload nginx`。
+
+整个部署命令由 GitHub Actions 通过 SSH 内联执行，服务器上不需要保留拉取脚本。
+
+### 回滚
+
+后端保留 `bin/cngokz-api.prev`：
+
+```bash
+sudo systemctl stop cngokz-api
+sudo cp -a /mnt/1panel/apps/cnapi/bin/cngokz-api.prev            /mnt/1panel/apps/cnapi/bin/cngokz-api
+sudo systemctl start cngokz-api
+```
+
+前端回滚：重新运行工作流并指定历史 tag，或用旧 R2 包重新安装。
+
 ## 11. 回滚
 
 查看旧二进制：

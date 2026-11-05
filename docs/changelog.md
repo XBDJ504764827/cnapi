@@ -18,6 +18,39 @@
 
 ---
 
+## 2026年11月05日 23时06分09秒 增加 GitHub Actions + Cloudflare R2 + SSH 发布链路
+
+**背景**
+
+生产服务器可能无法稳定访问 GitHub。改为：用户从 `main` 或 `develop` 分支手动触发 GitHub Actions 构建前后端包，上传 Cloudflare R2；随后通过 SSH 让生产服务器从 R2 下载并安装。push 到 `develop` 不会自动部署。生产服务器不访问 GitHub，也不需要保存拉取脚本。
+
+**变更内容**
+
+- 新增 `.github/workflows/publish-r2.yml`：仅 `workflow_dispatch` 手动触发且只允许 `main` 或 `develop` 分支，构建 Rust release、admin/public 静态文件，分别打包并上传 R2；同时上传版本化 manifest 与 `native/latest.json`（`Cache-Control: no-store`）。
+- 工作流在上传 R2 后通过 SSH 连接生产服务器，内联执行下载、SHA-256 校验、后端二进制替换/备份、systemd 重启、前端 public/admin 安装、Nginx reload。
+- 服务器不保留 R2 拉取脚本；部署逻辑只存在于 GitHub Actions 工作流中。
+- 更新 `docs/deployment.md` 与 README，增加 R2 + SSH 的 Secrets/Variables 配置。
+- 删除上一版直连 SSH 的 `.github/workflows/deploy.yml`。
+
+**涉及文件**
+
+- 新增：`.github/workflows/publish-r2.yml`
+- 修改：`README.md`、`docs/deployment.md`、`docs/changelog.md`
+
+**数据库与 API 变化**
+
+- 无数据库/API 变化。
+- 部署链路：GitHub Actions → R2 → GitHub Actions SSH → 生产服务器从 R2 下载安装。
+
+**测试与结果**
+
+- GitHub Actions YAML 解析：通过。
+- `pnpm -r format:check`：通过。
+- 本地前端/后端构建此前已验证通过。
+- **未执行**：真实 R2 上传、SSH 部署、生产服务器 systemd/nginx 实际安装（缺少 R2 凭据和生产密钥）。
+
+---
+
 ## 2026年11月05日 22时44分05秒 部署架构切换为 Native：systemd + Nginx，生产不再使用 Docker
 
 **背景**

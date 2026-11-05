@@ -1,0 +1,263 @@
+name: Deploy production (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '可选版本号；留空自动生成'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    name: Build -> R2 -> production
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL || 'https://dl.cngokz.com' }}
+      VITE_SITE_URL: ${{ vars.VITE_SITE_URL || 'https://ban.cngokz.com' }}
+      TAG_INPUT: ${{ inputs.tag }}
+    steps:
+      - name: Require main or develop branch
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/main|refs/heads/develop) ;;
+            *)
+              echo "Production deploy is only allowed from main or develop (current: ${GITHUB_REF})." >&2
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native bundle
+        run: |
+          set -euo pipefail
+          TAG="${TAG_INPUT:-$(date -u +%Y%m%d)-${GITHUB_SHA::7}}"
+          TAG="$(printf '%s' "$TAG" | tr -c 'A-Za-z0-9._-' '-')"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "Building tag: $TAG"
+          TAG="$TAG" VITE_SITE_URL="$VITE_SITE_URL" ./scripts/build-native.sh
+
+      - name: Create backend and frontend packages
+        run: |
+          set -euo pipefail
+          mkdir -p dist/backend dist/frontend
+          cp -a "native-bundles/${TAG}/bin" dist/backend/
+          cp -a "native-bundles/${TAG}/static/public" dist/frontend/public
+          cp -a "native-bundles/${TAG}/static/admin" dist/frontend/admin
+
+          tar -czf "dist/cngokzapi-backend-${TAG}.tar.gz" -C dist/backend .
+          tar -czf "dist/cngokzapi-frontend-${TAG}.tar.gz" -C dist/frontend .
+
+          (cd dist && sha256sum \
+            "cngokzapi-backend-${TAG}.tar.gz" \
+            "cngokzapi-frontend-${TAG}.tar.gz" \
+            > checksums.txt)
+
+      - name: Generate manifest
+        run: |
+          set -euo pipefail
+          BACKEND_SHA=$(grep 'cngokzapi-backend' dist/checksums.txt | cut -d' ' -f1)
+          FRONTEND_SHA=$(grep 'cngokzapi-frontend' dist/checksums.txt | cut -d' ' -f1)
+
+          cat > dist/latest.json <<MANIFEST
+          {
+            "tag": "${TAG}",
+            "commit": "${GITHUB_SHA}",
+            "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "backend": {
+              "object": "backend/${TAG}/cngokzapi-backend-${TAG}.tar.gz",
+              "sha256": "${BACKEND_SHA}"
+            },
+            "frontend": {
+              "object": "frontend/${TAG}/cngokzapi-frontend-${TAG}.tar.gz",
+              "sha256": "${FRONTEND_SHA}"
+            }
+          }
+          MANIFEST
+
+          cat dist/latest.json
+          cp dist/latest.json "dist/manifest-${TAG}.json"
+
+      - name: Ensure AWS CLI
+        run: |
+          if ! command -v aws >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y awscli
+          fi
+          aws --version
+
+      - name: Upload packages to R2
+        run: |
+          set -euo pipefail
+          : "${R2_ACCOUNT_ID:?missing R2_ACCOUNT_ID secret}"
+          : "${R2_ACCESS_KEY_ID:?missing R2_ACCESS_KEY_ID secret}"
+          : "${R2_SECRET_ACCESS_KEY:?missing R2_SECRET_ACCESS_KEY secret}"
+          : "${R2_BUCKET:?missing R2_BUCKET variable}"
+
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+          export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+          export AWS_DEFAULT_REGION=auto
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          aws s3 cp "dist/cngokzapi-backend-${TAG}.tar.gz" \
+            "s3://${R2_BUCKET}/backend/${TAG}/cngokzapi-backend-${TAG}.tar.gz" \
+            --endpoint-url "$ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable"
+
+          aws s3 cp "dist/cngokzapi-frontend-${TAG}.tar.gz" \
+            "s3://${R2_BUCKET}/frontend/${TAG}/cngokzapi-frontend-${TAG}.tar.gz" \
+            --endpoint-url "$ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable"
+
+          aws s3 cp "dist/manifest-${TAG}.json" \
+            "s3://${R2_BUCKET}/native/${TAG}/manifest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json" \
+            --cache-control "no-store"
+
+          aws s3 cp dist/latest.json \
+            "s3://${R2_BUCKET}/native/latest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/json" \
+            --cache-control "no-store"
+
+      - name: Deploy to production server
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          BACKEND_PATH: ${{ vars.BACKEND_PATH }}
+          STATIC_ROOT: ${{ vars.STATIC_ROOT }}
+          SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+          STATIC_OWNER: ${{ vars.STATIC_OWNER }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
+          : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
+
+          PORT="${DEPLOY_PORT:-22}"
+          APP_DIR="${BACKEND_PATH:-/mnt/1panel/apps/cnapi}"
+          WEB_ROOT="${STATIC_ROOT:-/var/www/cngokzapi}"
+          SERVICE="${SERVICE_NAME:-cngokz-api}"
+          OWNER="${STATIC_OWNER:-www-data:www-data}"
+
+          BACKEND_SHA=$(grep 'cngokzapi-backend' dist/checksums.txt | cut -d' ' -f1)
+          FRONTEND_SHA=$(grep 'cngokzapi-frontend' dist/checksums.txt | cut -d' ' -f1)
+          BACKEND_OBJECT="backend/${TAG}/cngokzapi-backend-${TAG}.tar.gz"
+          FRONTEND_OBJECT="frontend/${TAG}/cngokzapi-frontend-${TAG}.tar.gz"
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "TAG='$TAG' APP_DIR='$APP_DIR' WEB_ROOT='$WEB_ROOT' SERVICE='$SERVICE' OWNER='$OWNER' R2_BASE='$R2_PUBLIC_BASE_URL' BACKEND_OBJECT='$BACKEND_OBJECT' FRONTEND_OBJECT='$FRONTEND_OBJECT' BACKEND_SHA='$BACKEND_SHA' FRONTEND_SHA='$FRONTEND_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          run_root() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$@"
+            else
+              sudo -n "$@"
+            fi
+          }
+
+          command -v curl >/dev/null
+          command -v tar >/dev/null
+          command -v sha256sum >/dev/null
+          command -v rsync >/dev/null
+
+          test -f "$APP_DIR/.env"
+          test -x "$APP_DIR/bin/cngokz-api"
+
+          TMP="$(mktemp -d /tmp/cngokzapi-deploy.XXXXXX)"
+          trap 'rm -rf "$TMP"' EXIT
+
+          BACKEND_URL="${R2_BASE%/}/${BACKEND_OBJECT#/}"
+          FRONTEND_URL="${R2_BASE%/}/${FRONTEND_OBJECT#/}"
+
+          echo "==> downloading backend: $BACKEND_URL"
+          curl -fsSL "$BACKEND_URL" -o "$TMP/backend.tar.gz"
+          echo "${BACKEND_SHA}  $TMP/backend.tar.gz" | sha256sum -c -
+
+          echo "==> downloading frontend: $FRONTEND_URL"
+          curl -fsSL "$FRONTEND_URL" -o "$TMP/frontend.tar.gz"
+          echo "${FRONTEND_SHA}  $TMP/frontend.tar.gz" | sha256sum -c -
+
+          echo "==> installing backend"
+          mkdir -p "$TMP/backend" "$APP_DIR/bin"
+          tar -xzf "$TMP/backend.tar.gz" -C "$TMP/backend"
+          test -x "$TMP/backend/bin/cngokz-api"
+          run_root cp -a "$APP_DIR/bin/cngokz-api" "$APP_DIR/bin/cngokz-api.prev"
+          run_root install -m 0755 "$TMP/backend/bin/cngokz-api" "$APP_DIR/bin/cngokz-api"
+          run_root systemctl restart "$SERVICE"
+
+          healthy=0
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/health/ready >/dev/null 2>&1; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$healthy" -ne 1 ]; then
+            run_root systemctl status "$SERVICE" --no-pager >&2 || true
+            echo "backend health check failed" >&2
+            exit 1
+          fi
+
+          echo "==> installing frontend"
+          mkdir -p "$TMP/frontend"
+          tar -xzf "$TMP/frontend.tar.gz" -C "$TMP/frontend"
+          test -d "$TMP/frontend/public"
+          test -d "$TMP/frontend/admin"
+          run_root mkdir -p "$WEB_ROOT/public" "$WEB_ROOT/admin"
+          run_root rsync -a --delete "$TMP/frontend/public/" "$WEB_ROOT/public/"
+          run_root rsync -a --delete "$TMP/frontend/admin/" "$WEB_ROOT/admin/"
+          run_root chown -R "$OWNER" "$WEB_ROOT/public" "$WEB_ROOT/admin"
+          run_root nginx -t
+          run_root systemctl reload nginx
+
+          echo "deployed $TAG"
+          REMOTE
