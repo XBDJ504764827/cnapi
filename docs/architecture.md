@@ -33,15 +33,15 @@
 设计约束：
 
 - **不拆分微服务**。KZ 业务按模块（players、maps、records、jumpstats、replays、servers、bans、auth）在同一进程内扩展。
-- 前后端各自独立构建、独立容器运行，第一阶段不引入 Nginx；Web 容器自带 Node 静态服务器并反向代理 API。
-- 数据库与 Redis 只通过 Docker 内部网络访问，宿主机端口默认绑定 `127.0.0.1`。
+- 前后端各自独立构建：API 由 systemd 运行，public/admin 静态文件由 Nginx 提供，Nginx 反向代理 `/api`、`/health`。
+- API 只监听 `127.0.0.1:8080`；数据库与 Redis 通过宿主机回环地址访问，不直接暴露到公网。
 
 ## 2. 前后端关系
 
 | 关注点 | 做法 |
 | --- | --- |
 | 请求链路 | 页面 → hooks → `services/*` → `@cngokz/api-client` → HTTP |
-| 地址配置 | 浏览器默认访问同源（`VITE_API_BASE_URL` 为空）；开发环境由 Vite `server.proxy` 转发，生产环境由 `apps/web/server/static-server.mjs` 转发到 `API_UPSTREAM` |
+| 地址配置 | 浏览器默认访问同源（`VITE_API_BASE_URL` 为空）；开发环境由 Vite `server.proxy` 转发，生产环境由 Nginx 转发到 `127.0.0.1:8080` |
 | 类型来源 | 后端 `Utoipa` 生成 `docs/openapi.json` → `openapi-typescript` 生成 `packages/shared-types/src/generated/api-schema.d.ts` → `openapi-fetch` 提供类型化请求 |
 | 数据获取 | TanStack Query 统一缓存、轮询、错误重试；页面不直接调用 `fetch` |
 | 公开门户 | `apps/public` 独立 Vite 应用，默认站点 `/`，同一端口下 `/admin` 反向代理管理后台；共享 API Client、shared-types 与设计 Token（`packages/ui`）；详见 [public-portal/architecture.md](public-portal/architecture.md) |
@@ -80,7 +80,7 @@
 
 ### 启动流程（`main.rs`）
 
-1. `dotenvy::dotenv()`（可选，容器内使用环境变量）
+1. `dotenvy::dotenv()`（可选；生产也可由 systemd 环境变量提供）
 2. `AppConfig::from_env()` 校验配置，失败立即退出
 3. 初始化 tracing：开发环境 compact 文本，生产环境 JSON
 4. `state::connect()`：建立 PostgreSQL 连接池 → 执行 `sqlx::migrate!` → 创建 Redis 客户端并做一次 best-effort `PING`
@@ -182,7 +182,7 @@ HTTP 状态码语义：
 - 单一 `RedisClient` 在 `AppState` 中共享，内部为 `ConnectionManager` 多路复用连接。
 - 键命名空间：`REDIS_KEY_PREFIX`（默认 `cngokz`），通过 `RedisClient::key("...")` 生成，例如 `cngokz:health`。
 - 第一阶段只用于健康检查（`PING`）与后续缓存；不存储业务真值数据。
-- 持久化由 `infrastructure/redis/redis.conf` 决定（AOF `everysec` + 快照），容器挂载 `cngokzapi-redis-data`。
+- 持久化由实际部署的 Redis 配置决定（建议 AOF `everysec` + 快照）；CNGOKZAPI 只使用缓存，不存业务真值。
 
 ## 7. OpenAPI 与类型同步
 

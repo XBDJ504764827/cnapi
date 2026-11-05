@@ -39,7 +39,7 @@
 
 ### 基础设施
 
-Docker（多阶段构建）、Docker Compose、PostgreSQL 18、Redis 8。
+原生 systemd + Nginx 部署；PostgreSQL 18、Redis 8。应用不再使用 Docker。
 
 ## 项目结构
 
@@ -66,7 +66,6 @@ CNGOKZAPI/
 │   │   │   └── main.rs          # 仅负责启动/优雅关闭
 │   │   └── tests/               # HTTP 与真实依赖集成测试
 │   └── web/                     # React 管理后台
-│       ├── server/              # 生产静态服务器（含 API 反向代理）
 │       └── src/
 │           ├── components/{ui,layout,dashboard,common,theme}
 │           ├── layouts/         # 应用外壳（侧边栏 + 顶栏 + 内容区）
@@ -83,55 +82,58 @@ CNGOKZAPI/
 │   ├── api-client/              # 基于 openapi-fetch 的类型化客户端（后台 + 门户）
 │   ├── shared-types/            # OpenAPI 生成的类型 + 共享契约
 │   └── ui/                      # 共享设计 Token（design-system.css）
-├── infrastructure/
-│   ├── docker/                  # api.Dockerfile / web.Dockerfile
-│   ├── postgres/init/           # 数据库初始化脚本
-│   └── redis/redis.conf
+├── deploy/                      # systemd unit / Nginx 站点配置
 ├── docs/                        # 架构、开发、部署、变更记录、OpenAPI JSON
 │   ├── database/                # 数据模型文档（overview/模块/ER 图）
 │   ├── design-system.md         # 管理后台设计系统
 │   ├── public-portal/           # 公开门户架构/页面/API/设计文档
 │   └── globalapi-compatibility.md
-├── scripts/                     # dev-up.sh / gen-api.sh / wait-for-api.sh
+├── scripts/                     # build-native.sh / install-native.sh / gen-api.sh
 ├── .github/workflows/ci.yml
-├── docker-compose.yml
-├── docker-compose.dev.yml
 ├── .env.example
+├── .env.production.example
 ├── Cargo.toml                   # Rust workspace
 └── pnpm-workspace.yaml
 ```
 
-## 快速开始（Docker）
+## 生产部署（Native / 无 Docker）
+
+生产环境使用 **Rust release 二进制 + systemd + Nginx + 静态前端**。后端和前端不通过 Docker 运行。
 
 ```bash
-cp .env.example .env          # 按需修改密码与端口
-docker compose up -d --build  # 启动 PostgreSQL / Redis / API / Web / Public
-docker compose logs -f        # 查看日志
-docker compose down           # 停止（保留数据卷）
+# 构建机
+TAG=20261105-01 VITE_SITE_URL=https://ban.cngokz.com ./scripts/build-native.sh
+
+# 上传 native-bundles/cngokzapi-native-20261105-01.tar.gz 到服务器后
+sudo APP_DIR=/mnt/1panel/apps/cnapi \
+     STATIC_ROOT=/var/www/cngokzapi \
+     bash install-native.sh
 ```
 
-启动后：
+部署结构：
 
-| 地址 | 说明 |
-| --- | --- |
-| <http://localhost:5173> | 公开玩家门户（默认首页） |
-| <http://localhost:5173/admin> | 管理后台（同一端口） |
-| <http://localhost:5173/swagger-ui> | Swagger UI（同源代理） |
-| <http://localhost:8080/health> | API 健康检查（宿主机回环地址） |
-| <http://localhost:8080/api-docs/openapi.json> | OpenAPI 文档 |
+```text
+Nginx
+  ├── /        → /var/www/cngokzapi/public
+  ├── /admin/  → /var/www/cngokzapi/admin
+  └── /api     → 127.0.0.1:8080
+                    │
+                    ▼
+              systemd: cngokz-api
+```
+
+详见 [部署指南](docs/deployment.md)。
 
 ## 本地开发
 
-前置：Node.js ≥ 22、pnpm 11、Rust 1.97、Docker（仅用于本地 PostgreSQL/Redis）。
+前置：Node.js ≥ 22、pnpm 11、Rust 1.97、PostgreSQL、Redis。
 
 ```bash
 pnpm install
 cp .env.example .env
-scripts/dev-up.sh                 # 只启动 PostgreSQL + Redis
+# 启动现有的 PostgreSQL / Redis，或按开发文档准备依赖
 cargo run -p cngokz-api           # API: http://localhost:8080
-pnpm dev                           # 同时启动公开门户(5173) + 管理后台(内部 5174)
-# 公开门户: http://localhost:5173
-# 管理后台: http://localhost:5173/admin
+pnpm dev                          # 公开门户(5173) + 管理后台(内部 5174)
 ```
 
 Web 开发服务器会把 `/api`、`/health`、`/swagger-ui`、`/api-docs` 代理到 `VITE_API_PROXY_TARGET`（默认 `http://localhost:8080`），因此浏览器只访问同源地址，无需配置 CORS。
@@ -154,11 +156,11 @@ Web 开发服务器会把 `/api`、`/health`、`/swagger-ui`、`/api-docs` 代�
 | `DATABASE_MAX_CONNECTIONS` / `DATABASE_MIN_CONNECTIONS` | `10` / `1` | 连接池 |
 | `REDIS_URL` | — | 必填，`redis://...` |
 | `REDIS_KEY_PREFIX` | `cngokz` | 预留缓存命名空间 |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `cngokz` / `cngokz` / `cngokzapi` | Docker 引导数据库 |
-| `POSTGRES_PORT` / `REDIS_PORT` / `API_PORT` / `PORTAL_PORT` | `5432` / `6379` / `8080` / `5173` | 宿主机端口映射（门户与 `/admin` 共用 `PORTAL_PORT`） |
-| `ADMIN_PORT` | `5174` | 仅本地开发的管理后台内部端口 |
+| `PORTAL_PORT` / `ADMIN_PORT` | `5173` / `5174` | 仅前端开发服务器端口 |
+| `KZGO_BASE_URL` / `KZGO_SYNC_ENABLED` | `https://kzgo.eu` / `true` | kzgo.eu 数据源 |
+| `GOKZ_GLOBAL_BASE_URL` / `GOKZ_GLOBAL_SYNC_ENABLED` | `https://kztimerglobal.com/api/v2.0` / `false` | GOKZ-Global 数据源 |
 
-生产环境请使用强密码，并只通过 `.env` 或编排平台的 secret 注入，**不要提交真实凭据**。
+生产环境请使用强密码，将 `.env` 放在服务器受限目录并设置 `600/640` 权限，**不要提交真实凭据**。
 
 ## 常用命令
 

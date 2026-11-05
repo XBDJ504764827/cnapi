@@ -3,6 +3,7 @@ node_modules/
 .pnpm-store/
 
 # Build output
+native-bundles/
 dist/
 dist-ssr/
 build/
@@ -14,6 +15,7 @@ target/
 .env
 .env.*
 !.env.example
+!.env.production.example
 !apps/web/.env.example
 
 # Editor / OS
@@ -32,7 +34,3 @@ pnpm-debug.log*
 coverage/
 apps/api/*.log
 .history/
-
-# Docker local data (volumes are managed by docker, this is a safety net)
-infrastructure/postgres/data/
-infrastructure/redis/data/

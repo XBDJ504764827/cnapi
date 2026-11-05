@@ -5,7 +5,7 @@
 公开门户 `apps/public` 面向所有 KZ 玩家，是一个**独立的 React 应用**，与 `apps/web`（管理后台）共用同一个 Rust API、PostgreSQL、Redis、API Client 和设计 Token，但拥有独立的布局与导航。
 
 - 公开门户不依赖管理后台运行。
-- 管理后台不受影响，原有路由、组件和 Docker 服务保持不变。
+- 管理后台不受影响，原有路由、组件保持不变。
 - 本阶段只提供**公开只读数据**；登录、写操作与管理员接口不暴露。
 
 ## 2. 目录结构
@@ -29,7 +29,7 @@ http://host:5173/admin/    → apps/web（管理后台，basename=/admin）
 http://host:5173/api/...   → Rust API
 ```
 
-开发时公开门户 5173 把 `/admin`（含 HMR WebSocket）代理到管理后台开发服务器 5174；生产时公开门户的静态服务器把 `/admin` 代理到内部 web 容器，web 静态服务器去掉 `/admin` 前缀后提供管理后台构建产物。对外只暴露一个端口。
+开发时公开门户 5173 把 `/admin`（含 HMR WebSocket）代理到管理后台开发服务器 5174；生产时 Nginx 直接提供 `/admin/` 静态文件，`/api`、`/health` 反向代理到 `127.0.0.1:8080`。对外只暴露 443 端口。
 
 ```text
 浏览器 → 5173（Vite dev proxy / 公开门户静态服务器）
@@ -138,9 +138,8 @@ CNGOKZAPI **尚未实现积分算法**。为避免编造数据：
 ## 9. 部署
 
 - 开发：`pnpm dev` 同时启动门户（5173）与后台（内部 5174）；`/admin` 由门户代理。
-- 生产：`infrastructure/docker/public.Dockerfile` 多阶段构建；运行时 Node 静态服务器（SPA 回退 + API/`/admin` 代理 + `/healthz`），是唯一对外入口（`PORTAL_PORT`，默认 5173）。
-- Compose 中 web 容器只 `expose`，public 服务依赖 api 与 web 的健康检查。
-- 站点 URL 是构建参数 `VITE_SITE_URL`（compose 从 `.env` 读取，默认 `http://localhost:5173`），更换域名后需重新构建公开门户镜像。
+- 生产：`scripts/build-native.sh` 构建 public/admin 静态文件；Nginx 从 `/var/www/cngokzapi/public` 与 `/var/www/cngokzapi/admin` 提供服务，并把 `/api`、`/health` 反向代理到 `127.0.0.1:8080`。
+- 站点 URL 是构建参数 `VITE_SITE_URL`，更换域名后需重新执行 native 构建并发布静态文件。
 
 ## 10. 已知缺口与阶段 5 建议
 

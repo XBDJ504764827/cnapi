@@ -18,6 +18,44 @@
 
 ---
 
+## 2026年11月05日 22时44分05秒 部署架构切换为 Native：systemd + Nginx，生产不再使用 Docker
+
+**背景**
+
+生产服务器已有 PostgreSQL/Redis 与 Nginx。Docker 构建/部署会重复编译 Rust、拉取基础镜像，更新成本高。参考 LumiAdmin 的部署方式，改为本地构建 release 二进制与静态前端，服务器使用 systemd 运行 API、Nginx 提供域名与静态站点。
+
+**变更内容**
+
+- 新增 `scripts/build-native.sh`：构建 Rust release、管理后台/public 静态文件，生成可上传的 native bundle。
+- 新增 `scripts/install-native.sh`：服务器安装二进制、public/admin 静态文件、systemd unit、Nginx 配置，备份旧二进制，保留已有 `.env`。
+- 新增 `deploy/cngokz-api.service`：systemd 单元，`www-data` 运行，工作目录 `/mnt/1panel/apps/cnapi`，自动重启与 journald 日志。
+- 新增 `deploy/nginx-ban.cngokz.com.conf`：公开门户/管理后台静态站点，`/api`、`/health` 反代 `127.0.0.1:8080`，保留已有证书路径。
+- 重写 `.env.production.example` 为 Native 配置：API 只监听 `127.0.0.1:8080`，数据库/Redis 使用宿主机 `127.0.0.1`。
+- 重写 `docs/deployment.md` 为 Native 部署步骤；README 生产入口改为 native bundle。
+- 删除未采用的 Docker 生产 compose/镜像脚本；CI 移除 Docker 镜像构建 job。
+- 新增 `native-bundles/` 到 `.gitignore`。
+
+**涉及文件**
+
+- 新增：`scripts/build-native.sh`、`scripts/install-native.sh`、`deploy/cngokz-api.service`、`deploy/nginx-ban.cngokz.com.conf`
+- 修改：`.env.production.example`、`README.md`、`docs/deployment.md`、`.github/workflows/ci.yml`、`.gitignore`、`docs/changelog.md`
+- 删除：`docker-compose.yml`、`docker-compose.dev.yml`、`.dockerignore`、`infrastructure/`、`apps/web/server/`、`apps/public/server/`、`scripts/dev-up.sh`
+- 删除未提交原型：`docker-compose.prod.yml`、`docker-compose.images.yml`、`scripts/build-images.sh`
+
+**数据库与 API 变化**
+
+- 数据库/API 无变化；迁移仍由 API 启动时执行。
+- 清理 Docker 应用部署文件：`docker-compose.yml`、`docker-compose.dev.yml`、`.dockerignore`、`infrastructure/docker/`、`infrastructure/postgres/`、`infrastructure/redis/`、`apps/{web,public}/server/`、`scripts/dev-up.sh`；不再保留应用 Docker 部署路径。
+
+**测试与结果**
+
+- 本地执行 `TAG=20261105-01 VITE_SITE_URL=https://ban.cngokz.com ./scripts/build-native.sh` 成功。
+- 产物：`native-bundles/cngokzapi-native-20261105-01.tar.gz`，约 7.8 MB。
+- 包含 release 二进制、public/admin 静态文件、systemd/nginx 配置、安装脚本、迁移文件。
+- **未执行**：在真实生产服务器上安装 systemd/nginx 后的最终验收；需在目标服务器执行安装脚本并验证。
+
+---
+
 ## 2026年11月05日 00时30分00秒 第八阶段：多数据源接入、原始成绩溯源与积分审计
 
 **背景**

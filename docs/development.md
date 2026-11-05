@@ -7,7 +7,8 @@
 | Node.js | ≥ 22（推荐 24） | 前端与脚本 |
 | pnpm | 11.28.5（`packageManager` 固定） | 建议 `corepack enable` |
 | Rust | 1.97.1（`rust-toolchain.toml` 固定） | 含 `rustfmt`、`clippy` |
-| Docker + Compose | 最新稳定版 | 本地 PostgreSQL / Redis |
+| PostgreSQL | 18（或兼容版本） | 本地数据库 |
+| Redis | 8（或兼容版本） | 本地缓存 |
 | sqlx-cli（可选） | 0.9 | 仅用于新增/回滚迁移 |
 
 ```bash
@@ -18,17 +19,31 @@ cp .env.example .env
 
 > 本仓库不需要全局安装 `sqlx-cli` 即可运行服务：迁移在 API 启动时自动执行。
 
-## 2. 启动本地依赖（PostgreSQL + Redis）
+## 2. 准备本地依赖（PostgreSQL + Redis）
 
-```bash
-scripts/dev-up.sh
-# 等价于
-docker compose -f docker-compose.dev.yml up -d
+使用本机已安装的 PostgreSQL 18 与 Redis 8，或连接你现有的实例。
+
+`.env` 示例：
+
+```env
+DATABASE_URL=postgres://cngokz:cngokz@127.0.0.1:5432/cngokzapi
+REDIS_URL=redis://127.0.0.1:6379/3
 ```
 
-默认端口：PostgreSQL `127.0.0.1:5432`、Redis `127.0.0.1:6379`，账号见 `.env`。
+创建数据库和用户：
 
-不使用 Docker 时，请自行准备 PostgreSQL 18 与 Redis 8，并在 `.env` 中调整 `DATABASE_URL` / `REDIS_URL`。
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE ROLE cngokz LOGIN PASSWORD 'cngokz';
+CREATE DATABASE cngokzapi OWNER cngokz;
+\c cngokzapi
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+Redis 使用独立 DB index 或配置密码即可，不需要改动代码。
 
 ## 3. 启动后端
 
@@ -208,10 +223,10 @@ pnpm -r format:check
 
 | 现象 | 排查 |
 | --- | --- |
-| API 启动报 `missing required environment variable DATABASE_URL` | 未复制 `.env`，或未在容器中注入变量 |
-| `failed to connect to PostgreSQL` | 依赖未启动 / 端口冲突 / 密码不一致（`docker compose -f docker-compose.dev.yml ps`） |
+| API 启动报 `missing required environment variable DATABASE_URL` | 未复制 `.env`，或运行目录不是项目根目录 |
+| `failed to connect to PostgreSQL` | PostgreSQL 未启动、端口冲突、数据库/用户/密码与 `DATABASE_URL` 不一致 |
 | `/health/ready` 返回 503 且 redis `down` | Redis 未启动或 `REDIS_URL` 错误；恢复后下一次请求自动重连 |
 | 前端请求 404/502 | 开发代理目标不对，检查 `VITE_API_PROXY_TARGET`；后端是否监听 8080 |
 | 前端类型报 `ApiResponse_*` 不存在 | 未执行 `scripts/gen-api.sh`，或 `docs/openapi.json` 过期 |
 | Swagger UI 打开是空白/跳转 | `/swagger-ui` 会重定向到 `/swagger-ui/`；请访问后一个地址 |
-| 端口被占用 | 修改 `.env` 中 `APP_PORT` / `PORTAL_PORT` / `ADMIN_PORT` / `POSTGRES_PORT` / `REDIS_PORT` |
+| 端口被占用 | 修改 `.env` 中 `APP_PORT` / `PORTAL_PORT` / `ADMIN_PORT`，或停止占用端口的进程 |

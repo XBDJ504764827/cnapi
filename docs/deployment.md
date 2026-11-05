@@ -1,206 +1,435 @@
-# 部署指南
+# 部署指南（Native / 无 Docker）
 
-使用 Docker Compose 部署五个服务：PostgreSQL、Redis、Rust API、管理后台（内部）、公开门户（唯一对外入口）。生产环境不需要额外的 Nginx 即可运行；如需 TLS 或统一域名，可在后续阶段前置反向代理。
+当前生产部署采用 **原生二进制 + systemd + Nginx + 静态前端**，不使用 Docker 运行 CNGOKZAPI。
 
-## 1. 前置条件
+PostgreSQL / Redis 可以是：
 
-- Docker Engine + Docker Compose v2
-- 可写的持久化磁盘（`cngokzapi-postgres-data`、`cngokzapi-redis-data` 卷）
-- 至少 2 vCPU / 2 GB 内存（Rust release 构建期间建议 4 GB）
+1. 现有 Docker 容器（只作为基础设施服务），API 通过 `127.0.0.1:5432/6379` 连接；
+2. 或直接安装在宿主机上的 PostgreSQL / Redis。
 
-## 2. 首次部署
+CNGOKZAPI 的 API、管理后台、公开门户**不再使用 Docker**。
 
-```bash
-git clone <repo> && cd CNGOKZAPI
-cp .env.example .env
+---
+
+## 1. 架构
+
+```text
+Nginx :443
+  ├── /              → /var/www/cngokzapi/public
+  ├── /admin/        → /var/www/cngokzapi/admin
+  └── /api, /health  → http://127.0.0.1:8080
+                              │
+                              ▼
+                    systemd: cngokz-api
+                    /mnt/1panel/apps/cnapi/bin/cngokz-api
+                              │
+                ┌─────────────┴─────────────┐
+                ▼                           ▼
+          PostgreSQL                    Redis
+     127.0.0.1:5432                127.0.0.1:6379
 ```
 
-**必须修改** `.env` 中的：
+---
 
-| 变量 | 建议 |
-| --- | --- |
-| `POSTGRES_PASSWORD` | 强随机密码，勿用默认 `cngokz` |
-| `APP_ENV` | `production` |
-| `LOG_LEVEL` | `info`（排障时临时 `debug`） |
-| `CORS_ALLOWED_ORIGINS` | 若浏览器只经 Web 访问 API，可留空；如直连 API 则填前端域名 |
-| `POSTGRES_PORT` / `REDIS_PORT` | 生产环境可注释掉端口映射（见"安全基线"） |
-| `PORTAL_PORT` | 对外暴露的唯一门户端口（默认 5173；`/` 公开站，`/admin` 管理后台） |
-| `VITE_SITE_URL` | 公开门户 canonical/sitemap 的站点地址（默认 `http://localhost:5173`）；更改后需重建 public 镜像 |
-| `ADMIN_PORT` | 仅本地开发的管理后台内部端口（默认 5174） |
-| `PUBLIC_RATE_LIMIT_PER_MINUTE` | 公开 API 每 IP 每分钟请求上限（默认 120） |
-| `MAINTENANCE_TOKEN` | 公开缓存失效端点的保护令牌；留空时端点禁用 |
+## 2. 目录约定
 
-> compose 默认把 PostgreSQL/Redis/API 端口绑定在 `127.0.0.1`，只有 Web 监听 `0.0.0.0`。
+```text
+/mnt/1panel/apps/cnapi/
+├── bin/cngokz-api
+├── .env
+└── migrations/              # 仅参考；迁移已编译进二进制
 
-启动：
-
-```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs -f
+/var/www/cngokzapi/
+├── public/                  # 公开门户
+└── admin/                   # 管理后台
 ```
 
-预期顺序：`postgres` / `redis` 健康 → `api` 构建并执行迁移、健康检查通过 → `web`（内部管理后台）健康 → `public`（唯一对外入口）启动。
+---
+
+## 3. 前置条件
+
+服务器安装：
+
+```bash
+rustc --version
+cargo --version
+node --version
+pnpm --version
+nginx -v
+```
+
+生产服务器**不需要** Rust / Node。它们只需要在本地构建机安装。
+
+服务器需要：
+
+- PostgreSQL 18（或兼容版本）
+- Redis 8
+- Nginx
+- systemd
+
+---
+
+## 4. 创建数据库
+
+如果继续使用现有 Docker PostgreSQL：
+
+```bash
+docker exec -it 1Panel-postgresql-I65c psql -U postgres
+```
+
+执行：
+
+```sql
+CREATE ROLE cngokz LOGIN PASSWORD '替换为强密码';
+CREATE DATABASE cngokzapi OWNER cngokz;
+```
+
+进入数据库：
+
+```bash
+docker exec -it 1Panel-postgresql-I65c psql -U postgres -d cngokzapi
+```
+
+执行：
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- 如果 sha256(bytea) 不存在，再执行：
+-- CREATE EXTENSION IF NOT EXISTS pgcrypto;
+```
 
 验证：
 
 ```bash
-curl -fsS http://localhost:5173/health | jq                       # 经公开门户同源代理
-curl -fsS http://localhost:5173/api/v1/system/status | jq        # 依赖状态
-curl -fsS http://localhost:5173/api/v1/public/statistics | jq    # 公开统计
-curl -fsS http://localhost:5173/admin/ -o /dev/null -w '%{http_code}\n'  # 管理后台
-curl -fsS http://localhost:8080/health/ready | jq               # 宿主机直连 API
+docker exec -it 1Panel-postgresql-I65c psql -U postgres -d cngokzapi \
+  -c "SELECT version();"
+
+docker exec -it 1Panel-postgresql-I65c psql -U postgres -d cngokzapi \
+  -c "SELECT sha256('abc'::bytea);"
 ```
 
-浏览器访问 `http://<host>:5173`（公开门户，默认）与 `http://<host>:5173/admin`（管理后台）。两者共用同一后端；管理后台仪表盘显示真实的 API / PostgreSQL / Redis 状态，公开门户的统计、排行榜、成绩来自同一数据库。
+API 在宿主机运行，因此 `.env` 里使用：
 
-## 3. 服务与端口
+```env
+DATABASE_URL=postgres://cngokz:密码@127.0.0.1:5432/cngokzapi
+```
 
-| 服务 | 容器端口 | 宿主机默认 | 暴露范围 |
-| --- | --- | --- | --- |
-| public（单入口） | 5173 | 5173 | `0.0.0.0` |
-| web（内部，管理后台） | 5173 | — | 仅 compose 内部 |
-| api | 8080 | 8080 | `127.0.0.1` |
-| postgres | 5432 | 5432 | `127.0.0.1` |
-| redis | 6379 | 6379 | `127.0.0.1` |
+不要写 Docker 容器名，因为 API 不在 Docker 网络里。
 
-服务间通过 compose 网络 `cngokzapi-backend` 使用服务名通信：API 使用 `postgres:5432`、`redis:6379`，Web 使用 `http://api:8080`。
+---
 
-## 4. 环境变量
+## 5. 本地构建原生包
 
-见 [`.env.example`](../.env.example)。容器内覆盖关系：
-
-- `api` 的 `DATABASE_URL` / `REDIS_URL` 由 compose 使用 `POSTGRES_*` 变量拼装，**不要**在 `.env` 中手工写成 `localhost`，否则容器内解析失败。
-- `APP_HOST` 固定 `0.0.0.0`，`APP_PORT` 固定 `8080`（与 compose 端口映射一致）。
-- 生产环境推荐 `APP_ENV=production`：日志以 JSON 输出，便于采集。
-- 不要提交 `.env`；使用编排平台的 secret 或受限权限的部署目录。
-
-## 5. 数据持久化与备份
-
-| 卷 | 内容 | 说明 |
-| --- | --- | --- |
-| `cngokzapi-postgres-data` | PostgreSQL 数据目录 | 挂载到 `/var/lib/postgresql`（PostgreSQL 18 的 PGDATA 在其子目录） |
-| `cngokzapi-redis-data` | Redis AOF/RDB | AOF `everysec` |
-
-- `docker compose down` **保留**卷；`docker compose down -v` 会删除所有数据，仅在确认可丢弃时使用。
-- 服务重启后数据不丢失（迁移版本记录在 `_sqlx_migrations`，不会重复执行已应用迁移）。
-
-备份：
+在本地或构建机：
 
 ```bash
-docker compose exec -T postgres pg_dump -U cngokz -d cngokzapi -Fc > backup-$(date +%F).dump
+cd /path/to/cnapi
+
+TAG=20261105-01 \
+VITE_SITE_URL=https://ban.cngokz.com \
+./scripts/build-native.sh
 ```
 
-恢复：
+输出：
+
+```text
+native-bundles/20261105-01/
+├── bin/cngokz-api
+├── static/public/
+├── static/admin/
+├── deploy/cngokz-api.service
+├── deploy/nginx-ban.cngokz.com.conf
+├── .env.production.example
+├── install-native.sh
+└── migrations/
+
+native-bundles/cngokzapi-native-20261105-01.tar.gz
+native-bundles/cngokzapi-native-20261105-01.tar.gz.sha256
+```
+
+构建脚本会执行：
 
 ```bash
-docker compose stop api
-docker compose exec -T postgres pg_restore -U cngokz -d cngokzapi --clean --if-exists < backup-2026-11-03.dump
-docker compose start api     # 启动时自动补齐迁移
+cargo build --release --locked --bin cngokz-api
+pnpm --filter @cngokz/web build
+pnpm --filter @cngokz/public build
 ```
 
-Redis 仅存缓存/临时数据，第一阶段无需备份；如需保留可备份 `cngokzapi-redis-data` 卷。
+---
 
-## 6. 更新与重启
+## 6. 上传并安装
+
+上传：
 
 ```bash
-git pull
-docker compose build api web
-docker compose up -d
-docker compose ps
-docker compose logs -f api
+scp native-bundles/cngokzapi-native-20261105-01.tar.gz \
+    native-bundles/cngokzapi-native-20261105-01.tar.gz.sha256 \
+    root@server:/tmp/
 ```
 
-- 迁移由新版本 API 启动时自动执行，属于部署的一部分；请先评估破坏性迁移。
-- 只改前端时可 `docker compose build web && docker compose up -d web`。
-- 回滚：检出上一个 tag/commit，重新 `docker compose up -d --build`。数据库迁移默认只向前（down 迁移仅用于开发），必要时按备份恢复。
-
-## 7. 可选：反向代理与 TLS
-
-第一阶段不强制 Nginx。若需要统一域名，可只代理 Web 容器的 5173 端口，API 通过 Web 内置代理访问（`/api`、`/health`、`/swagger-ui`、`/api-docs`）：
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name kz.example.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:5173;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-此时应清空 `CORS_ALLOWED_ORIGINS`（同源访问），并将 `API_PORT` 映射移除。
-
-## 8. 安全基线
-
-- 数据库使用强密码，且不发布到公网（默认已绑定回环地址）。
-- 生产环境 `CORS_ALLOWED_ORIGINS` 不使用 `*`。
-- 不向公网暴露 `/swagger-ui` 与 `/api-docs`（可仅经内网访问，或后续加认证）。
-- 及时更新基础镜像（`postgres:18-alpine`、`redis:8-alpine`、`node:24-alpine`、`debian:bookworm-slim`）。
-- API 容器以非 root 用户（uid 10001）运行。
-- 密钥/密码不进入镜像与 Git；`.dockerignore` 已排除 `.env`。
-- 定期备份并验证恢复流程。
-
-## 9. 故障排查
-
-| 现象 | 排查步骤 |
-| --- | --- |
-| `api` 一直 `unhealthy` | `docker compose logs api`；通常是 `DATABASE_URL` 错误或迁移失败 |
-| `web` 容器启动但页面 502 | 检查 `API_UPSTREAM` 是否为 `http://api:8080`；`docker compose ps api` |
-| `/health/ready` 返回 503 | 响应体 `error.details.checks` 指出是 `postgresql` 还是 `redis`；`docker compose logs postgres redis` |
-| PostgreSQL 健康检查失败 | 首次启动数据目录权限、卷残留都可能导致；确认卷属于空目录初始化（必要时先备份） |
-| 构建 Rust 镜像极慢/内存不足 | 构建阶段需要编译全部依赖；增加内存或使用 CI 缓存 |
-| 端口被占用 | 修改 `.env` 中对应 `*_PORT`，或 `docker compose down` 释放 |
-| 页面能开但数据不更新 | 浏览器请求的 `/api` 是否命中代理；查看 Web/Public 容器日志中的 `[proxy] ... failed` |
-| 公开门户站点 URL 错误 | 修改 `.env` 的 `VITE_SITE_URL` 后执行 `docker compose build public && docker compose up -d public` |
-| `/admin` 502 | public 容器依赖 web 容器健康；检查 `docker compose ps web` 与 `ADMIN_UPSTREAM` |
-| 重启后数据丢失 | 是否使用了 `docker compose down -v`；检查卷 `docker volume ls | grep cngokzapi` |
-
-查看容器内 API 的实时状态：
+服务器：
 
 ```bash
-docker compose exec api curl -fsS http://127.0.0.1:8080/api/v1/system/status | jq
+cd /tmp
+sha256sum -c cngokzapi-native-20261105-01.tar.gz.sha256
+mkdir -p cngokzapi-native-20261105-01
+tar -xzf cngokzapi-native-20261105-01.tar.gz \
+  -C cngokzapi-native-20261105-01
+cd cngokzapi-native-20261105-01
 ```
 
-## 10. 资源与扩展
-
-- 单实例足以支撑第一阶段；后续可按模块拆出只读副本或独立 Worker，但**不要**提前拆分微服务。
-- 提高 `DATABASE_MAX_CONNECTIONS` 时同步评估 PostgreSQL `max_connections`。
-- Redis `maxmemory` 为 256MB，接入真实缓存前按容量调整 `infrastructure/redis/redis.conf`。
-
-## 11. 缓存失效与运维（第五阶段）
-
-公开 API 使用 Redis 命名空间版本 `public:version`：数据变更后调用一次受保护端点即可让全部公开缓存失效，并自动预热首页统计。
+首次安装：
 
 ```bash
-# 需要 MAINTENANCE_TOKEN；未配置时返回 403
-# 返回值 cache_invalidated=false 表示 Redis 不可用，已降级到 PostgreSQL，应重试
-curl -X POST http://localhost:8080/api/v1/public/maintenance/cache/invalidate \
-  -H "X-Maintenance-Token: $MAINTENANCE_TOKEN"
-
-# 查询当前缓存命名空间版本
-curl -H "X-Maintenance-Token: $MAINTENANCE_TOKEN" \
-  http://localhost:8080/api/v1/public/maintenance/cache/version
+sudo APP_DIR=/mnt/1panel/apps/cnapi \
+     STATIC_ROOT=/var/www/cngokzapi \
+     bash install-native.sh
 ```
 
-公开 API 每 IP 每分钟限流由 `PUBLIC_RATE_LIMIT_PER_MINUTE` 控制；维护端点不受该限流，但仍然需要令牌。限流器为单进程内存实现，多副本部署应改用 Redis 或边缘网关限流。
+首次执行会：
 
-## 12. 数据库备份与恢复（补充）
+- 安装后端二进制
+- 安装 public/admin 静态文件
+- 安装 systemd unit
+- 生成 `/mnt/1panel/apps/cnapi/.env`
+- 安装 Nginx 配置（如果不存在）
+
+脚本会提示先编辑 `.env`。
+
+---
+
+## 7. 配置 `.env`
 
 ```bash
-# 备份（仅数据卷容器，不停止服务）
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > backup-$(date +%F).dump
-
-# 恢复（会覆盖目标库，执行前请确认）
-docker compose stop api
-docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backup-2026-11-04.dump
-docker compose start api
-curl -X POST http://localhost:8080/api/v1/public/maintenance/cache/invalidate \
-  -H "X-Maintenance-Token: $MAINTENANCE_TOKEN"
+nano /mnt/1panel/apps/cnapi/.env
+chmod 640 /mnt/1panel/apps/cnapi/.env
+chown www-data:www-data /mnt/1panel/apps/cnapi/.env
 ```
 
-> 恢复后必须使缓存失效，否则公开页面可能继续展示旧数据直到 TTL 到期。
+必填：
+
+```env
+APP_ENV=production
+APP_HOST=127.0.0.1
+APP_PORT=8080
+
+DATABASE_URL=postgres://cngokz:密码@127.0.0.1:5432/cngokzapi
+REDIS_URL=redis://127.0.0.1:6379/3
+
+# 生成：openssl rand -hex 32
+MAINTENANCE_TOKEN=...
+
+KZGO_BASE_URL=https://kzgo.eu
+KZGO_SYNC_ENABLED=true
+GOKZ_GLOBAL_BASE_URL=https://kztimerglobal.com/api/v2.0
+GOKZ_GLOBAL_SYNC_ENABLED=false
+```
+
+重新执行安装脚本：
+
+```bash
+sudo APP_DIR=/mnt/1panel/apps/cnapi \
+     STATIC_ROOT=/var/www/cngokzapi \
+     bash install-native.sh
+```
+
+或者手动：
+
+```bash
+systemctl daemon-reload
+systemctl enable --now cngokz-api
+```
+
+---
+
+## 8. systemd
+
+安装后的 unit：
+
+```bash
+systemctl status cngokz-api
+journalctl -u cngokz-api -f
+```
+
+启动 / 重启 / 停止：
+
+```bash
+systemctl start cngokz-api
+systemctl restart cngokz-api
+systemctl stop cngokz-api
+```
+
+API 启动时自动执行数据库迁移。
+
+健康检查：
+
+```bash
+curl -fsS http://127.0.0.1:8080/health/ready | jq
+curl -fsS http://127.0.0.1:8080/api/v1/public/statistics | jq
+```
+
+---
+
+## 9. Nginx
+
+配置文件：
+
+```text
+deploy/nginx-ban.cngokz.com.conf
+```
+
+安装：
+
+```bash
+sudo cp deploy/nginx-ban.cngokz.com.conf \
+  /etc/nginx/conf.d/cngokzapi.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+访问：
+
+```text
+https://ban.cngokz.com/
+https://ban.cngokz.com/admin/
+```
+
+如果你的证书路径不是 `/etc/letsencrypt/live/ban.cngokz.com/`，修改 Nginx 配置里的证书路径。
+
+---
+
+## 10. 更新
+
+本地构建新版本：
+
+```bash
+TAG=20261106-01 \
+VITE_SITE_URL=https://ban.cngokz.com \
+./scripts/build-native.sh
+```
+
+上传新 tar 包，服务器解压后执行同样的安装脚本：
+
+```bash
+sudo APP_DIR=/mnt/1panel/apps/cnapi \
+     STATIC_ROOT=/var/www/cngokzapi \
+     bash install-native.sh
+```
+
+安装脚本会：
+
+- 备份旧二进制为 `bin/cngokz-api.prev`
+- 替换二进制
+- 替换 public/admin 静态文件
+- 重启 `cngokz-api`
+- 不覆盖已有 `.env`
+- 不覆盖已有 Nginx 配置
+
+---
+
+## 11. 回滚
+
+查看旧二进制：
+
+```bash
+ls -l /mnt/1panel/apps/cnapi/bin/
+```
+
+回滚：
+
+```bash
+sudo systemctl stop cngokz-api
+sudo cp -a /mnt/1panel/apps/cnapi/bin/cngokz-api.prev \
+           /mnt/1panel/apps/cnapi/bin/cngokz-api
+sudo systemctl start cngokz-api
+```
+
+静态文件回滚需要保留上一版本 bundle，重新覆盖 `/var/www/cngokzapi`。
+
+数据库迁移只向前；回滚代码前确认迁移兼容性，必要时使用数据库备份。
+
+---
+
+## 12. 备份
+
+PostgreSQL：
+
+```bash
+docker exec -t 1Panel-postgresql-I65c \
+  pg_dump -U postgres -d cngokzapi -Fc \
+  > cngokzapi-$(date +%F).dump
+```
+
+或宿主机 PostgreSQL：
+
+```bash
+pg_dump -U cngokz -d cngokzapi -Fc > cngokzapi-$(date +%F).dump
+```
+
+Redis 只存缓存，不要求备份。
+
+---
+
+## 13. Docker 文件清理
+
+仓库中的 API/前端 Docker 部署文件已删除：
+
+```text
+docker-compose.yml
+docker-compose.dev.yml
+.dockerignore
+infrastructure/docker/
+infrastructure/postgres/
+infrastructure/redis/
+apps/web/server/
+apps/public/server/
+scripts/dev-up.sh
+```
+
+生产只使用：
+
+```text
+scripts/build-native.sh
+scripts/install-native.sh
+deploy/cngokz-api.service
+deploy/nginx-ban.cngokz.com.conf
+```
+
+如果你仍然用 Docker 运行 PostgreSQL/Redis，那只是外部基础设施，不属于 CNGOKZAPI 应用部署。
+
+---
+
+## 14. 故障排查
+
+| 现象 | 排查 |
+|---|---|
+| `cngokz-api` 启动失败 | `journalctl -u cngokz-api -n 100 --no-pager` |
+| `health/ready` 返回 503 | 检查 PostgreSQL/Redis 是否监听 `127.0.0.1`，`.env` 是否正确 |
+| 页面 404 | 检查 `/var/www/cngokzapi/public`、`/var/www/cngokzapi/admin` 是否存在 |
+| `/admin` 空白 | 检查 Nginx `/admin/` 配置和 Vite `base=/admin/` |
+| API 502 | 检查 `cngokz-api` 是否监听 `127.0.0.1:8080` |
+| 数据库迁移失败 | 查看 journald 日志；不要手工删表 |
+| KZGO 同步失败 | 查看 `journalctl` 与 `/api/v1/admin/sources` |
+| 前端操作 401/403 | 检查 `MAINTENANCE_TOKEN`；当前前端受保护操作还需要运行时 Token 改造 |
+
+---
+
+## 15. 验证清单
+
+```bash
+systemctl status cngokz-api
+curl -fsS http://127.0.0.1:8080/health/ready | jq
+curl -fsS http://127.0.0.1:8080/api/v1/system/status | jq
+curl -fsS http://127.0.0.1:8080/api/v1/public/statistics | jq
+curl -fsS https://ban.cngokz.com/health | jq
+curl -fsS https://ban.cngokz.com/api/v1/public/statistics | jq
+curl -fsS https://ban.cngokz.com/admin/ -o /dev/null -w '%{http_code}\n'
+```
+
+管理 API：
+
+```bash
+curl -fsS \
+  -H "X-Maintenance-Token: $MAINTENANCE_TOKEN" \
+  http://127.0.0.1:8080/api/v1/admin/sources | jq
+```
