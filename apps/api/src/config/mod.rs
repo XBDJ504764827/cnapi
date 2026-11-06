@@ -121,6 +121,11 @@ pub struct AppConfig {
     /// [`Self::steam_openid_endpoint`]; set it separately when the browser can
     /// reach Steam but the server cannot (or vice versa).
     pub steam_openid_browser_endpoint: String,
+    /// Callback-style Steam relay (`STEAM_RELAY_URL`), e.g. the shared
+    /// `cngokz-steam-auth` Cloudflare Worker. When set, login goes through the
+    /// relay's `/login` + `/verify` contract and this server never contacts
+    /// Steam directly, so none of the `STEAM_OPENID_*` values are used.
+    pub steam_relay_url: Option<String>,
     /// `openid.op_endpoint` expected in the assertion Steam returns. This is
     /// the identity provider Steam claims to be, which stays Steam's own URL
     /// even when the round trip goes through a relay.
@@ -299,6 +304,24 @@ impl AppConfig {
             "STEAM_OPENID_OP_ENDPOINT",
             DEFAULT_STEAM_OPENID_ENDPOINT,
         )?;
+        let steam_relay_url = match get("STEAM_RELAY_URL").filter(|value| !value.is_empty()) {
+            Some(value) => {
+                if !value.starts_with("https://") && !value.starts_with("http://") {
+                    return Err(ConfigError::Invalid {
+                        key: "STEAM_RELAY_URL",
+                        reason: "expected an http:// or https:// URL".to_owned(),
+                    });
+                }
+                if env.is_production() && !value.starts_with("https://") {
+                    return Err(ConfigError::Invalid {
+                        key: "STEAM_RELAY_URL",
+                        reason: "production requires an https:// relay".to_owned(),
+                    });
+                }
+                Some(value.trim_end_matches('/').to_owned())
+            }
+            None => None,
+        };
         let steam_openid_claimed_id_prefix = parse_claimed_id_prefix(&vars)?;
         let steam_api_base_url =
             optional_url(&vars, "STEAM_API_BASE_URL", DEFAULT_STEAM_API_BASE_URL)?;
@@ -347,6 +370,7 @@ impl AppConfig {
             steam_openid_endpoint,
             steam_openid_browser_endpoint,
             steam_openid_op_endpoint,
+            steam_relay_url,
             steam_openid_claimed_id_prefix,
             steam_api_base_url,
             steam_api_key,
@@ -413,6 +437,7 @@ impl fmt::Debug for AppConfig {
                 "steam_openid_browser_endpoint",
                 &self.steam_openid_browser_endpoint,
             )
+            .field("steam_relay_url", &self.steam_relay_url)
             .field("steam_openid_op_endpoint", &self.steam_openid_op_endpoint)
             .field(
                 "steam_openid_claimed_id_prefix",

@@ -98,6 +98,26 @@ pub async fn start_login(state: &AppState, redirect: Option<&str>) -> Result<Str
     )
     .await?;
 
+    // Relay mode: the shared Cloudflare Worker performs the OpenID handshake
+    // and reports back with a single-use token, so this server never talks to
+    // Steam. See `complete_relay_login`.
+    if let Some(relay) = config.steam_relay_url.as_deref() {
+        let mut relay_url = Url::parse(&format!("{relay}/login")).map_err(|error| {
+            AppError::internal(anyhow::anyhow!(
+                "STEAM_RELAY_URL is not a valid URL: {error}"
+            ))
+        })?;
+        relay_url
+            .query_pairs_mut()
+            .append_pair("mode", "login")
+            .append_pair("state", &login_state)
+            .append_pair(
+                "return_to",
+                &format!("{}{}", config.public_base_url, LOGIN_CALLBACK_PATH),
+            );
+        return Ok(relay_url.to_string());
+    }
+
     // The browser may reach Steam directly even when this server cannot, so the
     // redirect target is configured separately from the verification endpoint.
     let mut url = Url::parse(&config.steam_openid_browser_endpoint).map_err(|error| {
@@ -160,6 +180,10 @@ pub async fn complete_login(
     ip: Option<IpAddr>,
 ) -> Result<LoginSuccess, LoginFailure> {
     let config = state.config();
+    if config.steam_relay_url.is_some() {
+        return complete_relay_login(state, params, user_agent, ip).await;
+    }
+
     let fields: HashMap<&str, &str> = params
         .iter()
         .map(|(key, value)| (key.as_str(), value.as_str()))
@@ -221,20 +245,225 @@ pub async fn complete_login(
         return Err(reject("verification_failed", error));
     }
 
-    let account_id = match repo::ensure_account(state.db(), &steam_id64).await {
+    let profile = fetch_steam_profile(config, &steam_id64).await;
+    finish_login(state, &steam_id64, profile, redirect_path, user_agent, ip).await
+}
+
+/// Relay mode: the Worker already verified the OpenID assertion and returns a
+/// single-use token, which is exchanged here for the SteamID64.
+///
+/// ```text
+/// browser ──GET {relay}/login?state=…&return_to=…──────────► Worker
+/// Worker  ──302 Steam OpenID → verify → KV token (300 s)──► browser
+/// browser ──GET /api/v1/auth/steam/callback?token=…&state=…► API
+/// API     ──GET {relay}/verify?token=…────────────────────► Worker (single use)
+/// API     ──session cookie────────────────────────────────► browser
+/// ```
+///
+/// `STEAM_TOKENS` (KV) and `STEAM_API_KEY` live on the Worker, so this server
+/// never needs them and never needs to reach Steam.
+async fn complete_relay_login(
+    state: &AppState,
+    params: &[(String, String)],
+    user_agent: Option<&str>,
+    ip: Option<IpAddr>,
+) -> Result<LoginSuccess, LoginFailure> {
+    let config = state.config();
+    let fields: HashMap<&str, &str> = params
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect();
+
+    let Some(login_state) = fields
+        .get("state")
+        .copied()
+        .filter(|value| !value.is_empty())
+    else {
+        return Err(LoginFailure::new(
+            "invalid_state",
+            AppError::Unauthorized {
+                message: "missing login state".to_owned(),
+            },
+        ));
+    };
+
+    let redirect_path = match repo::consume_login_state(state.db(), login_state).await {
+        Ok(Some(path)) => path,
+        Ok(None) => {
+            return Err(LoginFailure::new(
+                "invalid_state",
+                AppError::Unauthorized {
+                    message: "login state is unknown, expired or already used".to_owned(),
+                },
+            ));
+        }
+        Err(error) => return Err(LoginFailure::new("login_failed", error)),
+    };
+
+    let reject = |code: &'static str, error: AppError| {
+        LoginFailure::new(code, error).with_redirect(redirect_path.clone())
+    };
+
+    // The relay reports failures (`steam_access_denied`, `steam_auth_failed`,
+    // …) through the same redirect. They are re-mapped to our stable codes.
+    if let Some(relay_error) = fields
+        .get("error")
+        .copied()
+        .filter(|value| !value.is_empty())
+    {
+        let code = match relay_error {
+            "steam_access_denied" => "cancelled",
+            "steam_auth_failed" => "invalid_assertion",
+            _ => "login_failed",
+        };
+        return Err(reject(
+            code,
+            AppError::Unauthorized {
+                message: format!("relay reported `{relay_error}`"),
+            },
+        ));
+    }
+
+    let Some(token) = fields
+        .get("token")
+        .copied()
+        .filter(|value| !value.is_empty())
+    else {
+        return Err(reject(
+            "invalid_assertion",
+            AppError::Unauthorized {
+                message: "the relay callback carried no token".to_owned(),
+            },
+        ));
+    };
+
+    let identity = match exchange_relay_token(config, token).await {
+        Ok(identity) => identity,
+        Err(error) => return Err(reject("invalid_assertion", error)),
+    };
+
+    finish_login(
+        state,
+        &identity.steam_id64,
+        identity.profile,
+        redirect_path,
+        user_agent,
+        ip,
+    )
+    .await
+}
+
+/// What the relay's `/verify` endpoint reports for a consumed token.
+struct RelayIdentity {
+    steam_id64: String,
+    profile: Option<SteamProfile>,
+}
+
+#[derive(serde::Deserialize)]
+struct RelayVerifyResponse {
+    #[serde(default)]
+    success: bool,
+    #[serde(default)]
+    steamid: Option<String>,
+    #[serde(default)]
+    persona_name: Option<String>,
+    #[serde(default)]
+    avatar: Option<String>,
+    #[serde(default)]
+    avatar_medium: Option<String>,
+    #[serde(default)]
+    avatar_full: Option<String>,
+}
+
+/// Burns the one-time token against the relay and returns the Steam identity.
+async fn exchange_relay_token(config: &AppConfig, token: &str) -> Result<RelayIdentity, AppError> {
+    let Some(relay) = config.steam_relay_url.as_deref() else {
+        return Err(AppError::internal(anyhow::anyhow!(
+            "relay login without STEAM_RELAY_URL"
+        )));
+    };
+    let mut url = Url::parse(&format!("{relay}/verify")).map_err(|error| {
+        AppError::internal(anyhow::anyhow!(
+            "STEAM_RELAY_URL is not a valid URL: {error}"
+        ))
+    })?;
+    url.query_pairs_mut().append_pair("token", token);
+
+    let response = http_client().get(url).send().await.map_err(|error| {
+        warn!(error = %error, relay = %relay, "relay token exchange failed");
+        AppError::DependencyUnavailable {
+            dependency: "steam_relay",
+        }
+    })?;
+
+    if !response.status().is_success() {
+        warn!(
+            status = response.status().as_u16(),
+            "relay rejected the login token"
+        );
+        return Err(AppError::Unauthorized {
+            message: "the relay did not accept the login token".to_owned(),
+        });
+    }
+
+    let body: RelayVerifyResponse = response.json().await.map_err(|error| {
+        warn!(error = %error, "relay verify response was not JSON");
+        AppError::DependencyUnavailable {
+            dependency: "steam_relay",
+        }
+    })?;
+
+    let steam_id64 = body.steamid.unwrap_or_default();
+    if !body.success || !is_steam_id64(&steam_id64) {
+        return Err(AppError::Unauthorized {
+            message: "the relay returned no valid SteamID64".to_owned(),
+        });
+    }
+
+    let personaname = body.persona_name.and_then(|name| {
+        let name = name.trim().chars().take(64).collect::<String>();
+        (!name.is_empty()).then_some(name)
+    });
+    let avatar_url = [body.avatar_full, body.avatar_medium, body.avatar]
+        .into_iter()
+        .flatten()
+        .find(|url| url.starts_with("https://") && url.len() <= 512);
+    let profile = (personaname.is_some() || avatar_url.is_some()).then_some(SteamProfile {
+        persona_name: personaname,
+        avatar_url,
+    });
+
+    Ok(RelayIdentity {
+        steam_id64,
+        profile,
+    })
+}
+
+/// Shared tail of both login modes: account, role, profile, session, cookie.
+async fn finish_login(
+    state: &AppState,
+    steam_id64: &str,
+    profile: Option<SteamProfile>,
+    redirect_path: String,
+    user_agent: Option<&str>,
+    ip: Option<IpAddr>,
+) -> Result<LoginSuccess, LoginFailure> {
+    let config = state.config();
+
+    let account_id = match repo::ensure_account(state.db(), steam_id64).await {
         Ok(id) => id,
-        Err(error) => return Err(reject("login_failed", error)),
+        Err(error) => return Err(LoginFailure::new("login_failed", error)),
     };
 
     // Bootstrap administrators: `ADMIN_STEAM_IDS` is the only way to grant the
     // first role without direct database access.
-    if config.admin_steam_ids.iter().any(|id| id == &steam_id64)
+    if config.admin_steam_ids.iter().any(|id| id == steam_id64)
         && let Err(error) = repo::grant_role(state.db(), account_id, "admin").await
     {
         warn!(error = %error, "failed to grant bootstrap admin role");
     }
 
-    if let Some(profile) = fetch_steam_profile(config, &steam_id64).await
+    if let Some(profile) = profile
         && let Err(error) = repo::sync_profile(
             state.db(),
             account_id,
@@ -261,7 +490,7 @@ pub async fn complete_login(
     )
     .await
     {
-        return Err(reject("login_failed", error));
+        return Err(LoginFailure::new("login_failed", error));
     }
 
     if let Err(error) = repo::purge_expired_sessions(state.db()).await {
@@ -274,6 +503,13 @@ pub async fn complete_login(
         redirect_url: format!("{}{}", config.public_base_url, redirect_path),
         cookie: session_cookie(config, &token, expires_at),
     })
+}
+
+/// A SteamID64 is a decimal uint64 in the individual account space.
+fn is_steam_id64(value: &str) -> bool {
+    (17..=20).contains(&value.len())
+        && value.chars().all(|c| c.is_ascii_digit())
+        && value.chars().any(|c| c != '0')
 }
 
 fn validate_assertion(
@@ -321,10 +557,7 @@ fn extract_steam_id64(config: &AppConfig, claimed_id: &str) -> Result<String, Ap
             message: "openid.claimed_id is not a Steam identity".to_owned(),
         });
     };
-    let looks_like_steam_id = (17..=20).contains(&rest.len())
-        && rest.chars().all(|c| c.is_ascii_digit())
-        && rest.chars().any(|c| c != '0');
-    if !looks_like_steam_id {
+    if !is_steam_id64(rest) {
         return Err(AppError::Unauthorized {
             message: "openid.claimed_id is not a valid SteamID64".to_owned(),
         });

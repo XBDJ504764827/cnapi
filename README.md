@@ -229,7 +229,8 @@ scripts/gen-api.sh
 - 会话为不透明随机 token，写入 `HttpOnly; SameSite=Lax; Secure(生产)` Cookie `cngokz_session`；数据库 `auth_sessions` 只保存其 SHA-256 摘要，退出登录立即撤销。
 - 管理员由 `account_roles(role='admin')` 决定，每次请求实时判定。所有 `/api/v1/admin/*` 只接受**管理员会话**或 `X-Maintenance-Token`（自动化用），其余返回 401/403。
 - 管理后台 `/admin/*` 由 `RequireAdmin` 守卫：未登录跳 `/admin/login`，已登录非管理员显示 403 页面，不会渲染控制台外壳。
-- 生产服务器无法直连 Steam 时，用 Cloudflare Worker 中转 OpenID 校验；浏览器侧与服务器侧端点可分别配置。
+- 生产服务器无法直连 Steam 时有两种中转：配置 `STEAM_RELAY_URL` 复用现有 `cngokz-steam-auth` Worker（Worker 完成 OpenID 握手并用 KV 发一次性 token，`STEAM_API_KEY` 留在 Worker），或把 `STEAM_OPENID_ENDPOINT` 指向自建的纯代理 Worker。
+- 上线前用 `scripts/check-steam-relay.sh` 校验 Worker 的 `ALLOWED_CALLBACK_HOSTS` 是否包含本站域名，否则登录会静默失败。
 - 前端产物中不再包含任何维护令牌（原 `VITE_MAINTENANCE_TOKEN` 已移除）。
 - 完整设计、配置与中转部署见 [Steam 登录与管理员权限](docs/authentication.md)。
 

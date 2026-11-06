@@ -18,6 +18,41 @@
 
 ---
 
+## 2026年11月06日 19时22分53秒 接入已有 Steam 中转 Worker（STEAM_RELAY_URL 模式）
+
+**背景**
+
+上一轮实现的登录只支持「直连 Steam」和「自建纯代理中转」。实际上 LumiForum 已有一个在生产线运行的中转 Worker（`cngokz-steam-auth.iquankz.cn`），它采用回调式设计：OpenID 握手在 Worker 内完成，Worker 用 KV `STEAM_TOKENS` 生成一次性 token，调用方再用 `/verify` 换取 SteamID。要求复用该 Worker 及其 `STEAM_API_KEY` / `STEAM_TOKENS`，避免再部署一套。
+
+**变更内容**
+
+- 新增配置 `STEAM_RELAY_URL`：有值时进入中转模式，为空时维持原直连逻辑；生产环境强制 https。
+- `services::auth::start_login` 在中转模式下 302 到 `{relay}/login?mode=login&state=…&return_to={PUBLIC_BASE_URL}/api/v1/auth/steam/callback`。
+- 新增 `complete_relay_login`：消费本地一次性 `state`，把 `{relay}/verify?token=…` 的返回（`steamid` + `persona_name` + `avatar*`）换成会话；`steam_access_denied` / `steam_auth_failed` 映射为 `cancelled` / `invalid_assertion`。
+- 抽出 `finish_login`，直连与中转共用建账号、管理员引导、资料同步、建会话与 Cookie 逻辑；抽出 `is_steam_id64` 共用校验。
+- 新增 `apps/api/tests/auth_relay.rs`（3 个用例）：完整 `/login` → `/verify` round trip、Worker 资料落库、一次性 token 不可重用、错误码映射、未知 token 拒绝。
+- 新增 `scripts/check-steam-relay.sh`：巡检 Worker 在线状态与 `ALLOWED_CALLBACK_HOSTS` 是否包含本站回调域名。实测当前 Worker 未包含 `test.cngokz.com`，会把回调静默改写为 `chatapi.cngokz.com`，脚本以退出码 1 并给出修复提示。
+- 文档：`docs/authentication.md` 第 8 节重写为「方式 A 复用现有 Worker / 方式 B 自建纯代理」，补充端点契约、白名单前置条件、连通性验证与上线检查清单；`.env.example`、`.env.production.example`、`README.md` 同步。
+
+**涉及文件**
+
+- 新增：`apps/api/tests/auth_relay.rs`、`scripts/check-steam-relay.sh`
+- 修改：`apps/api/src/config/mod.rs`、`apps/api/src/services/auth.rs`、`docs/authentication.md`、`docs/changelog.md`、`.env.example`、`.env.production.example`、`README.md`
+
+**数据库与 API 变化**
+
+- 无数据库变化；HTTP 契约不变（`/api/v1/auth/*` 行为相同，仅中转实现不同）。
+- 新增环境变量 `STEAM_RELAY_URL`；配置后 `STEAM_OPENID_*` 与 `STEAM_API_KEY` 不再参与登录。
+
+**测试与结果**
+
+- `cargo fmt --all --check`、`cargo clippy --all-targets --all-features -D warnings`：通过。
+- `cargo test --all-targets`：99 个用例全部通过（新增 `auth_relay` 3 个）。
+- 真实巡检（本地直连 Worker）：`/` 返回 `{"service":"CNGOKZ Steam Auth","status":"running"}`；`/login` 返回 302 且 `openid.realm=https://cngokz-steam-auth.iquankz.cn`；`scripts/check-steam-relay.sh` 判定 `test.cngokz.com` **未在白名单**，退出码 1。
+- 未执行：真实 Steam 账号完成一次中转登录（Worker 白名单未含本站域名，需先在生产 Cloudflare 侧调整）。
+
+---
+
 ## 2026年11月06日 19时00分31秒 Steam OpenID 登录与管理员权限
 
 **背景**

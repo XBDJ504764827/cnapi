@@ -42,6 +42,10 @@
   │◄──────────────────────────│
 ```
 
+> 上面是**直连模式**（默认）。生产服务器访问不到 Steam 时改为**中转模式**，由
+> Cloudflare Worker 代做 OpenID 握手，本服务只拿一次性 token 换 SteamID，见第 8.1 节。
+> 两种模式共用同一套 `steam_login_states`、会话与管理员判定逻辑。
+
 关键点：
 
 - **`state` 单次使用**：`UPDATE … WHERE consumed_at IS NULL … RETURNING` 原子消费，重放返回 `auth_error=invalid_state`。
@@ -160,7 +164,8 @@ created_at, last_seen_at, expires_at, revoked_at, user_agent, ip
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `PUBLIC_BASE_URL` | `http://localhost:5173` | 站点对外源；用于 OpenID `realm`、`return_to` 与登录后跳转。生产必须 `https://` |
-| `STEAM_OPENID_ENDPOINT` | `https://steamcommunity.com/openid/login` | **服务端**校验断言用的端点（可指向 Cloudflare 中转） |
+| `STEAM_RELAY_URL` | 空 | 回调式中转 Worker 地址（如 `https://cngokz-steam-auth.iquankz.cn`）。**配置后进入中转模式**，忽略全部 `STEAM_OPENID_*` 与 `STEAM_API_KEY`，见 8.1 |
+| `STEAM_OPENID_ENDPOINT` | `https://steamcommunity.com/openid/login` | **服务端**校验断言用的端点（可指向 Cloudflare 纯代理中转） |
 | `STEAM_OPENID_BROWSER_ENDPOINT` | 同 `STEAM_OPENID_ENDPOINT` | **浏览器**跳转用的端点；浏览器能直连 Steam 而服务器不能时用默认值 |
 | `STEAM_OPENID_OP_ENDPOINT` | `https://steamcommunity.com/openid/login` | 断言中 `openid.op_endpoint` 的期望值，通常保持 Steam 官方地址 |
 | `STEAM_OPENID_CLAIMED_ID_PREFIX` | `https://steamcommunity.com/openid/id/` | SteamID64 声明前缀，必须以 `https://` 开头并以 `/` 结尾 |
@@ -211,53 +216,123 @@ WHERE account_id = (SELECT id FROM accounts WHERE steam_id64 = 7656119xxxxxxxxxx
   AND revoked_at IS NULL;
 ```
 
-## 8. 生产环境：Cloudflare 中转
+## 8. 生产环境：Steam 中转
 
-### 8.1 为什么需要
+生产服务器通常无法直连 Steam。项目支持两种**互斥**的中转方式：
 
-生产服务器（境内）通常无法访问 `steamcommunity.com`。OpenID 的校验是**服务器主动发出的 POST**，因此至少需要一条能出去的通路。Cloudflare Worker 提供固定域名、TLS 与就近回源，是最低成本方案。
+| | 触发条件 | OpenID 握手在哪 | 需要 `STEAM_API_KEY` |
+| --- | --- | --- | --- |
+| 直连（默认） | `STEAM_RELAY_URL` 为空 | 本服务 | 本服务（可选） |
+| 中转 A：复用现有 Worker | `STEAM_RELAY_URL` 有值 | Worker | Worker |
+| 中转 B：自建纯代理 | `STEAM_OPENID_ENDPOINT` 指向代理 | 本服务 | 本服务（可选） |
 
-两种部署形态：
+### 8.1 方式 A：复用现有 `cngokz-steam-auth` Worker（推荐）
 
-| 形态 | 浏览器能直连 Steam？ | 配置 |
-| --- | --- | --- |
-| A（推荐，改动最小） | 能 | `STEAM_OPENID_ENDPOINT=https://<worker>/openid/login`，`STEAM_OPENID_BROWSER_ENDPOINT` 留空（默认 Steam 官方地址） |
-| B（全中转） | 不能 | 两个变量都指向 `https://<worker>/openid/login`，Worker 负责改写 `Location` 与页面内的绝对链接 |
+这是 LumiForum / LumiAdmin 已在生产线使用的同一个 Worker（源码见
+`LumiForum/scripts/deploy/steam-auth-worker.js`）。它是**回调式中转**：OpenID 握手
+完全在 Worker 内完成，Worker 用 KV 生成一次性 token，本服务再用 token 换 SteamID。
 
-形态 A 下，用户浏览器直接打开 `steamcommunity.com` 登录，只有服务器的校验请求经过 Cloudflare；`openid.op_endpoint` 仍然是 Steam 官方地址，校验逻辑不需要任何改动。
+Worker 端点：
 
-### 8.2 Worker
+| 端点 | 说明 |
+| --- | --- |
+| `GET /login?mode=&state=&return_to=` | 302 到 Steam；`openid.realm` 固定为 Worker 域名 |
+| `GET /callback` | Steam 回跳；Worker 自行 `check_authentication`，再 302 回 `return_to?token=…&state=…` |
+| `GET /verify?token=` | 一次性 token（KV `STEAM_TOKENS`，TTL 300 秒）换取 `{success, steamid, persona_name, avatar*, profile_url, country_code, steam_level}`，用后即焚 |
+| `GET /profile` `/profiles` `/vanity` | 资料、批量资料、自定义 URL 解析（需 `STEAM_API_KEY`） |
 
-参考实现见 [`deploy/cloudflare/steam-openid-relay.js`](../deploy/cloudflare/steam-openid-relay.js)。
+对接方式：
+
+```text
+浏览器 → {relay}/login?state=…&return_to={PUBLIC_BASE_URL}/api/v1/auth/steam/callback
+Worker  → Steam OpenID → 校验断言 → KV 一次性 token
+Worker  → 302 回 {PUBLIC_BASE_URL}/api/v1/auth/steam/callback?token=…&state=…
+本服务  → GET {relay}/verify?token=… → SteamID64 + 资料 → 建会话
+```
+
+因此：
+
+- `STEAM_API_KEY` 与 `STEAM_TOKENS`（KV）**继续留在 Worker**，生产服务器不需要也不应持有 Steam API Key；
+- 生产服务器只要能访问 Worker 域名即可，完全不接触 `steamcommunity.com` / `api.steampowered.com`；
+- 昵称、头像来自 `/verify` 返回，直接写入 `player_profiles`；
+- 本服务仍生成并单次消费自己的 `state`，Worker 只负责原样回传。
+
+配置：
+
+```bash
+STEAM_RELAY_URL=https://cngokz-steam-auth.iquankz.cn
+# 以下在 relay 模式下不再使用
+# STEAM_OPENID_ENDPOINT=
+# STEAM_API_KEY=
+```
+
+**必须先做的一步**：Worker 的 `ALLOWED_CALLBACK_HOSTS` 必须包含本站域名。否则
+Worker 会把 `return_to` **静默改写**成论坛地址（`chatapi.cngokz.com`），一次性
+token 发到别处，本站登录永远失败且浏览器上看不出原因。上线前用检查脚本确认：
+
+```bash
+STEAM_RELAY_URL=https://cngokz-steam-auth.iquankz.cn \
+CALLBACK_URL=https://test.cngokz.com/api/v1/auth/steam/callback \
+  scripts/check-steam-relay.sh
+```
+
+期望结尾：`OK: test.cngokz.com is whitelisted; the token will come back to this API`。
+
+修复方式（二选一）：
+
+- Cloudflare Dashboard → Workers → `cngokz-steam-auth` → Settings → Variables，把
+  `ALLOWED_CALLBACK_HOSTS` 设为 `chatapi.cngokz.com,zzzxbdjbans.cngokz.com,test.cngokz.com`；
+- 或修改 Worker 源码里的默认值后重新 `wrangler deploy`。
+
+### 8.2 方式 B：自建纯代理中转
+
+不想依赖共用 Worker 时，用本仓库的 `deploy/cloudflare/steam-openid-relay.js`
+——它只做 HTTP 代理，OpenID 校验仍由本服务完成（即第 2 节的直连流程）：
 
 ```bash
 cd deploy/cloudflare
+npx wrangler login
 npx wrangler deploy steam-openid-relay.js --name cngokz-steam-openid \
   --compatibility-date 2026-11-01
 ```
 
-建议再加一条缓存/防火墙规则：只允许你的服务器出口 IP 访问 `/openid/login`（形态 A），避免中转被当成免费代理。
+```bash
+# 服务器侧校验走代理
+STEAM_OPENID_ENDPOINT=https://cngokz-steam-openid.<子域>.workers.dev/openid/login
+# 浏览器侧留空 = 直连 Steam；两边都不通时填同一个代理地址
+# STEAM_OPENID_BROWSER_ENDPOINT=
+# 永远是 Steam 官方地址，不要改成代理
+STEAM_OPENID_OP_ENDPOINT=https://steamcommunity.com/openid/login
+```
 
-### 8.3 验证
+建议再加一条 WAF 规则，只允许生产服务器出口 IP 访问 `/openid/login`，避免中转被当作免费代理。
+
+### 8.3 验证连通性
 
 ```bash
-# 服务器上直接验证出网能力（应当返回 200/302，而不是超时）
-curl -sS -o /dev/null -w '%{http_code}\n' \
-  -X POST 'https://<worker>/openid/login' \
+# 方式 A：Worker 是否在线 + 白名单是否包含本站
+STEAM_RELAY_URL=https://cngokz-steam-auth.iquankz.cn \
+CALLBACK_URL=https://test.cngokz.com/api/v1/auth/steam/callback \
+  scripts/check-steam-relay.sh
+
+# 方式 B：服务器能否经代理访问 Steam
+curl -sS -m 10 -X POST 'https://<worker>/openid/login' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data 'openid.mode=check_authentication&openid.ns=http://specs.openid.net/auth/2.0'
-
-# 完整流程：浏览器打开 /admin/login，用管理员 Steam 账号登录
 ```
+
+方式 B 期望返回 `ns:http://specs.openid.net/auth/2.0` + `is_valid:false`（空断言必然被判否，能拿到回应即说明链路通）。
 
 ### 8.4 生产检查清单
 
-- [ ] `PUBLIC_BASE_URL=https://test.cngokz.com`（必须 https）
-- [ ] `STEAM_OPENID_ENDPOINT` 指向 Worker，并在服务器上用上面的 curl 验证过
-- [ ] `ADMIN_STEAM_IDS` 至少包含一名管理员
-- [ ] `STEAM_API_KEY` 已配置（否则昵称显示为 `Player xxxx`，头像为空）
-- [ ] Nginx `/api/` 透传 `Cookie` 与 `Set-Cookie`（现有配置默认透传，未做拦截）
+- [ ] `PUBLIC_BASE_URL=https://test.cngokz.com`（必须 https，否则启动失败）
+- [ ] 方式 A：`STEAM_RELAY_URL` 已配置，且 `scripts/check-steam-relay.sh` 通过
+- [ ] 方式 A：Worker 的 `STEAM_TOKENS` KV 与 `STEAM_API_KEY` 已配置
+- [ ] 方式 B：`STEAM_OPENID_ENDPOINT` 指向代理，并用上面的 curl 验证过
+- [ ] `ADMIN_STEAM_IDS` 至少包含一名管理员（否则没人能进 `/admin`）
+- [ ] Nginx `/api/` 透传 `Cookie` 与 `Set-Cookie`（现有配置默认透传）
 - [ ] OpenResty 未对 `/api/v1/auth/` 开启缓存
+- [ ] `.env` 权限 `0640`、属主 `www-data`（服务以 `www-data` 运行）
 
 ## 9. 安全设计
 
@@ -279,7 +354,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 | --- | --- | --- |
 | 单元 | `apps/api/src/services/auth.rs` | 重定向路径校验、`return_to` 构造、断言校验、SteamID64 提取、Cookie 属性、常量时间比较 |
 | 单元 | `apps/api/src/handlers/auth.rs` | 查询串解析（保留重复键）、`X-Forwarded-For` |
-| 集成 | `apps/api/tests/auth_flow.rs` | 完整 round trip（本地 mock OP）、管理员/非管理员、重放、伪造断言、退出登录、维护令牌 |
+| 集成 | `apps/api/tests/auth_flow.rs` | 直连模式：完整 round trip（本地 mock OP）、管理员/非管理员、重放、伪造断言、退出登录、维护令牌 |
+| 集成 | `apps/api/tests/auth_relay.rs` | 中转模式：`/login` → `/verify` 换 token、资料落库、一次性 token 用后即焚、错误码映射 |
+| 脚本 | `scripts/check-steam-relay.sh` | 中转 Worker 在线 + `ALLOWED_CALLBACK_HOSTS` 是否包含本站 |
 | 前端 | `apps/frontend/src/auth/session.test.ts` | 登录 URL、错误码映射、头像首字母 |
 | 前端 | `apps/frontend/src/admin/components/auth/require-admin.test.tsx` | 未登录跳转、非管理员 403、管理员放行、加载态不闪登录页 |
 
@@ -289,12 +366,14 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 DATABASE_URL=postgres://user@127.0.0.1:5432/cngokzapi cargo test -p cngokz-api --test auth_flow
 ```
 
-`auth_flow` 会自行创建临时数据库并应用迁移，结束后不残留。它用本地 axum mock 代替 Steam，**不访问外网**。
+`auth_flow` / `auth_relay` 会各自创建临时数据库并应用迁移，结束后不残留。它们都用本地 axum mock 代替 Steam / Worker，**不访问外网**。
 
 ## 11. 已知限制
 
 - 没有"记住我"之外的会话管理页面（无法在 UI 里查看/踢掉其它设备）。
 - 没有登录频率限制（依赖外层 Nginx/Cloudflare 限流）；如需可在 `/auth/steam/start` 前加一层。
 - Steam Web API 调用失败不影响登录，只是昵称/头像保持旧值。
-- 形态 B（浏览器也不能直连 Steam）的 Worker 需要改写页面内绝对链接，属于 best-effort，Steam 改版时可能需要调整。
+- 方式 B 的 Worker 在「浏览器也不能直连 Steam」时需要改写页面内绝对链接，属于 best-effort，Steam 改版时可能需要调整。
+- 方式 A 的回调白名单在 Worker 侧维护；新增站点域名时必须同步更新 `ALLOWED_CALLBACK_HOSTS`，否则登录静默失败（用 `scripts/check-steam-relay.sh` 兜底）。
+- Worker 的 `/login` 固定把 `openid.realm` 设为 Worker 域名，因此同一个 Worker 可服务多个站点，各站点独立维护自己的登录 state。
 - 账号删除（软删除）后，同一 SteamID64 再次登录会创建新账号记录（由 `accounts` 的部分唯一索引保证）。
