@@ -24,8 +24,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/admin/components/ui/select';
 import { EmptyState } from '@/admin/components/common/empty-state';
 import { useSystemEvents } from '@/admin/hooks/use-system-events';
+import { useDashboardStats } from '@/admin/hooks/use-dashboard-stats';
 import { useSystemStatus } from '@/admin/hooks/use-system-status';
-import { formatDateTime, formatUptime } from '@/admin/lib/format';
+import { formatDateTime, formatNumber, formatUptime } from '@/admin/lib/format';
 
 /**
  * Dashboard. Every number is either real API data or an explicit placeholder;
@@ -39,22 +40,31 @@ export function DashboardPage() {
   const checks = status?.checks ?? [];
   const findCheck = (name: string) => checks.find((check) => check.name === name);
   const statusError = statusQuery.error as ApiClientError | null;
+  const statsQuery = useDashboardStats();
+  const stats = statsQuery.data;
 
   const refreshAll = () => {
     void statusQuery.refetch();
     void eventsQuery.refetch();
+    void statsQuery.refetch();
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="仪表盘"
-        description="CNGOKZAPI 平台运行概览。系统健康状态来自后端实时探测接口，业务统计接口尚未接入。"
+        description="CNGOKZAPI 平台运行概览：系统健康状态来自实时探测，业务统计来自 /api/v1/public/statistics。"
         meta={
           <>
             <span>最近检查 {formatDateTime(status?.checked_at)}</span>
             <span className="text-border-strong">·</span>
             <span>每 15 秒自动刷新</span>
+            {stats ? (
+              <>
+                <span className="text-border-strong">·</span>
+                <span>统计更新 {formatDateTime(stats.generated_at)}</span>
+              </>
+            ) : null}
           </>
         }
         actions={
@@ -105,10 +115,32 @@ export function DashboardPage() {
       ) : null}
 
       <section aria-label="业务统计" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="玩家总数" value="—" icon={Users} unavailable hint="玩家统计接口尚未接入" />
-        <StatCard label="地图总数" value="—" icon={Waypoints} unavailable hint="地图统计接口尚未接入" />
-        <StatCard label="成绩总数" value="—" icon={Trophy} unavailable hint="成绩统计接口尚未接入" />
-        <StatCard label="在线服务器" value="—" icon={Server} unavailable hint="服务器心跳接口尚未接入" />
+        <StatCard
+          label="玩家总数"
+          value={stats ? formatNumber(stats.players) : '—'}
+          icon={Users}
+          hint={stats ? '已登记 Steam 账号' : statsQuery.isError ? '统计接口不可用' : '加载中'}
+        />
+        <StatCard
+          label="地图总数"
+          value={stats ? formatNumber(stats.maps) : '—'}
+          icon={Waypoints}
+          hint={stats ? `${formatNumber(stats.courses)} 条课程` : statsQuery.isError ? '统计接口不可用' : '加载中'}
+        />
+        <StatCard
+          label="成绩总数"
+          value={stats ? formatNumber(stats.records) : '—'}
+          icon={Trophy}
+          hint={
+            stats ? `${formatNumber(stats.world_records)} 条世界纪录` : statsQuery.isError ? '统计接口不可用' : '加载中'
+          }
+        />
+        <StatCard
+          label="在线服务器"
+          value={stats ? formatNumber(stats.servers_online) : '—'}
+          icon={Server}
+          hint={stats ? '心跳 120 秒内的服务器' : statsQuery.isError ? '统计接口不可用' : '加载中'}
+        />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
