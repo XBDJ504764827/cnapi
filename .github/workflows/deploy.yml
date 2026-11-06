@@ -155,16 +155,10 @@ jobs:
           echo "runner egress IP : $(curl -fsS --max-time 10 https://api.ipify.org || echo unknown)"
           echo "resolved address : $(getent hosts "$DEPLOY_HOST" | head -1 || echo 'DNS lookup failed')"
 
-          probe() { timeout 10 bash -c "</dev/tcp/${DEPLOY_HOST}/$1" 2>/dev/null; }
+          # 只探测一次：多建连接会被服务器的 fail2ban / 防爆破限速算进失败次数。
+          probe() { timeout 15 bash -c "</dev/tcp/${DEPLOY_HOST}/$1" 2>/dev/null; }
 
-          ssh_ok=0
-          for attempt in 1 2 3; do
-            if probe "$PORT"; then ssh_ok=1; break; fi
-            echo "attempt ${attempt}: tcp ${DEPLOY_HOST}:${PORT} failed"
-            [ "$attempt" -lt 3 ] && sleep 3
-          done
-
-          if [ "$ssh_ok" -eq 1 ]; then
+          if probe "$PORT"; then
             echo "TCP ${DEPLOY_HOST}:${PORT} reachable"
             exit 0
           fi
@@ -196,12 +190,13 @@ jobs:
           # 从 Windows 粘贴的 secret 常带 CRLF，OpenSSH 会解析失败并静默退回密码认证。
           printf '%s\n' "$DEPLOY_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
-            || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
 
-          # TCP 已在上一一步验证过，这里失败就是认证/权限问题。
-          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
-               -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
+          # 不再单独跑 ssh-keyscan：它本身是一次额外连接，会触发服务器侧的失败计数。
+          # accept-new 在首次连接时记录主机密钥，效果相同但少一次握手。
+          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=20 \
+               -o ConnectionAttempts=2 -o StrictHostKeyChecking=accept-new \
+               -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+               "$DEPLOY_USER@$DEPLOY_HOST" true; then
             echo "::error::SSH 密钥被 $DEPLOY_USER@$DEPLOY_HOST 拒绝（TCP 已连通）"
             echo "  * 公钥需在 $DEPLOY_USER 的 ~/.ssh/authorized_keys（root 则是 /root/.ssh/authorized_keys）"
             echo "  * 家目录与 .ssh 不能被 group/other 写（StrictModes），属主必须是该用户或 root"
@@ -215,7 +210,7 @@ jobs:
           set -euo pipefail
           PORT="${DEPLOY_PORT:-22}"
           APP_DIR="${DEPLOY_PATH:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}"
-          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new"
 
           $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$APP_DIR'"
 
@@ -234,7 +229,7 @@ jobs:
           APP_DIR="${DEPLOY_PATH:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}"
           SERVICE="${DEPLOY_SERVICE:-cngokz-api}"
           HEALTH="${DEPLOY_HEALTH_URL:-http://127.0.0.1:28080/health/ready}"
-          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new"
 
           $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$APP_DIR/bin'"
 
