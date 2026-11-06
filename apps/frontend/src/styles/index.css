@@ -1,3 +1,18 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter/index.css';
 @import '@cngokz/ui/styles.css';
+
+/*
+ * 主题切换瞬间禁用过渡。
+ *
+ * 页面上大量元素带 `transition-colors`，切换深色/浅色时它们会各自做一次颜色动画；
+ * 元素数量多、重绘时序不一致，看起来就是闪一下/抖一下。切换前加上这个类，
+ * 让整页颜色在一次重绘里原子地完成，再移除。
+ */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+}

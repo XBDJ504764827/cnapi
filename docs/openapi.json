@@ -7915,6 +7915,13 @@
             "type": "integer",
             "format": "int64"
           },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Steam 头像（medium，64×64）；后台同步填充前为 `null`。"
+          },
           "display_name": {
             "type": "string"
           },
@@ -9940,6 +9947,13 @@
           "account_id": {
             "type": "integer",
             "format": "int64"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Steam 头像（medium，64×64）；后台同步填充前为 `null`。"
           },
           "display_name": {
             "type": "string"

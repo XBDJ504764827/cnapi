@@ -92,6 +92,8 @@ pub struct PointsLeaderboardEntry {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: String,
+    /// Steam 头像（medium，64×64）；后台同步填充前为 `null`。
+    pub avatar_url: Option<String>,
     pub pro_points: i64,
     pub nub_points: i64,
     pub total_points: i64,
@@ -134,6 +136,8 @@ pub struct FilterLeaderboardEntry {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: String,
+    /// Steam 头像（medium，64×64）；后台同步填充前为 `null`。
+    pub avatar_url: Option<String>,
     pub pb_record_id: i64,
     pub pb_time_seconds: String,
     pub points: i32,

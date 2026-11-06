@@ -38,8 +38,15 @@ function ThemeManager({ children }: { children: ReactNode }) {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
       const isDark = theme === 'dark' || (theme === 'system' && media.matches);
+      // 先关闭过渡再换色，避免几百个 `transition-colors` 元素同时做动画造成闪烁。
+      root.classList.add('theme-switching');
       root.classList.toggle('dark', isDark);
       root.style.colorScheme = isDark ? 'dark' : 'light';
+      // 读一次布局属性，强制浏览器在移除抑制类之前完成这次重绘。
+      void root.offsetHeight;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => root.classList.remove('theme-switching'));
+      });
     };
     apply();
     if (theme !== 'system') return;

@@ -2454,6 +2454,8 @@ export interface components {
         FilterLeaderboardEntry: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）；后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             display_name: string;
             is_world_record: boolean;
             /** Format: int64 */
@@ -3099,6 +3101,8 @@ export interface components {
         PointsLeaderboardEntry: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）；后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             display_name: string;
             /** Format: int64 */
             filter_count: number;

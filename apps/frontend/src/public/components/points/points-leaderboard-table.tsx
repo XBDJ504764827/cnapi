@@ -46,7 +46,12 @@ export function PointsLeaderboardTable({ items, isLoading, errorMessage, onRetry
                 <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">#{entry.rank}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2.5">
-                    <PlayerAvatar steamId64={entry.steam_id64} displayName={entry.display_name} size="sm" />
+                    <PlayerAvatar
+                      steamId64={entry.steam_id64}
+                      displayName={entry.display_name}
+                      avatarUrl={entry.avatar_url}
+                      size="sm"
+                    />
                     <div className="min-w-0">
                       <PlayerNameLink steamId64={entry.steam_id64} displayName={entry.display_name} />
                       <p className="truncate font-mono text-[10px] text-muted-foreground">{entry.steam_id64}</p>
