@@ -47,5 +47,7 @@ pub async fn connect(config: &AppConfig) -> Result<AppState, StartupError> {
         Err(_) => warn!("redis probe timed out at startup; /health/ready will report it as down"),
     }
 
-    Ok(AppState::new(config.clone(), pool, redis))
+    let state = AppState::new(config.clone(), pool, redis);
+    crate::services::public::cache::initialize(&state).await;
+    Ok(state)
 }

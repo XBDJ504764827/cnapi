@@ -48,6 +48,9 @@ pub enum AppError {
     #[error("service is not ready")]
     NotReady { details: serde_json::Value },
 
+    #[error("too many requests")]
+    RateLimited { retry_after_seconds: u64 },
+
     #[error("internal error")]
     Internal(#[source] anyhow::Error),
 }
@@ -75,6 +78,7 @@ impl AppError {
             Self::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
             Self::Forbidden { .. } => StatusCode::FORBIDDEN,
             Self::NotFound { .. } => StatusCode::NOT_FOUND,
+            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::Database(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Redis(_) | Self::DependencyUnavailable { .. } | Self::NotReady { .. } => {
                 StatusCode::SERVICE_UNAVAILABLE
@@ -93,6 +97,7 @@ impl AppError {
             Self::DependencyUnavailable { .. } => ErrorCode::DependencyUnavailable,
             Self::NotReady { .. } => ErrorCode::NotReady,
             Self::Internal(_) => ErrorCode::InternalError,
+            Self::RateLimited { .. } => ErrorCode::RateLimited,
         }
     }
 
@@ -112,6 +117,7 @@ impl AppError {
             }
             Self::NotReady { .. } => "Service is not ready to accept traffic".to_owned(),
             Self::Internal(_) => "Internal server error".to_owned(),
+            Self::RateLimited { .. } => "Too many requests, please retry later".to_owned(),
         }
     }
 
@@ -119,6 +125,9 @@ impl AppError {
     pub fn details(&self) -> Option<serde_json::Value> {
         match self {
             Self::NotReady { details } => Some(details.clone()),
+            Self::RateLimited {
+                retry_after_seconds,
+            } => Some(serde_json::json!({ "retry_after_seconds": retry_after_seconds })),
             _ => None,
         }
     }
@@ -152,9 +161,9 @@ impl IntoResponse for AppError {
 
         // Log the full cause; the client only sees the sanitized message.
         if status.is_server_error() {
-            error!(error = %self, error_code = code.as_str(), status = status.as_u16(), "request failed");
+            error!(error = ?self, error_code = code.as_str(), status = status.as_u16(), "request failed");
         } else {
-            warn!(error = %self, error_code = code.as_str(), status = status.as_u16(), "request rejected");
+            warn!(error = ?self, error_code = code.as_str(), status = status.as_u16(), "request rejected");
         }
 
         let body = ApiErrorBody {

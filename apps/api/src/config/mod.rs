@@ -17,6 +17,16 @@ const DEFAULT_HEALTH_CHECK_TIMEOUT_MS: u64 = 2_000;
 const DEFAULT_MAX_CONNECTIONS: u32 = 10;
 const DEFAULT_MIN_CONNECTIONS: u32 = 1;
 const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE: u32 = 120;
+const DEFAULT_SOURCE_SYNC_INTERVAL_SECS: u64 = 300;
+const DEFAULT_SOURCE_HTTP_TIMEOUT_MS: u64 = 15_000;
+const DEFAULT_SOURCE_STALE_SECS: u64 = 900;
+const DEFAULT_PUBLIC_BASE_URL: &str = "http://localhost:5173";
+const DEFAULT_STEAM_OPENID_ENDPOINT: &str = "https://steamcommunity.com/openid/login";
+const DEFAULT_STEAM_CLAIMED_ID_PREFIX: &str = "https://steamcommunity.com/openid/id/";
+const DEFAULT_STEAM_API_BASE_URL: &str = "https://api.steampowered.com";
+const DEFAULT_SESSION_COOKIE_NAME: &str = "cngokz_session";
+const DEFAULT_SESSION_TTL_HOURS: u64 = 720;
 
 /// Runtime environment of the service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +97,52 @@ pub struct AppConfig {
     pub redis_url: String,
     pub redis_key_prefix: String,
     pub health_check_timeout: Duration,
+    /// Maximum requests per client IP per minute for `/api/v1/public/*`.
+    pub public_rate_limit_per_minute: u32,
+    /// Optional token for protected cache maintenance endpoints.
+    pub maintenance_token: Option<String>,
+    pub kzgo_base_url: String,
+    pub kzgo_sync_enabled: bool,
+    pub gokz_global_base_url: String,
+    pub gokz_global_sync_enabled: bool,
+    pub source_sync_interval: Duration,
+    pub source_http_timeout: Duration,
+    /// External snapshot age after which public reads fall back to plugin data.
+    pub source_fallback_max_age: Duration,
+
+    /// Origin the browser uses for this site. OpenID `realm` and `return_to`
+    /// are derived from it, and login redirects stay on this origin.
+    pub public_base_url: String,
+    /// Steam OpenID endpoint used for the server side `check_authentication`
+    /// call. In production this may be a Cloudflare relay that forwards to
+    /// `steamcommunity.com`.
+    pub steam_openid_endpoint: String,
+    /// Where the *browser* is sent to sign in. Defaults to
+    /// [`Self::steam_openid_endpoint`]; set it separately when the browser can
+    /// reach Steam but the server cannot (or vice versa).
+    pub steam_openid_browser_endpoint: String,
+    /// Callback-style Steam relay (`STEAM_RELAY_URL`), e.g. the shared
+    /// `cngokz-steam-auth` Cloudflare Worker. When set, login goes through the
+    /// relay's `/login` + `/verify` contract and this server never contacts
+    /// Steam directly, so none of the `STEAM_OPENID_*` values are used.
+    pub steam_relay_url: Option<String>,
+    /// `openid.op_endpoint` expected in the assertion Steam returns. This is
+    /// the identity provider Steam claims to be, which stays Steam's own URL
+    /// even when the round trip goes through a relay.
+    pub steam_openid_op_endpoint: String,
+    /// Prefix of `openid.claimed_id` that identifies a SteamID64.
+    pub steam_openid_claimed_id_prefix: String,
+    pub steam_api_base_url: String,
+    /// Optional Steam Web API key. When absent the login still works, only the
+    /// persona name / avatar refresh is skipped.
+    pub steam_api_key: Option<String>,
+    pub session_cookie_name: String,
+    pub session_ttl: Duration,
+    pub session_cookie_secure: bool,
+    pub session_cookie_domain: Option<String>,
+    /// SteamID64s granted the `admin` role automatically when they log in.
+    /// Used to bootstrap the first administrator.
+    pub admin_steam_ids: Vec<String>,
 }
 
 impl AppConfig {
@@ -180,6 +236,43 @@ impl AppConfig {
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "cngokz".to_owned());
 
+        let public_rate_limit_per_minute = parse_u32(
+            &vars,
+            "PUBLIC_RATE_LIMIT_PER_MINUTE",
+            DEFAULT_PUBLIC_RATE_LIMIT_PER_MINUTE,
+            1,
+            10_000,
+        )?;
+        let maintenance_token = get("MAINTENANCE_TOKEN").filter(|value| !value.is_empty());
+        let kzgo_base_url = optional_url(&vars, "KZGO_BASE_URL", "https://kzgo.eu")?;
+        let gokz_global_base_url = optional_url(
+            &vars,
+            "GOKZ_GLOBAL_BASE_URL",
+            "https://kztimerglobal.com/api/v2.0",
+        )?;
+        let kzgo_sync_enabled = parse_bool(&vars, "KZGO_SYNC_ENABLED", true)?;
+        let gokz_global_sync_enabled = parse_bool(&vars, "GOKZ_GLOBAL_SYNC_ENABLED", false)?;
+        let source_sync_interval_secs = parse_u64(
+            &vars,
+            "SOURCE_SYNC_INTERVAL_SECS",
+            DEFAULT_SOURCE_SYNC_INTERVAL_SECS,
+            30,
+            86_400,
+        )?;
+        let source_http_timeout_ms = parse_u64(
+            &vars,
+            "SOURCE_HTTP_TIMEOUT_MS",
+            DEFAULT_SOURCE_HTTP_TIMEOUT_MS,
+            1_000,
+            120_000,
+        )?;
+        let source_stale_secs = parse_u64(
+            &vars,
+            "SOURCE_FALLBACK_MAX_AGE_SECS",
+            DEFAULT_SOURCE_STALE_SECS,
+            60,
+            86_400,
+        )?;
         let health_check_timeout_ms = parse_u64(
             &vars,
             "HEALTH_CHECK_TIMEOUT_MS",
@@ -187,6 +280,68 @@ impl AppConfig {
             100,
             30_000,
         )?;
+
+        let public_base_url = optional_url(&vars, "PUBLIC_BASE_URL", DEFAULT_PUBLIC_BASE_URL)?;
+        if env.is_production() && !public_base_url.starts_with("https://") {
+            return Err(ConfigError::Invalid {
+                key: "PUBLIC_BASE_URL",
+                reason: "production requires an https:// origin (session cookies are Secure)"
+                    .to_owned(),
+            });
+        }
+        let steam_openid_endpoint = optional_url(
+            &vars,
+            "STEAM_OPENID_ENDPOINT",
+            DEFAULT_STEAM_OPENID_ENDPOINT,
+        )?;
+        let steam_openid_browser_endpoint = optional_url(
+            &vars,
+            "STEAM_OPENID_BROWSER_ENDPOINT",
+            &steam_openid_endpoint,
+        )?;
+        let steam_openid_op_endpoint = optional_url(
+            &vars,
+            "STEAM_OPENID_OP_ENDPOINT",
+            DEFAULT_STEAM_OPENID_ENDPOINT,
+        )?;
+        let steam_relay_url = match get("STEAM_RELAY_URL").filter(|value| !value.is_empty()) {
+            Some(value) => {
+                if !value.starts_with("https://") && !value.starts_with("http://") {
+                    return Err(ConfigError::Invalid {
+                        key: "STEAM_RELAY_URL",
+                        reason: "expected an http:// or https:// URL".to_owned(),
+                    });
+                }
+                if env.is_production() && !value.starts_with("https://") {
+                    return Err(ConfigError::Invalid {
+                        key: "STEAM_RELAY_URL",
+                        reason: "production requires an https:// relay".to_owned(),
+                    });
+                }
+                Some(value.trim_end_matches('/').to_owned())
+            }
+            None => None,
+        };
+        let steam_openid_claimed_id_prefix = parse_claimed_id_prefix(&vars)?;
+        let steam_api_base_url =
+            optional_url(&vars, "STEAM_API_BASE_URL", DEFAULT_STEAM_API_BASE_URL)?;
+        let steam_api_key = get("STEAM_API_KEY").filter(|value| !value.is_empty());
+        let session_cookie_name = parse_cookie_name(&vars)?;
+        let session_ttl = Duration::from_secs(
+            parse_u64(
+                &vars,
+                "SESSION_TTL_HOURS",
+                DEFAULT_SESSION_TTL_HOURS,
+                1,
+                24 * 365,
+            )? * 3600,
+        );
+        let session_cookie_secure =
+            parse_bool(&vars, "SESSION_COOKIE_SECURE", env.is_production())?;
+        let session_cookie_domain = get("SESSION_COOKIE_DOMAIN")
+            .filter(|value| !value.is_empty())
+            .map(|value| value.trim_start_matches('.').to_owned());
+        let admin_steam_ids = parse_admin_steam_ids(&vars)?;
 
         Ok(Self {
             env,
@@ -202,6 +357,28 @@ impl AppConfig {
             redis_url,
             redis_key_prefix,
             health_check_timeout: Duration::from_millis(health_check_timeout_ms),
+            public_rate_limit_per_minute,
+            maintenance_token,
+            kzgo_base_url,
+            kzgo_sync_enabled,
+            gokz_global_base_url,
+            gokz_global_sync_enabled,
+            source_sync_interval: Duration::from_secs(source_sync_interval_secs),
+            source_http_timeout: Duration::from_millis(source_http_timeout_ms),
+            source_fallback_max_age: Duration::from_secs(source_stale_secs),
+            public_base_url,
+            steam_openid_endpoint,
+            steam_openid_browser_endpoint,
+            steam_openid_op_endpoint,
+            steam_relay_url,
+            steam_openid_claimed_id_prefix,
+            steam_api_base_url,
+            steam_api_key,
+            session_cookie_name,
+            session_ttl,
+            session_cookie_secure,
+            session_cookie_domain,
+            admin_steam_ids,
         })
     }
 
@@ -236,7 +413,85 @@ impl fmt::Debug for AppConfig {
             .field("redis_url", &redact_url(&self.redis_url))
             .field("redis_key_prefix", &self.redis_key_prefix)
             .field("health_check_timeout", &self.health_check_timeout)
+            .field(
+                "public_rate_limit_per_minute",
+                &self.public_rate_limit_per_minute,
+            )
+            .field(
+                "maintenance_token",
+                &self.maintenance_token.as_ref().map(|_| "***"),
+            )
+            .field("kzgo_base_url", &redact_url(&self.kzgo_base_url))
+            .field("kzgo_sync_enabled", &self.kzgo_sync_enabled)
+            .field(
+                "gokz_global_base_url",
+                &redact_url(&self.gokz_global_base_url),
+            )
+            .field("gokz_global_sync_enabled", &self.gokz_global_sync_enabled)
+            .field("source_sync_interval", &self.source_sync_interval)
+            .field("source_http_timeout", &self.source_http_timeout)
+            .field("source_fallback_max_age", &self.source_fallback_max_age)
+            .field("public_base_url", &self.public_base_url)
+            .field("steam_openid_endpoint", &self.steam_openid_endpoint)
+            .field(
+                "steam_openid_browser_endpoint",
+                &self.steam_openid_browser_endpoint,
+            )
+            .field("steam_relay_url", &self.steam_relay_url)
+            .field("steam_openid_op_endpoint", &self.steam_openid_op_endpoint)
+            .field(
+                "steam_openid_claimed_id_prefix",
+                &self.steam_openid_claimed_id_prefix,
+            )
+            .field("steam_api_base_url", &self.steam_api_base_url)
+            .field("steam_api_key", &self.steam_api_key.as_ref().map(|_| "***"))
+            .field("session_cookie_name", &self.session_cookie_name)
+            .field("session_ttl", &self.session_ttl)
+            .field("session_cookie_secure", &self.session_cookie_secure)
+            .field("session_cookie_domain", &self.session_cookie_domain)
+            .field("admin_steam_ids", &self.admin_steam_ids)
             .finish()
+    }
+}
+
+fn optional_url(
+    vars: &HashMap<String, String>,
+    key: &'static str,
+    default: &str,
+) -> Result<String, ConfigError> {
+    let value = vars
+        .get(key)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(default);
+    if !value.starts_with("http://") && !value.starts_with("https://") {
+        return Err(ConfigError::Invalid {
+            key,
+            reason: "expected an http:// or https:// URL".to_owned(),
+        });
+    }
+    Ok(value.trim_end_matches('/').to_owned())
+}
+
+fn parse_bool(
+    vars: &HashMap<String, String>,
+    key: &'static str,
+    default: bool,
+) -> Result<bool, ConfigError> {
+    match vars
+        .get(key)
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+    {
+        Some(value) => match value.as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(ConfigError::Invalid {
+                key,
+                reason: format!("expected true/false, got `{value}`"),
+            }),
+        },
+        None => Ok(default),
     }
 }
 
@@ -275,6 +530,74 @@ fn parse_origins(vars: &HashMap<String, String>) -> Result<Vec<String>, ConfigEr
     }
 
     Ok(origins)
+}
+
+fn parse_claimed_id_prefix(vars: &HashMap<String, String>) -> Result<String, ConfigError> {
+    let value = vars
+        .get("STEAM_OPENID_CLAIMED_ID_PREFIX")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_STEAM_CLAIMED_ID_PREFIX);
+    if !value.starts_with("https://") || !value.ends_with('/') {
+        return Err(ConfigError::Invalid {
+            key: "STEAM_OPENID_CLAIMED_ID_PREFIX",
+            reason: "expected an https:// URL ending with `/`, e.g. https://steamcommunity.com/openid/id/"
+                .to_owned(),
+        });
+    }
+    Ok(value.to_owned())
+}
+
+fn parse_cookie_name(vars: &HashMap<String, String>) -> Result<String, ConfigError> {
+    let value = vars
+        .get("SESSION_COOKIE_NAME")
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_SESSION_COOKIE_NAME);
+    let valid = value.len() <= 64
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !valid {
+        return Err(ConfigError::Invalid {
+            key: "SESSION_COOKIE_NAME",
+            reason: format!("`{value}` must match [A-Za-z0-9_-]{{1,64}}"),
+        });
+    }
+    Ok(value.to_owned())
+}
+
+/// Parses `ADMIN_STEAM_IDS`, a comma separated list of SteamID64 values.
+///
+/// Only shape is validated here: whether the account exists is decided when it
+/// logs in, so the environment stays the bootstrap mechanism rather than a
+/// second source of truth.
+fn parse_admin_steam_ids(vars: &HashMap<String, String>) -> Result<Vec<String>, ConfigError> {
+    let raw = vars
+        .get("ADMIN_STEAM_IDS")
+        .map(String::as_str)
+        .unwrap_or("");
+    let mut ids: Vec<String> = Vec::new();
+    for entry in raw
+        .split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+    {
+        let valid = entry.len() >= 17
+            && entry.len() <= 20
+            && entry.chars().all(|c| c.is_ascii_digit())
+            && entry.chars().any(|c| c != '0');
+        if !valid {
+            return Err(ConfigError::Invalid {
+                key: "ADMIN_STEAM_IDS",
+                reason: format!("`{entry}` is not a decimal SteamID64"),
+            });
+        }
+        if !ids.iter().any(|id| id == entry) {
+            ids.push(entry.to_owned());
+        }
+    }
+    Ok(ids)
 }
 
 fn parse_u16(
@@ -388,6 +711,7 @@ mod tests {
         assert_eq!(config.database_min_connections, 1);
         assert_eq!(config.database_acquire_timeout, Duration::from_secs(5));
         assert_eq!(config.health_check_timeout, Duration::from_millis(2_000));
+        assert_eq!(config.public_rate_limit_per_minute, 120);
         assert_eq!(config.cors_allowed_origins.len(), 2);
     }
 

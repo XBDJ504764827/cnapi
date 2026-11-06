@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 concurrency:
@@ -43,6 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.28.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy
@@ -59,7 +68,8 @@ jobs:
       - name: OpenAPI document is up to date
         run: |
           cargo run --quiet --bin dump-openapi -- docs/openapi.json
-          git diff --exit-code -- docs/openapi.json
+          pnpm --filter @cngokz/shared-types gen:api >/dev/null
+          git diff --exit-code -- docs/openapi.json packages/shared-types/src/generated/api-schema.d.ts
 
   web:
     name: Web (lint, typecheck, tests, build)
@@ -78,20 +88,4 @@ jobs:
       - run: pnpm -r lint
       - run: pnpm -r typecheck
       - run: pnpm -r test
-      - run: pnpm --filter @cngokz/web build
-
-  docker:
-    name: Docker images
-    runs-on: ubuntu-latest
-    needs: [api, web]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate compose file
-        run: docker compose config --quiet
-
-      - name: Build API image
-        run: docker build -f infrastructure/docker/api.Dockerfile -t cngokzapi-api:ci .
-
-      - name: Build web image
-        run: docker build -f infrastructure/docker/web.Dockerfile -t cngokzapi-web:ci .
+      - run: pnpm --filter @cngokz/frontend build

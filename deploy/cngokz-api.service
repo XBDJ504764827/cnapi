@@ -1,0 +1,43 @@
+[Unit]
+Description=CNGOKZAPI backend (cngokz-api)
+Documentation=https://github.com/XBDJ504764827/cnapi
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+ExecStart=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/bin/cngokz-api
+
+Environment=APP_ENV=production
+Environment=APP_HOST=127.0.0.1
+Environment=APP_PORT=28080
+Environment=LOG_LEVEL=info
+Environment=RUST_LOG=info
+
+# dotenvy loads:
+# /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi/.env
+
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGTERM
+TimeoutStopSec=30
+KillMode=mixed
+
+LimitNOFILE=65535
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cngokz-api
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

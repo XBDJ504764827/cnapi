@@ -1,12 +1,12 @@
 # CNGOKZAPI
 
-面向 **CS:GO / CS2 KZ 社区** 的独立 API 与管理平台。当前为**第一阶段：项目基础架构**，包含可运行的前后端、数据库迁移、健康检查、OpenAPI 文档与 Docker 部署编排，业务模块（玩家、地图、成绩、排行榜、Jumpstats、Replay、服务器、封禁、插件）保留页面与扩展位置，尚未实现。
+面向 **CS:GO KZ 社区** 的独立 API 与数据平台。当前进行**第八阶段：GOKZ-Global / kzgo.eu 多数据源接入与自有积分系统**。已实现统一原始成绩/来源溯源、跨来源去重、数据源健康监控、kzgo.eu 实时同步、GOKZ-Global 适配器、CNGOKZ 自有积分审计列与外部服务器兜底展示。完整调查、限制与验证结果见 [docs/phase8-multi-source-ingestion.md](docs/phase8-multi-source-ingestion.md)。
 
 > 第一阶段不包含任何模拟业务数据：仪表盘上的所有状态都来自后端真实健康检查，未实现模块显示空状态。
 
 ## 技术栈
 
-### 前端 `apps/web`
+### 前端 `apps/frontend`
 
 | 依赖 | 版本 |
 | --- | --- |
@@ -20,6 +20,7 @@
 | React Hook Form / Zod | 7.91.0 / 4.6.7 |
 | Lucide Icons | 1.67.0 |
 | Zustand | 5.0.16 |
+| 字体 | Inter Variable（`@fontsource-variable/inter`，自托管） |
 | 包管理 | pnpm 11.28.5 |
 
 ### 后端 `apps/api`
@@ -38,7 +39,7 @@
 
 ### 基础设施
 
-Docker（多阶段构建）、Docker Compose、PostgreSQL 18、Redis 8。
+原生 systemd + Nginx 部署；PostgreSQL 18、Redis 8。应用不再使用 Docker。
 
 ## 项目结构
 
@@ -46,7 +47,8 @@ Docker（多阶段构建）、Docker Compose、PostgreSQL 18、Redis 8。
 CNGOKZAPI/
 ├── apps/
 │   ├── api/                     # Rust + Axum 服务
-│   │   ├── migrations/          # SQLx 版本化迁移
+│   │   ├── build.rs             # 监听 migrations/ 目录触发重编译
+│   │   ├── migrations/          # SQLx 版本化迁移（系统表 + KZ 数据模型）
 │   │   ├── src/
 │   │   │   ├── config/          # 环境变量读取、校验、脱敏 Debug
 │   │   │   ├── state/           # AppState、PostgreSQL 连接池、Redis 客户端
@@ -64,7 +66,6 @@ CNGOKZAPI/
 │   │   │   └── main.rs          # 仅负责启动/优雅关闭
 │   │   └── tests/               # HTTP 与真实依赖集成测试
 │   └── web/                     # React 管理后台
-│       ├── server/              # 生产静态服务器（含 API 反向代理）
 │       └── src/
 │           ├── components/{ui,layout,dashboard,common,theme}
 │           ├── layouts/         # 应用外壳（侧边栏 + 顶栏 + 内容区）
@@ -78,50 +79,65 @@ CNGOKZAPI/
 │           ├── styles/          # Tailwind v4 入口与设计令牌
 │           └── assets/
 ├── packages/
-│   ├── api-client/              # 基于 openapi-fetch 的类型化客户端
-│   └── shared-types/            # OpenAPI 生成的类型 + 共享契约
-├── infrastructure/
-│   ├── docker/                  # api.Dockerfile / web.Dockerfile
-│   ├── postgres/init/           # 数据库初始化脚本
-│   └── redis/redis.conf
+│   ├── api-client/              # 基于 openapi-fetch 的类型化客户端（后台 + 门户）
+│   ├── shared-types/            # OpenAPI 生成的类型 + 共享契约
+│   └── ui/                      # 共享设计 Token（design-system.css）
+├── deploy/                      # systemd unit / Nginx 站点配置
 ├── docs/                        # 架构、开发、部署、变更记录、OpenAPI JSON
-├── scripts/                     # dev-up.sh / gen-api.sh / wait-for-api.sh
+│   ├── database/                # 数据模型文档（overview/模块/ER 图）
+│   ├── design-system.md         # 管理后台设计系统
+│   ├── public-portal/           # 公开门户架构/页面/API/设计文档
+│   └── globalapi-compatibility.md
+├── scripts/                     # build-native.sh / install-native.sh / gen-api.sh
 ├── .github/workflows/ci.yml
-├── docker-compose.yml
-├── docker-compose.dev.yml
 ├── .env.example
+├── .env.production.example
 ├── Cargo.toml                   # Rust workspace
 └── pnpm-workspace.yaml
 ```
 
-## 快速开始（Docker）
+## 生产部署（Native / 无 Docker）
 
-```bash
-cp .env.example .env          # 按需修改密码与端口
-docker compose up -d --build  # 启动 PostgreSQL / Redis / API / Web
-docker compose logs -f        # 查看日志
-docker compose down           # 停止（保留数据卷）
+生产环境使用 **Rust release 二进制 + systemd + Nginx + 静态前端**。后端和前端不通过 Docker 运行。
+
+发布链路：
+
+```text
+手动运行 GitHub Actions: Deploy production (manual)
+        ↓
+构建统一前端 + 后端二进制
+        ↓
+SSH/rsync 上传到 /mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
+        ↓
+systemd 重启 API + reload OpenResty
 ```
 
-启动后：
+只支持手动触发，允许从 `main` 或 `develop` 分支运行；push 不会自动部署。
 
-| 地址 | 说明 |
-| --- | --- |
-| <http://localhost:5173> | 管理后台 |
-| <http://localhost:5173/swagger-ui> | Swagger UI（经 Web 静态服务器代理） |
-| <http://localhost:8080/health> | API 健康检查（宿主机回环地址） |
-| <http://localhost:8080/api-docs/openapi.json> | OpenAPI 文档 |
+部署结构：
+
+```text
+Nginx
+  ├── /        → 统一前端 dist
+  ├── /admin/  → 同一前端内的管理路由
+  └── /api     → 127.0.0.1:28080
+                    │
+                    ▼
+              systemd: cngokz-api
+```
+
+详见 [部署指南](docs/deployment.md)。
 
 ## 本地开发
 
-前置：Node.js ≥ 22、pnpm 11、Rust 1.97、Docker（仅用于本地 PostgreSQL/Redis）。
+前置：Node.js ≥ 22、pnpm 11、Rust 1.97、PostgreSQL、Redis。
 
 ```bash
 pnpm install
 cp .env.example .env
-scripts/dev-up.sh                 # 只启动 PostgreSQL + Redis
+# 启动现有的 PostgreSQL / Redis，或按开发文档准备依赖
 cargo run -p cngokz-api           # API: http://localhost:8080
-pnpm --filter @cngokz/web dev     # Web: http://localhost:5173
+pnpm dev                          # 公开门户(5173) + 管理后台(内部 5174)
 ```
 
 Web 开发服务器会把 `/api`、`/health`、`/swagger-ui`、`/api-docs` 代理到 `VITE_API_PROXY_TARGET`（默认 `http://localhost:8080`），因此浏览器只访问同源地址，无需配置 CORS。
@@ -144,10 +160,11 @@ Web 开发服务器会把 `/api`、`/health`、`/swagger-ui`、`/api-docs` 代�
 | `DATABASE_MAX_CONNECTIONS` / `DATABASE_MIN_CONNECTIONS` | `10` / `1` | 连接池 |
 | `REDIS_URL` | — | 必填，`redis://...` |
 | `REDIS_KEY_PREFIX` | `cngokz` | 预留缓存命名空间 |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `cngokz` / `cngokz` / `cngokzapi` | Docker 引导数据库 |
-| `POSTGRES_PORT` / `REDIS_PORT` / `API_PORT` / `WEB_PORT` | `5432` / `6379` / `8080` / `5173` | 宿主机端口映射 |
+| `PORTAL_PORT` / `ADMIN_PORT` | `5173` / `5174` | 仅前端开发服务器端口 |
+| `KZGO_BASE_URL` / `KZGO_SYNC_ENABLED` | `https://kzgo.eu` / `true` | kzgo.eu 数据源 |
+| `GOKZ_GLOBAL_BASE_URL` / `GOKZ_GLOBAL_SYNC_ENABLED` | `https://kztimerglobal.com/api/v2.0` / `false` | GOKZ-Global 数据源 |
 
-生产环境请使用强密码，并只通过 `.env` 或编排平台的 secret 注入，**不要提交真实凭据**。
+生产环境请使用强密码，将 `.env` 放在服务器受限目录并设置 `600/640` 权限，**不要提交真实凭据**。
 
 ## 常用命令
 
@@ -161,11 +178,15 @@ pnpm -r format:check
 
 # 测试
 cargo test --all-targets                      # 需 DATABASE_URL/REDIS_URL 才执行集成用例
+# 带真实依赖：
+# DATABASE_URL=... REDIS_URL=... cargo test --all-targets
+# 缓存失效维护端点（需 MAINTENANCE_TOKEN）：
+# curl -X POST localhost:8080/api/v1/public/maintenance/cache/invalidate -H "X-Maintenance-Token: ..." 
 pnpm -r test
 
 # 构建
 cargo build --release --bin cngokz-api
-pnpm --filter @cngokz/web build
+pnpm --filter @cngokz/frontend build
 
 # OpenAPI → TypeScript 类型
 scripts/gen-api.sh
@@ -192,19 +213,87 @@ scripts/gen-api.sh
 | GET | `/api/v1/system/status` | 依赖实时状态（200，含 degraded） |
 | GET | `/api/v1/system/events?limit=` | 最近系统事件（1–100，默认 20） |
 | GET | `/swagger-ui` / `/api-docs/openapi.json` | Swagger UI / OpenAPI 3.1 文档 |
+| GET | `/api/v1/auth/steam/start` | 跳转 Steam OpenID 登录（`redirect` 为同源路径） |
+| GET | `/api/v1/auth/steam/callback` | OpenID 回调：校验断言、建立会话 Cookie |
+| GET | `/api/v1/auth/me` | 当前 Steam 会话（匿名返回 `authenticated: false`） |
+| POST | `/api/v1/auth/logout` | 退出登录（撤销服务端会话） |
+| POST | `/api/v1/game-servers/*` | CS:GO 插件心跳/玩家/成绩/Replay（服务器 Token） |
+| GET/POST | `/api/v1/admin/game-servers/*` | 服务器创建、启停、Token 轮换与同步详情（管理员会话/维护 Token） |
+| GET | `/api/v1/public/players/online` | 心跳正常服务器的真实在线玩家 |
+| GET/PATCH/POST | `/api/v1/admin/sources*` | 数据源状态、启停、手动同步、运行记录（管理员会话/维护 Token） |
+| GET | `/api/v1/admin/records/{id}/sources` | 成绩原始来源与去重审计（管理员会话/维护 Token） |
+
+## 登录与权限（第九阶段）
+
+- **只有 Steam 一种登录方式**：OpenID 2.0（`checkid_setup` → `check_authentication`），没有密码、邮箱或注册表单。
+- 会话为不透明随机 token，写入 `HttpOnly; SameSite=Lax; Secure(生产)` Cookie `cngokz_session`；数据库 `auth_sessions` 只保存其 SHA-256 摘要，退出登录立即撤销。
+- 管理员由 `account_roles(role='admin')` 决定，每次请求实时判定。所有 `/api/v1/admin/*` 只接受**管理员会话**或 `X-Maintenance-Token`（自动化用），其余返回 401/403。
+- 管理后台 `/admin/*` 由 `RequireAdmin` 守卫：未登录跳 `/admin/login`，已登录非管理员显示 403 页面，不会渲染控制台外壳。
+- 生产服务器无法直连 Steam 时有两种中转：配置 `STEAM_RELAY_URL` 复用现有 `cngokz-steam-auth` Worker（Worker 完成 OpenID 握手并用 KV 发一次性 token，`STEAM_API_KEY` 留在 Worker），或把 `STEAM_OPENID_ENDPOINT` 指向自建的纯代理 Worker。
+- 上线前用 `scripts/check-steam-relay.sh` 校验 Worker 的 `ALLOWED_CALLBACK_HOSTS` 是否包含本站域名，否则登录会静默失败。
+- 前端产物中不再包含任何维护令牌（原 `VITE_MAINTENANCE_TOKEN` 已移除）。
+- 完整设计、配置与中转部署见 [Steam 登录与管理员权限](docs/authentication.md)。
+
+## 公开玩家门户（第四阶段）
+
+- 统一前端 `apps/frontend` 作为唯一静态站点（`/`）；公开门户与管理后台由 React Router 在同一 SPA 中按 `/` 与 `/admin/` 区分。
+- 页面：首页（统计/模式 Top10/最近 20 条成绩/最近 WR/活跃玩家/在线服务器/全局搜索）、排行榜、玩家目录、玩家详情（综合/模式/难度进度/地图完成与未完成/成绩历史）、玩家比较（综合/模式/难度/逐地图）、地图列表与详情（课程/统计/排行榜）、成绩查询（多维筛选/排序/详情）、服务器列表。
+- 后端新增 `/api/v1/public/*` 只读接口（统计、模式、排行榜、玩家、地图、成绩、服务器、搜索），分页上限 100，统一响应结构并纳入 OpenAPI；SQL 聚合（`LATERAL` 最佳成绩、`RANK()`、`count(DISTINCT)`），避免 N+1。
+- Redis 缓存：统计 30s、排行榜 60s、最近成绩 15s、玩家/地图 30–120s；`public:version` 计数器可一次性失效；Redis 故障时 300ms 超时快速回源。
+- 数据准确性：完成地图以主线课程（stage 0）为准，Bonus 单独统计；完成时间（跑图时长）与上传时间严格区分。积分在第六阶段按 Filter 公式实现，详见 [docs/points-system.md](docs/points-system.md)。
+- 已知缺口：玩家头像、地图作者/封面、服务器玩家数/模式、WR 历史提升值、Replay 公开下载、动态 sitemap。详见 [公开门户架构](docs/public-portal/architecture.md#10-已知缺口与阶段-5-建议)。
+
+## 界面设计（第三阶段）
+
+- 默认深色主题，支持浅色与跟随系统；主题、侧边栏折叠状态持久化在浏览器。
+- 设计 token 集中在 `apps/frontend/src/styles/index.css`；公开组件在 `src/public/components`，管理组件在 `src/admin/components`。
+- 布局：240/64px 可折叠侧边栏 + 56px 顶栏（面包屑、页面搜索 ⌘K、通知、主题、账号）+ 1500px 内容区。
+- 已实现 15 个导航入口 + 2 个详情页、7 个导航分组；旧路径（`/kz/*`、`/data/*`）自动重定向。
+- 所有未实现接口的页面使用真实空状态与"接口未接入"说明，**不伪造统计或业务数据**；系统健康数据来自 `/api/v1/system/status` 与 `/api/v1/system/info`。
+- 详细规范见 [docs/design-system.md](docs/design-system.md)。
+
+## 数据模型（第二阶段）
+
+- 20 张新表（17 张业务表 + 3 张引用表）：`accounts`、`player_profiles`、`player_mode_stats`、`player_identities`、`maps`、`map_versions`、`map_courses`、`map_modes`、`course_tiers`、`servers`、`records`、`record_history`、`course_world_records`、`jumpstats`、`replays`、`bans`、`ban_revocations`，以及引用表 `movement_modes`、`movement_styles`、`jump_types`。
+- SteamID64 使用 `NUMERIC(20,0)`（避免 `BIGINT` 溢出）；成绩时间使用整数纳秒；TP/PRO 由传送次数通过 CHECK 强制推导；重复提交与 WR 并发更新均有数据库级约束。
+- 研究依据：GOKZ 3.8.0、cs2kz-api、csgo-legacy-globalapi-plugin 的真实源码与迁移（详见数据模型文档）。
 
 ## 文档
 
 - [架构说明](docs/architecture.md)
+- [设计系统](docs/design-system.md)
+- 公开门户：[架构](docs/public-portal/architecture.md) · [页面](docs/public-portal/pages.md) · [API 与数据方案](docs/public-portal/api-requirements.md) · [设计系统](docs/public-portal/design-system.md)
 - [开发指南](docs/development.md)
+- [Steam 登录与管理员权限](docs/authentication.md)
 - [部署指南](docs/deployment.md)
+- [数据库总览](docs/database/overview.md) / [ER 图](docs/database/er-diagram.md)
+- [Accounts](docs/database/accounts.md) · [Maps](docs/database/maps.md) · [Records](docs/database/records.md) · [Servers](docs/database/servers.md) · [Jumpstats](docs/database/jumpstats.md) · [Replays](docs/database/replays.md) · [Moderation](docs/database/moderation.md)
+- [GlobalAPI 兼容性分析](docs/globalapi-compatibility.md)
 - [开发记录（变更日志）](docs/changelog.md)
+
+## 第六阶段状态
+
+- 新增 Filter 积分系统：KZT / SKZ / VNL 完全独立，权威 `(map,course,mode)` 等级与 VNL T9 首通历史标签；积分公式、PB/WR/排名重算、玩家模式总分、Filter/模式积分榜、管理端点与前后端页面已实现。
+- 详见 [docs/points-system.md](docs/points-system.md) 与 [docs/phase6-audit.md](docs/phase6-audit.md)。
+- 积分/Rating 已按第六阶段规则实现；历史成绩 T9 回溯、封禁成绩排除、同成绩 tie-break 等仍为待确认事项。
+
+## 第五阶段状态
+
+- 完成审查（[docs/phase5-audit.md](docs/phase5-audit.md)）、统计口径统一、Redis 缓存硬化、公开接口限流、服务器四态、性能索引与 EXPLAIN 验证、静态路径安全、部署参数修正。
+- 积分算法已在第六阶段实现；管理后台认证在第九阶段升级为 Steam 会话 + admin 角色（保留维护令牌作为自动化通道）；Replay 下载、动态 sitemap 尚未实现。
+- Docker 启动因环境无 `docker` 命令未实际执行；其余构建、测试与端到端验证通过。
 
 ## 阶段状态
 
-第一阶段完成：项目骨架、管理后台 UI、健康检查、系统信息接口、数据库迁移、Redis 连接管理、OpenAPI 与类型化客户端、Docker 编排、基础测试与文档。
+**第一阶段（完成）**：项目骨架、管理后台 UI、健康检查、系统信息接口、数据库迁移机制、Redis 连接管理、OpenAPI 与类型化客户端、Docker 编排、基础测试与文档。
 
-未实现：KZ 业务接口与页面数据、认证与 API 密钥、系统设置读写、插件接入、监控告警。详见 `docs/changelog.md` 的验收记录。
+**第二阶段（完成）**：核心数据库架构（20 张新表 + 索引/约束）、Rust model 与 DTO 契约、GlobalAPI 字段映射与兼容性分析、数据库文档与 Mermaid ER 图、schema 集成测试（53 个后端测试全部通过）。
+
+**第三阶段（完成）**：完整设计系统（token/字体/间距/组件/动效/可访问性）、15 个路由页面与 7 个导航分组、可折叠侧边栏与移动抽屉、主题持久化、⌘K 页面搜索、命令行/弹窗/下拉/提示/分页/筛选等交互、真实系统健康状态展示、响应式与视觉回归验证。
+
+**第四阶段（完成）**：独立公开门户（首页/排行榜/玩家/玩家详情/比较/地图/地图详情/成绩/服务器）、`/api/v1/public/*` 只读 API（含 OpenAPI）、SQL 聚合与 Redis 缓存、SEO 基础配置（动态 meta、sitemap、robots）、响应式与真实数据端到端测试（54 个后端测试 + 26 个前端测试通过）。
+
+未实现（后续阶段）：成绩导入与审核、Replay 公开下载、动态 sitemap/SSR、通知与监控、管理员 API Key 自助管理。登录与管理员权限已在第九阶段完成（见上文）。详见 `docs/changelog.md`。
 
 ## 许可
 

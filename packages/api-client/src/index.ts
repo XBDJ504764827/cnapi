@@ -1,3 +1,27 @@
-export { createApiClient, type ApiClient, type ApiClientOptions } from './client';
+export {
+  createApiClient,
+  type ApiClient,
+  type ApiClientOptions,
+  type PublicActivePlayersQuery,
+  type PublicOnlinePlayersQuery,
+  type PublicCompareQuery,
+  type PublicLeaderboardQuery,
+  type PublicMapDetailQuery,
+  type PublicMapLeaderboardQuery,
+  type PublicMapListQuery,
+  type PublicPlayerDetailQuery,
+  type PublicPlayerListQuery,
+  type PublicPlayerMapsQuery,
+  type PublicPlayerRecordsQuery,
+  type PublicRecordQuery,
+  type PublicRecentRecordsQuery,
+  type PublicRecentWorldRecordsQuery,
+  type PublicServerQuery,
+  type PublicPlayerFilterPointsQuery,
+  type PublicPointsLeaderboardQuery,
+  type PublicFilterLeaderboardQuery,
+  type PublicAdminTiersQuery,
+  type PublicRecalcRunsQuery,
+} from './client';
 export { ApiClientError, isApiClientError, type ClientErrorCode } from './errors';
 export { request, unwrapResponse, type EnvelopeResult } from './request';

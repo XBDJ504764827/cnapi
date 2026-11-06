@@ -14,7 +14,7 @@ pnpm --filter @cngokz/shared-types gen:api
 echo "==> Type checking generated packages and the web app"
 pnpm --filter @cngokz/shared-types typecheck
 pnpm --filter @cngokz/api-client typecheck
-pnpm --filter @cngokz/web typecheck
+pnpm --filter @cngokz/frontend typecheck
 
 echo
 echo "Done. Review docs/openapi.json and packages/shared-types/src/generated/api-schema.d.ts"
