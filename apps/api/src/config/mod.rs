@@ -27,6 +27,9 @@ const DEFAULT_STEAM_CLAIMED_ID_PREFIX: &str = "https://steamcommunity.com/openid
 const DEFAULT_STEAM_API_BASE_URL: &str = "https://api.steampowered.com";
 const DEFAULT_SESSION_COOKIE_NAME: &str = "cngokz_session";
 const DEFAULT_SESSION_TTL_HOURS: u64 = 720;
+const DEFAULT_AVATAR_SYNC_INTERVAL_SECS: u64 = 21_600;
+const DEFAULT_AVATAR_REFRESH_DAYS: u32 = 7;
+const DEFAULT_AVATAR_SYNC_BATCHES: u32 = 10;
 
 /// Runtime environment of the service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +146,15 @@ pub struct AppConfig {
     /// SteamID64s granted the `admin` role automatically when they log in.
     /// Used to bootstrap the first administrator.
     pub admin_steam_ids: Vec<String>,
+
+    /// Background refresh of Steam personas/avatars into `player_profiles`.
+    pub avatar_sync_enabled: bool,
+    /// How often the avatar worker runs.
+    pub avatar_sync_interval: Duration,
+    /// Re-fetch an already synced player after this many days.
+    pub avatar_refresh_days: i32,
+    /// Batches of 100 players handled per worker tick.
+    pub avatar_sync_batches: u32,
 }
 
 impl AppConfig {
@@ -342,6 +354,28 @@ impl AppConfig {
             .filter(|value| !value.is_empty())
             .map(|value| value.trim_start_matches('.').to_owned());
         let admin_steam_ids = parse_admin_steam_ids(&vars)?;
+        let avatar_sync_enabled = parse_bool(&vars, "AVATAR_SYNC_ENABLED", true)?;
+        let avatar_sync_interval = Duration::from_secs(parse_u64(
+            &vars,
+            "AVATAR_SYNC_INTERVAL_SECS",
+            DEFAULT_AVATAR_SYNC_INTERVAL_SECS,
+            300,
+            86_400,
+        )?);
+        let avatar_refresh_days = parse_u32(
+            &vars,
+            "AVATAR_REFRESH_DAYS",
+            DEFAULT_AVATAR_REFRESH_DAYS,
+            1,
+            365,
+        )? as i32;
+        let avatar_sync_batches = parse_u32(
+            &vars,
+            "AVATAR_SYNC_BATCHES",
+            DEFAULT_AVATAR_SYNC_BATCHES,
+            1,
+            100,
+        )?;
 
         Ok(Self {
             env,
@@ -379,6 +413,10 @@ impl AppConfig {
             session_cookie_secure,
             session_cookie_domain,
             admin_steam_ids,
+            avatar_sync_enabled,
+            avatar_sync_interval,
+            avatar_refresh_days,
+            avatar_sync_batches,
         })
     }
 
@@ -450,6 +488,10 @@ impl fmt::Debug for AppConfig {
             .field("session_cookie_secure", &self.session_cookie_secure)
             .field("session_cookie_domain", &self.session_cookie_domain)
             .field("admin_steam_ids", &self.admin_steam_ids)
+            .field("avatar_sync_enabled", &self.avatar_sync_enabled)
+            .field("avatar_sync_interval", &self.avatar_sync_interval)
+            .field("avatar_refresh_days", &self.avatar_refresh_days)
+            .field("avatar_sync_batches", &self.avatar_sync_batches)
             .finish()
     }
 }

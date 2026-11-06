@@ -82,6 +82,7 @@ export function PlayerPicker({
                         <PlayerAvatar
                           steamId64={player.steam_id64}
                           displayName={player.display_name}
+                          avatarUrl={player.avatar_url}
                           size="sm"
                           linked={false}
                         />

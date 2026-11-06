@@ -108,11 +108,17 @@ fn parse_date(value: Option<&str>, field: &str) -> Result<Option<DateTime<Utc>>,
         .map_err(|_| AppError::validation(format!("`{field}` must be an RFC3339 timestamp")))
 }
 
-fn player_ref(account_id: i64, steam_id64: String, display_name: Option<String>) -> PlayerRef {
+fn player_ref(
+    account_id: i64,
+    steam_id64: String,
+    display_name: Option<String>,
+    avatar_url: Option<String>,
+) -> PlayerRef {
     PlayerRef {
         account_id,
         steam_id64,
         display_name: display_name.unwrap_or_else(|| "Unknown player".to_owned()),
+        avatar_url,
     }
 }
 
@@ -182,6 +188,7 @@ pub async fn leaderboard(
                 account_id: row.account_id,
                 steam_id64: row.steam_id64,
                 display_name: row.display_name,
+                avatar_url: row.avatar_url,
                 country: row.country,
                 completed_maps: row.completed_maps,
                 wr_count: row.wr_count,
@@ -252,6 +259,7 @@ pub async fn players(
                 account_id: row.account_id,
                 steam_id64: row.steam_id64,
                 display_name: row.display_name,
+                avatar_url: row.avatar_url,
                 country: row.country,
                 completed_maps: row.completed_maps,
                 wr_count: row.wr_count,
@@ -281,6 +289,7 @@ fn profile_dto(
         account_id: player.account_id,
         steam_id64: player.steam_id64.clone(),
         display_name: player.display_name(),
+        avatar_url: player.avatar_url.clone(),
         country: player.country.clone(),
         steam_profile_url: format!("https://steamcommunity.com/profiles/{}", player.steam_id64),
         first_record_at,
@@ -507,6 +516,7 @@ pub async fn player_records(
                 player.account_id,
                 player.steam_id64.clone(),
                 Some(player.display_name()),
+                player.avatar_url.clone(),
             ),
             items: rows.into_iter().map(record_summary_from_row).collect(),
             meta: PageMeta::from_total(total, page),
@@ -608,6 +618,7 @@ pub async fn player_maps(
                 player.account_id,
                 player.steam_id64.clone(),
                 Some(player.display_name()),
+                player.avatar_url.clone(),
             ),
             mode: mode.to_ref(),
             style: style.to_ref(),
@@ -625,12 +636,14 @@ async fn compare_side(
     steam_id64: &str,
     display_name: Option<String>,
     country: Option<String>,
+    avatar_url: Option<String>,
 ) -> Result<ComparePlayerSide, AppError> {
     let player = directory::PlayerLookupRow {
         account_id,
         steam_id64: steam_id64.to_owned(),
         display_name,
         country,
+        avatar_url,
     };
     let (overall, first_record_at, last_record_at) =
         overall_stats(state, account_id, None, None, None, false).await?;
@@ -683,6 +696,7 @@ pub async fn compare(state: &AppState, query: &CompareQuery) -> Result<CompareRe
             &left.steam_id64,
             left.display_name.clone(),
             left.country.clone(),
+            left.avatar_url.clone(),
         )
         .await?;
         let right_side = compare_side(
@@ -691,6 +705,7 @@ pub async fn compare(state: &AppState, query: &CompareQuery) -> Result<CompareRe
             &right.steam_id64,
             right.display_name.clone(),
             right.country.clone(),
+            right.avatar_url.clone(),
         )
         .await?;
 
@@ -992,7 +1007,12 @@ pub async fn active_players(
                 items: rows
                     .into_iter()
                     .map(|row| ActivePlayer {
-                        player: player_ref(row.account_id, row.steam_id64, row.display_name),
+                        player: player_ref(
+                            row.account_id,
+                            row.steam_id64,
+                            row.display_name,
+                            row.avatar_url,
+                        ),
                         records: row.records,
                         last_record_at: row.last_record_at,
                     })
@@ -1388,7 +1408,7 @@ pub async fn online_players(
         items: rows
             .into_iter()
             .map(|row| OnlinePlayerSummary {
-                player: player_ref(row.account_id, row.steam_id64, Some(row.display_name)),
+                player: player_ref(row.account_id, row.steam_id64, Some(row.display_name), None),
                 server_id: row.server_id,
                 server_name: row.server_name,
                 current_map_name: row.map_name,

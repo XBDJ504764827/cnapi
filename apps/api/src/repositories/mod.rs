@@ -7,6 +7,7 @@ pub mod health_repository;
 pub mod points;
 pub mod public;
 pub mod sources;
+pub mod steam_profiles;
 pub mod system_event_repository;
 
 pub use health_repository as health;

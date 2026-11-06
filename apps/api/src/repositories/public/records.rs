@@ -31,6 +31,7 @@ pub struct RecordRow {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
     pub map_id: i64,
     pub map_name: String,
     pub course_id: i64,
@@ -66,6 +67,7 @@ impl RecordRow {
                 display_name: self
                     .display_name
                     .unwrap_or_else(|| "Unknown player".to_owned()),
+                avatar_url: self.avatar_url,
             },
             map: MapRef {
                 id: self.map_id,
@@ -106,6 +108,7 @@ SELECT r.id,
        a.id AS account_id,
        a.steam_id64::text AS steam_id64,
        p.display_name,
+       p.avatar_url,
        m.id AS map_id,
        m.name AS map_name,
        c.id AS course_id,
@@ -328,6 +331,7 @@ pub async fn recent_world_records(
                a.id AS account_id,
                a.steam_id64::text AS steam_id64,
                p.display_name,
+               p.avatar_url,
                m.id AS map_id,
                m.name AS map_name,
                c.id AS course_id,
@@ -399,6 +403,7 @@ pub struct ActivePlayerRow {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
     pub records: i64,
     pub last_record_at: Option<DateTime<Utc>>,
 }
@@ -413,6 +418,7 @@ pub async fn active_players(
         SELECT a.id AS account_id,
                a.steam_id64::text AS steam_id64,
                p.display_name,
+               p.avatar_url,
                count(*)::bigint AS records,
                max(r.created_at) AS last_record_at
         FROM records r
@@ -421,7 +427,7 @@ pub async fn active_players(
         WHERE r.status = 'approved'
           AND r.deleted_at IS NULL
           AND r.created_at >= now() - make_interval(days => $1)
-        GROUP BY a.id, a.steam_id64, p.display_name
+        GROUP BY a.id, a.steam_id64, p.display_name, p.avatar_url
         ORDER BY records DESC, last_record_at DESC
         LIMIT $2
         "#,

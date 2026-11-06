@@ -2533,6 +2533,8 @@ export interface components {
         LeaderboardEntry: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）。后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             /** Format: int64 */
             completed_maps: number;
             country?: string | null;
@@ -3005,6 +3007,8 @@ export interface components {
         PlayerProfileDto: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）。后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             country?: string | null;
             display_name: string;
             /** Format: date-time */
@@ -3032,6 +3036,8 @@ export interface components {
         PlayerRef: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）。后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             display_name: string;
             /** @description Decimal string; SteamID64 exceeds JSON safe integer range. */
             steam_id64: string;
@@ -3051,6 +3057,8 @@ export interface components {
         PlayerSummary: {
             /** Format: int64 */
             account_id: number;
+            /** @description Steam 头像（medium，64×64）。后台同步填充前为 `null`。 */
+            avatar_url?: string | null;
             /** Format: int64 */
             completed_maps: number;
             country?: string | null;

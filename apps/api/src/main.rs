@@ -38,6 +38,11 @@ async fn main() -> anyhow::Result<()> {
     let source_worker = tokio::spawn(async move {
         cngokz_api::services::sources::run_worker(source_state, source_shutdown).await
     });
+    let avatar_shutdown = shutdown_tx.subscribe();
+    let avatar_state = state.clone();
+    let avatar_worker = tokio::spawn(async move {
+        cngokz_api::services::steam_profiles::run_worker(avatar_state, avatar_shutdown).await
+    });
     let router = routes::build_router(state.clone());
     let addr = config.socket_addr()?;
 
@@ -65,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
     let _ = shutdown_tx.send(true);
     let _ = tokio::time::timeout(std::time::Duration::from_secs(5), worker).await;
     let _ = tokio::time::timeout(std::time::Duration::from_secs(5), source_worker).await;
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), avatar_worker).await;
     state.db().close().await;
     info!("bye");
 

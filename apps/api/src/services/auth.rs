@@ -839,7 +839,7 @@ fn truncate(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
 }
 
-fn http_client() -> &'static reqwest::Client {
+pub(crate) fn http_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         // 20 秒是实测值：生产机到 Cloudflare 的往返在 0.7s~4s 之间波动，而且进程

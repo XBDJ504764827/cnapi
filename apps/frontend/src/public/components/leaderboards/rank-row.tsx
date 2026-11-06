@@ -39,7 +39,12 @@ export function RankRow({ entry, rank }: { entry: LeaderboardEntryPayload; rank:
       </div>
 
       <div className="flex min-w-0 items-center gap-2.5">
-        <PlayerAvatar steamId64={entry.steam_id64} displayName={entry.display_name} size="md" />
+        <PlayerAvatar
+          steamId64={entry.steam_id64}
+          displayName={entry.display_name}
+          avatarUrl={entry.avatar_url}
+          size="md"
+        />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <PlayerNameLink steamId64={entry.steam_id64} displayName={entry.display_name} className="text-[13px]" />

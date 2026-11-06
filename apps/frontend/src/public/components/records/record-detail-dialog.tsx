@@ -53,6 +53,7 @@ export function RecordDetailDialog({
                 <PlayerAvatar
                   steamId64={query.data.record.player.steam_id64}
                   displayName={query.data.record.player.display_name}
+                  avatarUrl={query.data.record.player.avatar_url}
                   size="md"
                 />
                 <div>

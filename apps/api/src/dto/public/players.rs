@@ -40,6 +40,8 @@ pub struct PlayerSummary {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: String,
+    /// Steam 头像（medium，64×64）。后台同步填充前为 `null`。
+    pub avatar_url: Option<String>,
     pub country: Option<String>,
     pub completed_maps: i64,
     pub wr_count: i64,
@@ -74,6 +76,8 @@ pub struct PlayerProfileDto {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: String,
+    /// Steam 头像（medium，64×64）。后台同步填充前为 `null`。
+    pub avatar_url: Option<String>,
     pub country: Option<String>,
     pub steam_profile_url: String,
     pub first_record_at: Option<DateTime<Utc>>,

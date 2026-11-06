@@ -12,7 +12,13 @@ export function ProfileHeader({ player }: { player: PlayerDetailPayload }) {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
-        <PlayerAvatar steamId64={profile.steam_id64} displayName={profile.display_name} size="lg" linked={false} />
+        <PlayerAvatar
+          steamId64={profile.steam_id64}
+          displayName={profile.display_name}
+          avatarUrl={profile.avatar_url}
+          size="lg"
+          linked={false}
+        />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{profile.display_name}</h1>

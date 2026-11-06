@@ -105,6 +105,7 @@ export function RecordTable({
                         <PlayerAvatar
                           steamId64={record.player.steam_id64}
                           displayName={record.player.display_name}
+                          avatarUrl={record.player.avatar_url}
                           size="sm"
                         />
                         <div className="min-w-0">

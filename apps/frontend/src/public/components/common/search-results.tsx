@@ -64,6 +64,7 @@ export function SearchResults({ query, onNavigate }: { query: string; onNavigate
                   <PlayerAvatar
                     steamId64={player.steam_id64}
                     displayName={player.display_name}
+                    avatarUrl={player.avatar_url}
                     linked={false}
                     size="sm"
                   />

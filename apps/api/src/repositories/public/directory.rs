@@ -87,6 +87,7 @@ pub struct PlayerLookupRow {
     pub steam_id64: String,
     pub display_name: Option<String>,
     pub country: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 impl PlayerLookupRow {
@@ -101,6 +102,7 @@ impl PlayerLookupRow {
             account_id: self.account_id,
             steam_id64: self.steam_id64.clone(),
             display_name: self.display_name(),
+            avatar_url: self.avatar_url.clone(),
         }
     }
 }
@@ -114,7 +116,8 @@ pub async fn find_player(
         SELECT a.id AS account_id,
                a.steam_id64::text AS steam_id64,
                p.display_name,
-               p.country
+               p.country,
+               p.avatar_url
         FROM accounts a
         LEFT JOIN player_profiles p ON p.account_id = a.id
         WHERE a.deleted_at IS NULL
@@ -204,7 +207,8 @@ pub async fn search_players(
         SELECT a.id AS account_id,
                a.steam_id64::text AS steam_id64,
                p.display_name,
-               p.country
+               p.country,
+               p.avatar_url
         FROM accounts a
         LEFT JOIN player_profiles p ON p.account_id = a.id
         WHERE a.deleted_at IS NULL

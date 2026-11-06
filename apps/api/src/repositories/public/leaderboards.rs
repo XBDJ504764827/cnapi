@@ -14,6 +14,7 @@ pub struct LeaderboardRow {
     pub account_id: i64,
     pub steam_id64: String,
     pub display_name: String,
+    pub avatar_url: Option<String>,
     pub country: Option<String>,
     pub completed_maps: i64,
     pub wr_count: i64,
@@ -48,6 +49,7 @@ fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
             SELECT a.id AS account_id,
                    a.steam_id64::text AS steam_id64,
                    COALESCE(p.display_name, 'Unknown player') AS display_name,
+                   p.avatar_url,
                    p.country,
                    (SELECT count(DISTINCT r.map_id)
                       FROM records r

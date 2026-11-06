@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 
-import { Avatar, AvatarFallback } from '@/public/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/public/components/ui/avatar';
 import { initials } from '@/public/lib/format';
 import { cn } from '@/public/lib/utils';
 
@@ -13,18 +13,22 @@ const sizes = {
 export function PlayerAvatar({
   steamId64,
   displayName,
+  avatarUrl,
   size = 'md',
   linked = true,
   className,
 }: {
   steamId64: string;
   displayName: string;
+  /** Steam 头像；为 `null`/`undefined` 时退回首字母。 */
+  avatarUrl?: string | null;
   size?: keyof typeof sizes;
   linked?: boolean;
   className?: string;
 }) {
   const avatar = (
     <Avatar className={cn(sizes[size], 'border-border', className)}>
+      {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} loading="lazy" /> : null}
       <AvatarFallback className="bg-surface-hover font-medium text-muted-foreground">
         {initials(displayName)}
       </AvatarFallback>

@@ -186,6 +186,7 @@ export function HomePage() {
                                   <PlayerAvatar
                                     steamId64={entry.steam_id64}
                                     displayName={entry.display_name}
+                                    avatarUrl={entry.avatar_url}
                                     size="sm"
                                   />
                                   <div className="min-w-0">
@@ -324,6 +325,7 @@ export function HomePage() {
                           <PlayerAvatar
                             steamId64={entry.player.steam_id64}
                             displayName={entry.player.display_name}
+                            avatarUrl={entry.player.avatar_url}
                             size="sm"
                           />
                           <PlayerNameLink

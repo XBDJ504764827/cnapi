@@ -97,6 +97,8 @@ pub struct PlayerRef {
     /// Decimal string; SteamID64 exceeds JSON safe integer range.
     pub steam_id64: String,
     pub display_name: String,
+    /// Steam 头像（medium，64×64）。后台同步填充前为 `null`。
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

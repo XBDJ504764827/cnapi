@@ -8,4 +8,5 @@ pub mod points;
 pub mod public;
 pub mod scoring;
 pub mod sources;
+pub mod steam_profiles;
 pub mod system;

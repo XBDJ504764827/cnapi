@@ -57,7 +57,12 @@ export function PlayersPage() {
       header: '玩家',
       cell: (row) => (
         <div className="flex items-center gap-2.5">
-          <PlayerAvatar steamId64={row.steam_id64} displayName={row.display_name} size="sm" />
+          <PlayerAvatar
+            steamId64={row.steam_id64}
+            displayName={row.display_name}
+            avatarUrl={row.avatar_url}
+            size="sm"
+          />
           <div className="min-w-0">
             <PlayerNameLink steamId64={row.steam_id64} displayName={row.display_name} />
             <p className="truncate font-mono text-[10px] text-muted-foreground">{row.steam_id64}</p>
