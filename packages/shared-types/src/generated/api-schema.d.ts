@@ -346,6 +346,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Idempotent: logging out twice still returns `logged_out: false` the second time.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current Steam session
+         * @description Anonymous callers receive `200` with `authenticated: false` so the SPA can render the logged-out state without a failed request.
+         */
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/steam/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Steam OpenID callback
+         * @description Verifies the assertion with Steam, creates the account when needed and sets the session cookie. Failures redirect back to the site with `?auth_error=<code>`.
+         */
+        get: operations["steam_callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/steam/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Steam OpenID login
+         * @description Redirects the browser to Steam. `redirect` must be a same-origin path and is where the browser lands after a successful login.
+         */
+        get: operations["steam_start"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/game-servers/config/sync": {
         parameters: {
             query?: never;
@@ -1385,6 +1465,23 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_AuthSessionResponse: {
+            /**
+             * @description Response of `GET /api/v1/auth/me`.
+             *
+             *     Anonymous callers get `200` with `authenticated: false` instead of `401`, so
+             *     the SPA can render the "log in" state without logging a network error.
+             */
+            data: {
+                authenticated: boolean;
+                /** Format: date-time */
+                expires_at?: string | null;
+                user?: components["schemas"]["AuthUserResponse"] | null;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_CompareResponse: {
             data: {
                 filter: string;
@@ -1506,6 +1603,15 @@ export interface components {
                 status: string;
                 /** Format: int64 */
                 uptime_seconds: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_LogoutResponse: {
+            /** @description Response of `POST /api/v1/auth/logout`. */
+            data: {
+                logged_out: boolean;
             };
             message: string;
             success: boolean;
@@ -2107,6 +2213,31 @@ export interface components {
             message: string;
             success: boolean;
         };
+        /**
+         * @description Response of `GET /api/v1/auth/me`.
+         *
+         *     Anonymous callers get `200` with `authenticated: false` instead of `401`, so
+         *     the SPA can render the "log in" state without logging a network error.
+         */
+        AuthSessionResponse: {
+            authenticated: boolean;
+            /** Format: date-time */
+            expires_at?: string | null;
+            user?: components["schemas"]["AuthUserResponse"] | null;
+        };
+        /** @description The signed-in Steam account. */
+        AuthUserResponse: {
+            /** Format: int64 */
+            account_id: number;
+            avatar_url?: string | null;
+            display_name: string;
+            /** @description `true` when the account holds the `admin` role. */
+            is_admin: boolean;
+            roles: string[];
+            /** @description Decimal string; a SteamID64 does not fit into a JSON number safely. */
+            steam_id64: string;
+            steam_profile_url: string;
+        };
         CompareBest: {
             completed: boolean;
             /**
@@ -2447,6 +2578,10 @@ export interface components {
             status: string;
             /** Format: int64 */
             uptime_seconds: number;
+        };
+        /** @description Response of `POST /api/v1/auth/logout`. */
+        LogoutResponse: {
+            logged_out: boolean;
         };
         MapCourseDto: {
             /** Format: int64 */
@@ -4239,6 +4374,92 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LogoutResponse"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AuthSessionResponse"];
+                };
+            };
+        };
+    };
+    steam_callback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect back to the site, with the session cookie on success */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    steam_start: {
+        parameters: {
+            query?: {
+                /** @description Same-origin path to return to after a successful login. */
+                redirect?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the Steam login page */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `redirect` is not a same-origin path */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

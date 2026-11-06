@@ -205,7 +205,7 @@ pub async fn admin_list(
     headers: HeaderMap,
     Query(query): Query<AdminServerQuery>,
 ) -> Result<Json<ApiResponse<AdminServerListResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_list(&state, &query).await?,
     )))
@@ -222,7 +222,7 @@ pub async fn admin_create(
     headers: HeaderMap,
     Json(request): Json<CreateServerRequest>,
 ) -> Result<Json<ApiResponse<CreateServerResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_create(&state, request).await?,
     )))
@@ -239,7 +239,7 @@ pub async fn admin_detail(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
 ) -> Result<Json<ApiResponse<AdminServerDetailResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_detail(&state, server_id).await?,
     )))
@@ -258,7 +258,7 @@ pub async fn admin_update(
     Path(server_id): Path<i64>,
     Json(request): Json<UpdateServerRequest>,
 ) -> Result<Json<ApiResponse<AdminServerSummary>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_update(&state, server_id, request).await?,
     )))
@@ -275,7 +275,7 @@ pub async fn admin_enable(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
 ) -> Result<Json<ApiResponse<ServerActionResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_set_enabled(&state, server_id, true).await?,
     )))
@@ -292,7 +292,7 @@ pub async fn admin_disable(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
 ) -> Result<Json<ApiResponse<ServerActionResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_set_enabled(&state, server_id, false).await?,
     )))
@@ -309,7 +309,7 @@ pub async fn admin_rotate_token(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
 ) -> Result<Json<ApiResponse<RotateTokenResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_rotate_token(&state, server_id).await?,
     )))
@@ -326,7 +326,7 @@ pub async fn admin_revoke_token(
     headers: HeaderMap,
     Path(server_id): Path<i64>,
 ) -> Result<Json<ApiResponse<ServerActionResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_revoke_token(&state, server_id).await?,
     )))
@@ -343,7 +343,7 @@ pub async fn admin_retry_task(
     headers: HeaderMap,
     Path(task_id): Path<i64>,
 ) -> Result<Json<ApiResponse<RetryTaskResponse>>, AppError> {
-    service::require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         service::admin_retry_task(&state, task_id).await?,
     )))

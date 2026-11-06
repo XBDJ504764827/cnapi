@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 
 import { AppProviders } from '@/providers';
+import { RequireAdmin } from '@/admin/components/auth/require-admin';
 import { PageLoading as AdminPageLoading } from '@/admin/components/common/page-loading';
 import { AppLayout } from '@/admin/layouts/app-layout';
 import { NotFoundPage as AdminNotFoundPage } from '@/admin/pages/not-found-page';
@@ -12,6 +13,7 @@ import { NotFoundPage as PublicNotFoundPage } from '@/public/pages/not-found-pag
 import { RouteErrorPage as PublicRouteErrorPage } from '@/public/pages/route-error-page';
 
 const Admin = {
+  Login: lazy(async () => ({ default: (await import('@/admin/pages/login-page')).LoginPage })),
   Dashboard: lazy(async () => ({ default: (await import('@/admin/pages/dashboard-page')).DashboardPage })),
   SystemStatus: lazy(async () => ({ default: (await import('@/admin/pages/system-status-page')).SystemStatusPage })),
   Points: lazy(async () => ({ default: (await import('@/admin/pages/points-page')).PointsPage })),
@@ -79,34 +81,47 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        // Sign-in lives outside the guarded tree: it has to render for
+        // anonymous visitors, and it never shows the console shell.
+        path: '/admin/login',
+        element: adminLazy(<Admin.Login />),
+        errorElement: <AdminRouteErrorPage />,
+      },
+      {
+        // Everything under `/admin` requires an authenticated administrator.
         path: '/admin',
-        element: <AppLayout />,
+        element: <RequireAdmin />,
         errorElement: <AdminRouteErrorPage />,
         children: [
-          { index: true, element: <Navigate to="/admin/dashboard" replace /> },
-          { path: 'dashboard', element: adminLazy(<Admin.Dashboard />) },
-          { path: 'system/status', element: adminLazy(<Admin.SystemStatus />) },
-          { path: 'points', element: adminLazy(<Admin.Points />) },
-          { path: 'points/tiers', element: adminLazy(<Admin.PointsTiers />) },
-          { path: 'points/recalc', element: adminLazy(<Admin.PointsRecalc />) },
-          { path: 'system/settings', element: adminLazy(<Admin.Settings />) },
-          { path: 'players', element: adminLazy(<Admin.Players />) },
-          { path: 'players/:playerId', element: adminLazy(<Admin.PlayerDetail />) },
-          { path: 'players/:playerId/points', element: adminLazy(<Admin.PlayerPoints />) },
-          { path: 'maps', element: adminLazy(<Admin.Maps />) },
-          { path: 'records', element: adminLazy(<Admin.Records />) },
-          { path: 'leaderboard', element: adminLazy(<Admin.Leaderboard />) },
-          { path: 'jumpstats', element: adminLazy(<Admin.Jumpstats />) },
-          { path: 'replays', element: adminLazy(<Admin.Replays />) },
-          { path: 'servers', element: adminLazy(<Admin.Servers />) },
-          { path: 'sources', element: adminLazy(<Admin.Sources />) },
-          { path: 'servers/:serverId', element: adminLazy(<Admin.ServerDetail />) },
-          { path: 'bans', element: adminLazy(<Admin.Bans />) },
-          { path: 'audit-logs', element: adminLazy(<Admin.AuditLogs />) },
-          { path: 'developer/api-keys', element: adminLazy(<Admin.ApiKeys />) },
-          { path: 'developer/api-docs', element: adminLazy(<Admin.ApiDocs />) },
-          { path: 'developer/request-logs', element: adminLazy(<Admin.RequestLogs />) },
-          { path: '*', element: <AdminNotFoundPage /> },
+          {
+            element: <AppLayout />,
+            children: [
+              { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+              { path: 'dashboard', element: adminLazy(<Admin.Dashboard />) },
+              { path: 'system/status', element: adminLazy(<Admin.SystemStatus />) },
+              { path: 'points', element: adminLazy(<Admin.Points />) },
+              { path: 'points/tiers', element: adminLazy(<Admin.PointsTiers />) },
+              { path: 'points/recalc', element: adminLazy(<Admin.PointsRecalc />) },
+              { path: 'system/settings', element: adminLazy(<Admin.Settings />) },
+              { path: 'players', element: adminLazy(<Admin.Players />) },
+              { path: 'players/:playerId', element: adminLazy(<Admin.PlayerDetail />) },
+              { path: 'players/:playerId/points', element: adminLazy(<Admin.PlayerPoints />) },
+              { path: 'maps', element: adminLazy(<Admin.Maps />) },
+              { path: 'records', element: adminLazy(<Admin.Records />) },
+              { path: 'leaderboard', element: adminLazy(<Admin.Leaderboard />) },
+              { path: 'jumpstats', element: adminLazy(<Admin.Jumpstats />) },
+              { path: 'replays', element: adminLazy(<Admin.Replays />) },
+              { path: 'servers', element: adminLazy(<Admin.Servers />) },
+              { path: 'sources', element: adminLazy(<Admin.Sources />) },
+              { path: 'servers/:serverId', element: adminLazy(<Admin.ServerDetail />) },
+              { path: 'bans', element: adminLazy(<Admin.Bans />) },
+              { path: 'audit-logs', element: adminLazy(<Admin.AuditLogs />) },
+              { path: 'developer/api-keys', element: adminLazy(<Admin.ApiKeys />) },
+              { path: 'developer/api-docs', element: adminLazy(<Admin.ApiDocs />) },
+              { path: 'developer/request-logs', element: adminLazy(<Admin.RequestLogs />) },
+              { path: '*', element: <AdminNotFoundPage /> },
+            ],
+          },
         ],
       },
     ],

@@ -1,17 +1,11 @@
 import { env } from '@/admin/lib/env';
 
-function token(): string | undefined {
-  const value = import.meta.env.VITE_MAINTENANCE_TOKEN as string | undefined;
-  return value?.trim() ? value.trim() : undefined;
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const value = token();
   const response = await fetch(`${env.VITE_API_BASE_URL}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(value ? { 'X-Maintenance-Token': value } : {}),
       ...(init?.headers as Record<string, string> | undefined),
     },
   });

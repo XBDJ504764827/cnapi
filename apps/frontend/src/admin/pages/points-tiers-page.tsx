@@ -14,8 +14,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { formatDateTime, formatNumber } from '@/admin/lib/format';
 import { pointsQueries } from '@/admin/services/points-service';
 
-const token = () => import.meta.env.VITE_MAINTENANCE_TOKEN ?? '';
-
 export function PointsTiersPage() {
   const [mode, setMode] = useState('all');
   const [page, setPage] = useState(1);
@@ -28,11 +26,10 @@ export function PointsTiersPage() {
 
   const saveTier = async () => {
     if (!editing) return;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token()) headers['X-Maintenance-Token'] = token();
     await fetch(`/api/v1/admin/points/tiers/${editing.mapId}/${editing.courseId}/${editing.modeId}`, {
       method: 'PATCH',
-      headers,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tier: Number(tier) }),
     });
     setEditing(null);
@@ -44,7 +41,7 @@ export function PointsTiersPage() {
       <PageHeader
         title="地图等级管理"
         description="等级按 map × course × mode 独立配置。修改等级会自动触发该模式下相关 Filter 重算。"
-        meta={<span>仅查看接口，修改需配置 VITE_MAINTENANCE_TOKEN</span>}
+        meta={<span>修改等级需要管理员登录</span>}
       />
 
       <Card className="overflow-hidden">

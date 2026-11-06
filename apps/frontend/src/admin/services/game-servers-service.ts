@@ -1,26 +1,16 @@
 import { env } from '@/admin/lib/env';
 
 /**
- * Phase 7 admin API access. The backend protects these routes with
- * `X-Maintenance-Token`; without `VITE_MAINTENANCE_TOKEN` the server returns
- * 401/403 and the UI shows the real error instead of pretending success.
+ * Phase 7 admin API access. The backend protects these routes with the Steam
+ * session cookie (admin role); an anonymous browser gets 401 and the UI shows
+ * the real error instead of pretending success.
  */
-function token(): string | undefined {
-  const value = import.meta.env.VITE_MAINTENANCE_TOKEN as string | undefined;
-  return value?.trim() ? value.trim() : undefined;
-}
-
-function headers(): Record<string, string> {
-  const value = token();
-  return value ? { 'X-Maintenance-Token': value } : {};
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${env.VITE_API_BASE_URL}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...headers(),
       ...(init?.headers as Record<string, string> | undefined),
     },
   });

@@ -16,6 +16,7 @@ use crate::state::AppState;
 /// Path map:
 /// - `/health`, `/health/live`, `/health/ready`
 /// - `/api/v1/system/{info,status,events}`
+/// - `/api/v1/auth/*` (Steam OpenID login, session, logout)
 /// - `/api/v1/game-servers/*` (server-token ingestion)
 /// - `/api/v1/admin/game-servers/*` (maintenance-token administration)
 /// - `/swagger-ui`, `/api-docs/openapi.json`
@@ -31,6 +32,7 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(handlers::health::router())
         .nest("/api/v1", handlers::system::router())
+        .nest("/api/v1", handlers::auth::router())
         .nest("/api/v1", handlers::points::router())
         .nest("/api/v1/game-servers", handlers::game_servers::router())
         .nest(

@@ -19,11 +19,19 @@ export interface ApiClientOptions {
 export function createApiClient({ baseUrl, fetch }: ApiClientOptions) {
   const http = createClient<paths>({
     baseUrl,
+    // Session cookies are HttpOnly; the browser only attaches them when the
+    // request is same-origin (`include` also covers a cross-origin API host).
+    credentials: 'include',
     ...(fetch ? { fetch } : {}),
   });
 
   return {
     http,
+    auth: {
+      /** Never throws for anonymous callers: the API answers `authenticated: false`. */
+      getSession: () => request(http.GET('/api/v1/auth/me')),
+      logout: () => request(http.POST('/api/v1/auth/logout')),
+    },
     health: {
       getHealth: () => request(http.GET('/health')),
       getLiveness: () => request(http.GET('/health/live')),

@@ -1,6 +1,7 @@
 //! Business logic layer. Services orchestrate repositories and turn failures
 //! into [`crate::errors::AppError`].
 
+pub mod auth;
 pub mod game_servers;
 pub mod health;
 pub mod points;

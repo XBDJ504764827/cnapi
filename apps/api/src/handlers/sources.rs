@@ -11,7 +11,6 @@ use crate::dto::response::{ApiErrorBody, ApiResponse};
 use crate::dto::source::*;
 use crate::errors::AppError;
 use crate::repositories::sources as repo;
-use crate::services::game_servers::require_maintenance_token;
 use crate::services::sources as service;
 use crate::state::AppState;
 
@@ -32,7 +31,7 @@ pub async fn list_sources(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<SourceListResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(SourceListResponse {
         items: repo::list_sources(state.db()).await?,
     })))
@@ -49,7 +48,7 @@ pub async fn update_source(
     Path(code): Path<String>,
     Json(request): Json<UpdateSourceRequest>,
 ) -> Result<Json<ApiResponse<SourceSummary>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let enabled = request.is_enabled.unwrap_or(true);
     repo::set_source_enabled(state.db(), &code, enabled)
         .await?
@@ -88,7 +87,7 @@ pub async fn list_runs(
     Path(code): Path<String>,
     Query(query): Query<SourceRunsQuery>,
 ) -> Result<Json<ApiResponse<SourceRunsResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let source = repo::find_source(state.db(), &code)
         .await?
         .ok_or_else(|| AppError::not_found("source"))?;
@@ -109,7 +108,7 @@ pub async fn trigger_sync(
     headers: HeaderMap,
     Path(code): Path<String>,
 ) -> Result<Json<ApiResponse<SourceSyncResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let source = repo::find_source(state.db(), &code)
         .await?
         .ok_or_else(|| AppError::not_found("source"))?;
@@ -138,7 +137,7 @@ pub async fn record_sources(
     headers: HeaderMap,
     Path(record_id): Path<i64>,
 ) -> Result<Json<ApiResponse<RecordProvenanceResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let sources = repo::record_provenance(state.db(), record_id).await?;
     if sources.is_empty() {
         return Err(AppError::not_found("record provenance"));
@@ -156,7 +155,7 @@ pub async fn list_external_servers(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<ExternalServerListResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let max_age = state.config().source_fallback_max_age.as_secs() as i64;
     let items = repo::list_external_servers(state.db(), max_age).await?;
     Ok(Json(ApiResponse::ok(ExternalServerListResponse {

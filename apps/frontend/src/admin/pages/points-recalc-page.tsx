@@ -12,8 +12,6 @@ import { Skeleton } from '@/admin/components/ui/skeleton';
 import { formatDateTime, formatNumber } from '@/admin/lib/format';
 import { pointsQueries } from '@/admin/services/points-service';
 
-const token = () => import.meta.env.VITE_MAINTENANCE_TOKEN ?? '';
-
 export function PointsRecalcPage() {
   const [filterId, setFilterId] = useState('');
   const [mode, setMode] = useState('KZT');
@@ -22,9 +20,7 @@ export function PointsRecalcPage() {
   const runs = useQuery(pointsQueries.runs(1, 20));
 
   const request = async (url: string) => {
-    const headers: Record<string, string> = {};
-    if (token()) headers['X-Maintenance-Token'] = token();
-    const response = await fetch(url, { method: 'POST', headers });
+    const response = await fetch(url, { method: 'POST', credentials: 'include' });
     const body = (await response.json()) as { message?: string; data?: { queued_filters?: number } };
     setMessage(
       response.ok
@@ -39,13 +35,13 @@ export function PointsRecalcPage() {
     <div className="space-y-5">
       <PageHeader
         title="积分重算管理"
-        description="查看待重算/失败任务与最近重算记录；单个 Filter 与单模式全量重算需要维护令牌。"
+        description="查看待重算/失败任务与最近重算记录；单个 Filter 与单模式全量重算需要管理员登录。"
       />
 
       <Callout
         variant="warning"
         title="权限说明"
-        description="管理员接口由 X-Maintenance-Token 保护；未配置 VITE_MAINTENANCE_TOKEN 时后端返回 403，页面不会伪装成功。"
+        description="管理接口由管理员会话 Cookie 保护；未以管理员身份登录时后端会返回 401/403，页面不会伪装成功。"
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

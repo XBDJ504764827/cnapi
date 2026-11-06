@@ -194,8 +194,8 @@ export function ServersPage() {
 
       <Callout
         variant="warning"
-        title="维护令牌与服务端 Token"
-        description="管理操作需要 VITE_MAINTENANCE_TOKEN。服务器 Token 只在创建或轮换时返回一次，数据库只保存 SHA-256 哈希。"
+        title="管理员权限与服务端 Token"
+        description="管理操作需要以管理员身份登录。服务器 Token 只在创建或轮换时返回一次，数据库只保存 SHA-256 哈希。"
       />
 
       {issuedToken ? (

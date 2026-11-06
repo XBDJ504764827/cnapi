@@ -9,6 +9,7 @@
 //! Rust values and the SQL constraint values cannot drift unnoticed.
 
 pub mod account;
+pub mod auth;
 pub mod dependency;
 pub mod jumpstat;
 pub mod map;

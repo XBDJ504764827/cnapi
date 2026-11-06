@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, Info, Settings } from 'lucide-react';
+import { BookOpen, ExternalLink, Info, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/admin/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/admin/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/admin/components/ui/avatar';
 import { Button } from '@/admin/components/ui/button';
 import {
   Dialog,
@@ -23,11 +23,15 @@ import {
 } from '@/admin/components/ui/dialog';
 import { useSystemInfo } from '@/admin/hooks/use-system-info';
 import { apiDocsUrl } from '@/admin/lib/env';
+import { useLogout, useSession, userInitials } from '@/auth/session';
 
-/** Account menu. Authentication is not implemented yet, so no fake logout. */
+/** Account menu of the console: the real Steam identity, never a placeholder. */
 export function UserMenu() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const infoQuery = useSystemInfo();
+  const sessionQuery = useSession();
+  const logout = useLogout();
+  const user = sessionQuery.data?.user;
 
   return (
     <>
@@ -35,16 +39,27 @@ export function UserMenu() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="账号菜单">
             <Avatar className="size-6 border-border">
-              <AvatarFallback className="bg-primary/15 text-[10px] font-semibold text-primary">KZ</AvatarFallback>
+              {user?.avatar_url ? <AvatarImage src={user.avatar_url} alt={user.display_name} /> : null}
+              <AvatarFallback className="bg-primary/15 text-[10px] font-semibold text-primary">
+                {userInitials(user)}
+              </AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="normal-case">
-            <span className="block text-[13px] font-medium tracking-normal text-foreground">本地管理员</span>
-            <span className="block text-[11px] font-normal tracking-normal text-muted-foreground">
-              认证系统尚未启用
+            <span className="block truncate text-[13px] font-medium tracking-normal text-foreground">
+              {user?.display_name ?? '未登录'}
             </span>
+            <span className="block truncate font-mono text-[11px] font-normal tracking-normal text-muted-foreground">
+              {user?.steam_id64 ?? '—'}
+            </span>
+            {user?.is_admin ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-normal tracking-normal text-primary">
+                <ShieldCheck className="size-3" />
+                管理员
+              </span>
+            ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
@@ -71,6 +86,16 @@ export function UserMenu() {
             <Info />
             关于 CNGOKZAPI
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              logout.mutate();
+            }}
+            disabled={logout.isPending}
+          >
+            <LogOut />
+            {logout.isPending ? '正在退出…' : '退出登录'}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -82,7 +107,7 @@ export function UserMenu() {
             </div>
             <DialogTitle>CNGOKZAPI</DialogTitle>
             <DialogDescription>
-              面向 CS:GO / CS2 KZ 社区的数据管理与 API 平台。当前为第三阶段：网站 UI/UX 设计与前端视觉重构。
+              面向 CS:GO / CS2 KZ 社区的数据管理与 API 平台。管理后台仅对持有 admin 角色的 Steam 账号开放。
             </DialogDescription>
           </DialogHeader>
 
@@ -98,6 +123,10 @@ export function UserMenu() {
             <div className="flex items-center justify-between gap-4">
               <dt className="text-muted-foreground">运行环境</dt>
               <dd className="font-mono">{infoQuery.data?.environment ?? '—'}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-muted-foreground">Steam 账号</dt>
+              <dd className="truncate font-mono">{user?.steam_id64 ?? '—'}</dd>
             </div>
           </dl>
 

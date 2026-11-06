@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
-const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:28080';
+const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8080';
 const proxyTo = Object.fromEntries(
   ['/api', '/health', '/swagger-ui', '/api-docs'].map((prefix) => [prefix, { target: apiTarget, changeOrigin: true }]),
 );

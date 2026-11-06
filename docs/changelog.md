@@ -18,6 +18,60 @@
 
 ---
 
+## 2026年11月06日 19时00分31秒 Steam OpenID 登录与管理员权限
+
+**背景**
+
+此前站点没有任何用户体系：公开门户完全匿名，管理后台只靠 `X-Maintenance-Token`，而该令牌被 `VITE_MAINTENANCE_TOKEN` 打进前端产物，任何拿到静态资源的人都能读出来。本次要求：登录只保留 Steam 一种方式；管理后台只有管理员可以访问；开发环境可直连 Steam，生产环境需要能通过 Cloudflare 中转完成登录。
+
+**变更内容**
+
+后端：
+
+- 新增迁移 `20261106000001_auth_steam_openid.sql`：`account_roles`（角色，当前仅 `admin`）、`auth_sessions`（不透明会话，只存 SHA-256 摘要）、`steam_login_states`（一次性 OpenID state），并为 `player_profiles` 增加 `avatar_url`。
+- 新增 `services/auth.rs`：OpenID 2.0 `checkid_setup` / `check_authentication`（dumb mode，后端不实现 RSA 签名校验），断言字段校验（`return_to` 精确匹配、`op_endpoint`、`claimed_id`↔`identity`、SteamID64 形状），会话建立/读取/续期/撤销，Cookie 构造，常量时间令牌比较，`require_admin` 统一鉴权入口。
+- 新增 `repositories/auth.rs`、`models/auth.rs`、`dto/auth.rs`、`handlers/auth.rs`，四条路由：`GET /api/v1/auth/steam/start`、`GET /api/v1/auth/steam/callback`、`GET /api/v1/auth/me`、`POST /api/v1/auth/logout`。
+- 所有 `/api/v1/admin/*` 与 `/api/v1/public/maintenance/*` 的鉴权从三份重复的 `require_maintenance_token` 改为 `services::auth::require_admin`：管理员会话 **或** 维护令牌，未登录 401、非管理员 403。
+- 配置新增：`PUBLIC_BASE_URL`、`STEAM_OPENID_ENDPOINT`、`STEAM_OPENID_BROWSER_ENDPOINT`、`STEAM_OPENID_OP_ENDPOINT`、`STEAM_OPENID_CLAIMED_ID_PREFIX`、`STEAM_API_KEY`、`STEAM_API_BASE_URL`、`SESSION_COOKIE_NAME`、`SESSION_TTL_HOURS`、`SESSION_COOKIE_SECURE`、`SESSION_COOKIE_DOMAIN`、`ADMIN_STEAM_IDS`；生产环境强制 `PUBLIC_BASE_URL` 为 https。
+- 登录时若配置了 `STEAM_API_KEY`，用 `ISteamUser/GetPlayerSummaries` 同步昵称与头像；失败只告警，不阻断登录。
+
+前端：
+
+- 新增 `src/auth/session.ts`：会话查询（`/auth/me`）、退出登录、登录 URL 构造、`auth_error` 文案映射。
+- 新增 `RequireAdmin` 路由守卫包裹整棵 `/admin` 树；新增 `/admin/login` 登录页与 403 页面；`/admin` 不再对匿名或非管理员渲染控制台外壳。
+- 公开门户顶栏的 `SteamLogin` 从“尚未启用”弹窗改为真实登录入口，登录后展示 Steam 头像/昵称与账号菜单；管理后台 `UserMenu` 展示真实账号、角色与退出登录。
+- API 客户端统一 `credentials: 'include'`，并新增 `auth.getSession` / `auth.logout`。
+- 移除 `VITE_MAINTENANCE_TOKEN`：删除 `points-service`、`game-servers-service`、`sources-service`、`points-recalc-page`、`points-tiers-page` 中的令牌注入与相关提示文案，`vite-env.d.ts` 同步删除声明。
+
+文档与部署：
+
+- 新增 `docs/authentication.md`（流程、数据模型、配置、授权规则、安全设计、Cloudflare 中转与上线检查清单）。
+- 新增 `deploy/cloudflare/steam-openid-relay.js`：Cloudflare Worker 中转示例（含 Location / Set-Cookie / HTML 改写）。
+- `.env.example`、`.env.production.example` 增加认证配置段；`README.md` 增加认证章节、API 表与文档链接。
+
+**涉及文件**
+
+- 新增：`apps/api/migrations/20261106000001_auth_steam_openid.sql`、`apps/api/src/{models,repositories,services,dto,handlers}/auth.rs`、`apps/api/tests/auth_flow.rs`、`apps/frontend/src/auth/session.ts`、`apps/frontend/src/auth/session.test.ts`、`apps/frontend/src/router/index.test.ts`、`apps/frontend/src/admin/components/auth/require-admin.tsx`、`apps/frontend/src/admin/components/auth/require-admin.test.tsx`、`apps/frontend/src/admin/pages/login-page.tsx`、`apps/frontend/src/admin/pages/forbidden-page.tsx`、`docs/authentication.md`、`deploy/cloudflare/steam-openid-relay.js`
+- 修改：`apps/api/src/config/mod.rs`、`apps/api/src/routes/{mod,openapi}.rs`、`apps/api/src/handlers/{mod,game_servers,points,public,sources}.rs`、`apps/api/src/services/game_servers.rs`、`apps/api/src/{models,repositories,services,dto}/mod.rs`、`Cargo.toml`、`Cargo.lock`、`apps/api/Cargo.toml`、`apps/frontend/src/router/index.tsx`、`apps/frontend/src/public/components/layout/steam-login.tsx`、`apps/frontend/src/admin/components/layout/user-menu.tsx`、`apps/frontend/src/admin/services/{points,game-servers,sources}-service.ts`、`apps/frontend/src/admin/pages/{points-recalc,points-tiers,servers}-page.tsx`、`apps/frontend/src/admin/vite-env.d.ts`、`packages/api-client/src/client.ts`、`docs/openapi.json`、`packages/shared-types/src/generated/api-schema.d.ts`、`.env.example`、`.env.production.example`、`README.md`
+
+**数据库与 API 变化**
+
+- 新表：`account_roles`、`auth_sessions`、`steam_login_states`；`player_profiles` 新增列 `avatar_url`。
+- 新接口：`/api/v1/auth/steam/start`、`/api/v1/auth/steam/callback`、`/api/v1/auth/me`、`/api/v1/auth/logout`（已纳入 OpenAPI，`docs/openapi.json` 与 TS 类型已重新生成）。
+- 破坏性变化：`/api/v1/admin/*` 不再接受“未配置维护令牌即返回 403 的开发模式”；未登录返回 401，非管理员返回 403。仍需 `X-Maintenance-Token` 的自动化脚本可继续使用该头。
+
+**测试与结果**
+
+- `cargo fmt --all`、`cargo clippy --all-targets --all-features -D warnings`：通过，无警告。
+- `cargo test --all-targets`（`DATABASE_URL` 指向本地 PostgreSQL）：96 个用例全部通过，其中新增 `tests/auth_flow.rs` 4 个用例（完整登录 round trip、非管理员 403、伪造断言不触达身份提供方、维护令牌仍可用）。
+- `pnpm -r format:check`、`pnpm --filter @cngokz/frontend lint`、`typecheck`：通过。
+- `pnpm --filter @cngokz/frontend test`：12 个测试文件 / 48 个用例通过（新增守卫 4 个、会话工具 6 个）。
+- `pnpm --filter @cngokz/frontend build`：通过。
+- 真实进程冒烟（临时库 + 本地 mock OpenID，非外网）：start 303 → callback 303 + `Set-Cookie`（`HttpOnly; SameSite=Lax`）→ `/auth/me` 返回管理员 → `/api/v1/admin/game-servers` 200 → 重放返回 `auth_error=invalid_state` → 退出登录后 401 → 开放重定向 400，全部符合预期；结束后已删除临时库与进程。
+- 未执行：真实 Steam 账号的浏览器登录（需要人工提供 Steam 凭据）与生产 Cloudflare Worker 部署验证。
+
+---
+
 ## 2026年11月06日 01时18分00秒 合并公开门户与管理后台为单一前端应用
 
 **背景**

@@ -990,6 +990,102 @@
         }
       }
     },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Log out",
+        "description": "Idempotent: logging out twice still returns `logged_out: false` the second time.",
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LogoutResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Current Steam session",
+        "description": "Anonymous callers receive `200` with `authenticated: false` so the SPA can render the logged-out state without a failed request.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AuthSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/steam/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Steam OpenID callback",
+        "description": "Verifies the assertion with Steam, creates the account when needed and sets the session cookie. Failures redirect back to the site with `?auth_error=<code>`.",
+        "operationId": "steam_callback",
+        "responses": {
+          "303": {
+            "description": "Redirect back to the site, with the session cookie on success"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/steam/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Start Steam OpenID login",
+        "description": "Redirects the browser to Steam. `redirect` must be a same-origin path and is where the browser lands after a successful login.",
+        "operationId": "steam_start",
+        "parameters": [
+          {
+            "name": "redirect",
+            "in": "query",
+            "description": "Same-origin path to return to after a successful login.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect to the Steam login page"
+          },
+          "400": {
+            "description": "`redirect` is not a same-origin path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/game-servers/config/sync": {
       "get": {
         "tags": [
@@ -4466,6 +4562,52 @@
           }
         }
       },
+      "ApiResponse_AuthSessionResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `GET /api/v1/auth/me`.\n\nAnonymous callers get `200` with `authenticated: false` instead of `401`, so\nthe SPA can render the \"log in\" state without logging a network error.",
+            "required": [
+              "authenticated"
+            ],
+            "properties": {
+              "authenticated": {
+                "type": "boolean"
+              },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "user": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/AuthUserResponse"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_CompareResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -4891,6 +5033,35 @@
                 "type": "integer",
                 "format": "int64",
                 "minimum": 0
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_LogoutResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "Response of `POST /api/v1/auth/logout`.",
+            "required": [
+              "logged_out"
+            ],
+            "properties": {
+              "logged_out": {
+                "type": "boolean"
               }
             }
           },
@@ -6954,6 +7125,79 @@
           }
         }
       },
+      "AuthSessionResponse": {
+        "type": "object",
+        "description": "Response of `GET /api/v1/auth/me`.\n\nAnonymous callers get `200` with `authenticated: false` instead of `401`, so\nthe SPA can render the \"log in\" state without logging a network error.",
+        "required": [
+          "authenticated"
+        ],
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "user": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuthUserResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AuthUserResponse": {
+        "type": "object",
+        "description": "The signed-in Steam account.",
+        "required": [
+          "account_id",
+          "steam_id64",
+          "display_name",
+          "is_admin",
+          "roles",
+          "steam_profile_url"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "description": "`true` when the account holds the `admin` role."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steam_id64": {
+            "type": "string",
+            "description": "Decimal string; a SteamID64 does not fit into a JSON number safely."
+          },
+          "steam_profile_url": {
+            "type": "string"
+          }
+        }
+      },
       "CompareBest": {
         "type": "object",
         "required": [
@@ -8048,6 +8292,18 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "description": "Response of `POST /api/v1/auth/logout`.",
+        "required": [
+          "logged_out"
+        ],
+        "properties": {
+          "logged_out": {
+            "type": "boolean"
           }
         }
       },

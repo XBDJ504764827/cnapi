@@ -213,11 +213,25 @@ scripts/gen-api.sh
 | GET | `/api/v1/system/status` | 依赖实时状态（200，含 degraded） |
 | GET | `/api/v1/system/events?limit=` | 最近系统事件（1–100，默认 20） |
 | GET | `/swagger-ui` / `/api-docs/openapi.json` | Swagger UI / OpenAPI 3.1 文档 |
+| GET | `/api/v1/auth/steam/start` | 跳转 Steam OpenID 登录（`redirect` 为同源路径） |
+| GET | `/api/v1/auth/steam/callback` | OpenID 回调：校验断言、建立会话 Cookie |
+| GET | `/api/v1/auth/me` | 当前 Steam 会话（匿名返回 `authenticated: false`） |
+| POST | `/api/v1/auth/logout` | 退出登录（撤销服务端会话） |
 | POST | `/api/v1/game-servers/*` | CS:GO 插件心跳/玩家/成绩/Replay（服务器 Token） |
-| GET/POST | `/api/v1/admin/game-servers/*` | 服务器创建、启停、Token 轮换与同步详情（维护 Token） |
+| GET/POST | `/api/v1/admin/game-servers/*` | 服务器创建、启停、Token 轮换与同步详情（管理员会话/维护 Token） |
 | GET | `/api/v1/public/players/online` | 心跳正常服务器的真实在线玩家 |
-| GET/PATCH/POST | `/api/v1/admin/sources*` | 数据源状态、启停、手动同步、运行记录（维护 Token） |
-| GET | `/api/v1/admin/records/{id}/sources` | 成绩原始来源与去重审计（维护 Token） |
+| GET/PATCH/POST | `/api/v1/admin/sources*` | 数据源状态、启停、手动同步、运行记录（管理员会话/维护 Token） |
+| GET | `/api/v1/admin/records/{id}/sources` | 成绩原始来源与去重审计（管理员会话/维护 Token） |
+
+## 登录与权限（第九阶段）
+
+- **只有 Steam 一种登录方式**：OpenID 2.0（`checkid_setup` → `check_authentication`），没有密码、邮箱或注册表单。
+- 会话为不透明随机 token，写入 `HttpOnly; SameSite=Lax; Secure(生产)` Cookie `cngokz_session`；数据库 `auth_sessions` 只保存其 SHA-256 摘要，退出登录立即撤销。
+- 管理员由 `account_roles(role='admin')` 决定，每次请求实时判定。所有 `/api/v1/admin/*` 只接受**管理员会话**或 `X-Maintenance-Token`（自动化用），其余返回 401/403。
+- 管理后台 `/admin/*` 由 `RequireAdmin` 守卫：未登录跳 `/admin/login`，已登录非管理员显示 403 页面，不会渲染控制台外壳。
+- 生产服务器无法直连 Steam 时，用 Cloudflare Worker 中转 OpenID 校验；浏览器侧与服务器侧端点可分别配置。
+- 前端产物中不再包含任何维护令牌（原 `VITE_MAINTENANCE_TOKEN` 已移除）。
+- 完整设计、配置与中转部署见 [Steam 登录与管理员权限](docs/authentication.md)。
 
 ## 公开玩家门户（第四阶段）
 
@@ -249,6 +263,7 @@ scripts/gen-api.sh
 - [设计系统](docs/design-system.md)
 - 公开门户：[架构](docs/public-portal/architecture.md) · [页面](docs/public-portal/pages.md) · [API 与数据方案](docs/public-portal/api-requirements.md) · [设计系统](docs/public-portal/design-system.md)
 - [开发指南](docs/development.md)
+- [Steam 登录与管理员权限](docs/authentication.md)
 - [部署指南](docs/deployment.md)
 - [数据库总览](docs/database/overview.md) / [ER 图](docs/database/er-diagram.md)
 - [Accounts](docs/database/accounts.md) · [Maps](docs/database/maps.md) · [Records](docs/database/records.md) · [Servers](docs/database/servers.md) · [Jumpstats](docs/database/jumpstats.md) · [Replays](docs/database/replays.md) · [Moderation](docs/database/moderation.md)
@@ -264,7 +279,7 @@ scripts/gen-api.sh
 ## 第五阶段状态
 
 - 完成审查（[docs/phase5-audit.md](docs/phase5-audit.md)）、统计口径统一、Redis 缓存硬化、公开接口限流、服务器四态、性能索引与 EXPLAIN 验证、静态路径安全、部署参数修正。
-- 积分算法已在第六阶段实现；管理后台认证仍只有维护令牌，服务器心跳上报、Replay 下载、动态 sitemap 尚未实现。
+- 积分算法已在第六阶段实现；管理后台认证在第九阶段升级为 Steam 会话 + admin 角色（保留维护令牌作为自动化通道）；Replay 下载、动态 sitemap 尚未实现。
 - Docker 启动因环境无 `docker` 命令未实际执行；其余构建、测试与端到端验证通过。
 
 ## 阶段状态
@@ -277,7 +292,7 @@ scripts/gen-api.sh
 
 **第四阶段（完成）**：独立公开门户（首页/排行榜/玩家/玩家详情/比较/地图/地图详情/成绩/服务器）、`/api/v1/public/*` 只读 API（含 OpenAPI）、SQL 聚合与 Redis 缓存、SEO 基础配置（动态 meta、sitemap、robots）、响应式与真实数据端到端测试（54 个后端测试 + 26 个前端测试通过）。
 
-未实现（后续阶段）：积分算法与积分榜、管理员认证/API Key、成绩导入与审核、服务器心跳采集（玩家数/模式）、Replay 公开下载、动态 sitemap/SSR、通知与监控。详见 `docs/changelog.md`。
+未实现（后续阶段）：成绩导入与审核、Replay 公开下载、动态 sitemap/SSR、通知与监控、管理员 API Key 自助管理。登录与管理员权限已在第九阶段完成（见上文）。详见 `docs/changelog.md`。
 
 ## 许可
 

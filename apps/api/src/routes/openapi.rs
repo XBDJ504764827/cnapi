@@ -3,6 +3,7 @@
 
 use utoipa::OpenApi;
 
+use crate::dto::auth as auth_dto;
 use crate::dto::game_server as server_dto;
 use crate::dto::points as points_dto;
 use crate::dto::public as public_dto;
@@ -39,7 +40,7 @@ use crate::dto::{
         SystemStatusResponse,
     },
 };
-use crate::handlers::{game_servers, health, points, public, sources, system};
+use crate::handlers::{auth, game_servers, health, points, public, sources, system};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -56,6 +57,10 @@ use crate::handlers::{game_servers, health, points, public, sources, system};
         system::info,
         system::status,
         system::events,
+        auth::steam_start,
+        auth::steam_callback,
+        auth::me,
+        auth::logout,
         public::statistics,
         public::modes,
         public::leaderboard,
@@ -133,6 +138,10 @@ use crate::handlers::{game_servers, health, points, public, sources, system};
         SystemEventResponse,
         SystemEventsResponse,
         RecentEventsQuery,
+        // Authentication
+        auth_dto::AuthUserResponse,
+        auth_dto::AuthSessionResponse,
+        auth_dto::LogoutResponse,
         // Public portal
         public_dto::PageMeta,
         public_dto::PlayerRef,

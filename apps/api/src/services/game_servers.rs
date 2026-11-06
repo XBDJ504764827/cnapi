@@ -65,28 +65,6 @@ pub async fn authenticate(
     Ok(server)
 }
 
-pub fn require_maintenance_token(
-    state: &AppState,
-    headers: &axum::http::HeaderMap,
-) -> Result<(), AppError> {
-    let Some(expected) = state.config().maintenance_token.as_deref() else {
-        return Err(AppError::Forbidden {
-            message: "game server administration is not configured".to_owned(),
-        });
-    };
-    let presented = headers
-        .get("x-maintenance-token")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    if presented == expected {
-        Ok(())
-    } else {
-        Err(AppError::Unauthorized {
-            message: "invalid maintenance token".to_owned(),
-        })
-    }
-}
-
 fn normalize_mode(value: &str) -> Result<&'static str, AppError> {
     match value.trim().to_ascii_uppercase().as_str() {
         "KZT" | "KZTIMER" => Ok("kztimer"),

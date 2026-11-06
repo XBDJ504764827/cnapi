@@ -25,8 +25,8 @@ pub fn router() -> Router<AppState> {
         )
         .route("/leaderboards/points/{mode}", get(mode_leaderboard))
         .route("/leaderboards/filters", get(filter_leaderboard))
-        // Protected administration. No full-recalc endpoint is exposed without
-        // the maintenance token; see `require_maintenance_token`.
+        // Protected administration: session cookie with the `admin` role, or
+        // the maintenance token for automation; see `services::auth::require_admin`.
         .route("/admin/points/status", get(points_status))
         .route("/admin/points/tiers", get(admin_tiers))
         .route(
@@ -40,25 +40,6 @@ pub fn router() -> Router<AppState> {
         )
         .route("/admin/points/recalc/mode/{mode}", post(recalc_mode))
         .route("/admin/points/initialize", post(initialize))
-}
-
-fn require_maintenance_token(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
-    let Some(expected) = state.config().maintenance_token.as_deref() else {
-        return Err(AppError::Forbidden {
-            message: "points administration is not configured".to_owned(),
-        });
-    };
-    let presented = headers
-        .get("x-maintenance-token")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    if presented == expected {
-        Ok(())
-    } else {
-        Err(AppError::Unauthorized {
-            message: "invalid maintenance token".to_owned(),
-        })
-    }
 }
 
 async fn find_account(state: &AppState, steamid: &str) -> Result<i64, AppError> {
@@ -149,7 +130,7 @@ pub async fn points_status(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<PointsSystemStatus>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         points_service::system_status(&state).await?,
     )))
@@ -163,7 +144,7 @@ pub async fn admin_tiers(
     headers: HeaderMap,
     Query(query): Query<AdminTiersQuery>,
 ) -> Result<Json<ApiResponse<AdminTiersResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let page = page_params(query.page, query.page_size)?;
     let mode_id = match query.mode.as_deref() {
         Some(code) => Some(
@@ -192,7 +173,7 @@ pub async fn update_tier(
     Path((map_id, course_id, mode_id)): Path<(i64, i64, i16)>,
     Json(body): Json<UpdateTierRequest>,
 ) -> Result<Json<ApiResponse<UpdateTierResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     if !(1..=8).contains(&body.tier) {
         return Err(AppError::validation("`tier` must be between 1 and 8"));
     }
@@ -214,7 +195,7 @@ pub async fn admin_recalc_runs(
     headers: HeaderMap,
     Query(query): Query<RecalcRunsQuery>,
 ) -> Result<Json<ApiResponse<RecalcRunsResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(
         points_service::recalc_runs(&state, page_params(query.page, query.page_size)?).await?,
     )))
@@ -228,7 +209,7 @@ pub async fn recalc_filter(
     headers: HeaderMap,
     Path(filter_id): Path<i64>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     if !recalc::mark_filter_dirty(state.db(), filter_id).await? {
         return Err(AppError::not_found("filter"));
     }
@@ -245,7 +226,7 @@ pub async fn recalc_mode(
     headers: HeaderMap,
     Path(mode): Path<String>,
 ) -> Result<Json<ApiResponse<RecalcResponse>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let mode = mode.to_ascii_uppercase();
     let mode_id = repo::scoring_mode_id(state.db(), &mode)
         .await?
@@ -264,7 +245,7 @@ pub async fn initialize(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let filters = recalc::initialize_existing(state.db()).await?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "initialized_filters": filters,

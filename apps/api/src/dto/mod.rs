@@ -2,6 +2,7 @@
 //! documented in the generated OpenAPI schema.
 
 pub mod account;
+pub mod auth;
 pub mod game_server;
 pub mod health;
 pub mod jumpstat;

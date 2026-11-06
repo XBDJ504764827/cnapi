@@ -55,6 +55,7 @@ pub fn router() -> Router<AppState> {
         .route("/servers", get(servers))
         .route("/servers/{id}", get(server_detail))
         // Protected maintenance endpoints (not part of the public contract).
+        // Guarded by `services::auth::require_admin`.
         .route(
             "/maintenance/cache/invalidate",
             axum::routing::post(invalidate_cache),
@@ -64,27 +65,6 @@ pub fn router() -> Router<AppState> {
 
 /// Shared maintenance token. When unset the endpoints are disabled in
 /// production; in development they are available for local cache verification.
-fn require_maintenance_token(
-    state: &AppState,
-    headers: &axum::http::HeaderMap,
-) -> Result<(), AppError> {
-    let Some(expected) = state.config().maintenance_token.as_deref() else {
-        return Err(AppError::Forbidden {
-            message: "cache maintenance is not configured".to_owned(),
-        });
-    };
-    let presented = headers
-        .get("x-maintenance-token")
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("");
-    if presented == expected {
-        Ok(())
-    } else {
-        Err(AppError::Unauthorized {
-            message: "invalid maintenance token".to_owned(),
-        })
-    }
-}
 
 #[utoipa::path(
     post,
@@ -102,7 +82,7 @@ pub async fn invalidate_cache(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     let invalidated = public_service::invalidate_cache(&state).await;
     // Warming is also best-effort: a cache miss will simply load from PostgreSQL.
     let warmed = if invalidated {
@@ -129,7 +109,7 @@ pub async fn cache_version(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    require_maintenance_token(&state, &headers)?;
+    crate::services::auth::require_admin(&state, &headers).await?;
     Ok(Json(ApiResponse::ok(serde_json::json!({
         "version": public_service::cache_version_value(&state).await,
     }))))
@@ -599,7 +579,6 @@ pub async fn search(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::config::AppConfig;
     use crate::state::{AppState, RedisClient};
     use axum::http::HeaderMap;
@@ -625,15 +604,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn maintenance_token_is_required_and_exact() {
+    async fn admin_gate_requires_a_session_or_the_exact_maintenance_token() {
+        use crate::services::auth::require_admin;
+
         let state = test_state(None);
         let mut headers = HeaderMap::new();
-        assert!(require_maintenance_token(&state, &headers).is_err());
+
+        // No cookie and no token: the caller has to log in first.
+        let error = require_admin(&state, &headers)
+            .await
+            .expect_err("anonymous");
+        assert_eq!(error.status_code(), axum::http::StatusCode::UNAUTHORIZED);
+
+        headers.insert(
+            "x-maintenance-token",
+            axum::http::HeaderValue::from_static("guess"),
+        );
+        assert!(require_admin(&state, &headers).await.is_err());
 
         headers.insert(
             "x-maintenance-token",
             axum::http::HeaderValue::from_static("expected-token"),
         );
-        assert!(require_maintenance_token(&state, &headers).is_ok());
+        let principal = require_admin(&state, &headers).await.expect("allowed");
+        assert!(principal.is_maintenance_token());
     }
 }
