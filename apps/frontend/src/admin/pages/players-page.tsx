@@ -1,95 +1,115 @@
-import { ArrowUpDown, FilterX, UserRound, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { FilterX, UserRound } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
 
 import { EmptyState } from '@/admin/components/common/empty-state';
 import { FilterBar, ListPanel } from '@/admin/components/common/list-panel';
 import { PageHeader } from '@/admin/components/common/page-header';
+import { PlayerCell } from '@/admin/components/common/player-cell';
 import { Badge } from '@/admin/components/ui/badge';
 import { Button } from '@/admin/components/ui/button';
-import { Callout } from '@/admin/components/ui/callout';
 import { DataTable, type DataTableColumn } from '@/admin/components/ui/data-table';
 import { Pagination } from '@/admin/components/ui/pagination';
 import { SearchInput } from '@/admin/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/admin/components/ui/select';
-import { Switch } from '@/admin/components/ui/switch';
-import { Avatar, AvatarFallback } from '@/admin/components/ui/avatar';
+import { useDebouncedValue } from '@/admin/hooks/use-debounced-value';
 import { useTableState } from '@/admin/hooks/use-table-state';
+import { formatDateTime, formatNumber } from '@/admin/lib/format';
 import { pageSizeOptions } from '@/admin/lib/kz-constants';
+import { directoryQueries } from '@/admin/services/directory-service';
+import type { components } from '@cngokz/shared-types';
 
-interface PlayerRow {
-  id: string;
-  displayName: string;
-  steamId64: string;
-  worldRecords: number;
-  points: number;
-  lastSeen: string;
-}
+type PlayerRow = components['schemas']['PlayerSummary'];
 
-/**
- * Players list. The read endpoint does not exist yet; filters, sorting and
- * pagination are interactive but the table shows an explicit empty state.
- */
+const sortOptions = [
+  { value: 'completion', label: '完成地图' },
+  { value: 'wr', label: '世界纪录' },
+  { value: 'records', label: '成绩数量' },
+  { value: 'recent', label: '最近活跃' },
+  { value: 'name', label: '昵称' },
+];
+
+const columns: DataTableColumn<PlayerRow>[] = [
+  {
+    id: 'player',
+    header: '玩家',
+    cell: (row) => <PlayerCell steamId64={row.steam_id64} displayName={row.display_name} avatarUrl={row.avatar_url} />,
+  },
+  {
+    id: 'rank',
+    header: '#',
+    cell: (row) =>
+      row.rank === null ? (
+        <span className="text-xs text-muted-foreground">—</span>
+      ) : (
+        <span className="font-mono text-xs tabular-nums">{row.rank}</span>
+      ),
+  },
+  {
+    id: 'completed',
+    header: '完成地图',
+    cell: (row) => <span className="tabular-nums">{formatNumber(row.completed_maps)}</span>,
+  },
+  {
+    id: 'wr',
+    header: 'WR',
+    cell: (row) =>
+      row.wr_count > 0 ? (
+        <Badge variant="success">{formatNumber(row.wr_count)}</Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">0</span>
+      ),
+  },
+  {
+    id: 'records',
+    header: '成绩',
+    cell: (row) => <span className="tabular-nums">{formatNumber(row.total_records)}</span>,
+  },
+  {
+    id: 'country',
+    header: '地区',
+    cell: (row) => <span className="font-mono text-xs text-muted-foreground">{row.country ?? '—'}</span>,
+  },
+  {
+    id: 'last',
+    header: '最后活跃',
+    cell: (row) => (
+      <span className="text-xs text-muted-foreground">
+        {row.last_activity_at ? formatDateTime(row.last_activity_at) : '—'}
+      </span>
+    ),
+  },
+];
+
+/** 玩家目录：读取公开只读接口 `/api/v1/public/players`。 */
 export function PlayersPage() {
-  const table = useTableState({ initialSort: { id: 'last_seen', direction: 'desc' } });
-  const [sortBy, setSortBy] = useState('last_seen');
-  const [onlyWithRecords, setOnlyWithRecords] = useState(false);
+  const table = useTableState();
+  const [sort, setSort] = useState('completion');
+  const search = useDebouncedValue(table.search);
+  const query = useQuery(
+    directoryQueries.players({
+      search: search || undefined,
+      sort,
+      page: table.page,
+      page_size: table.pageSize,
+    }),
+  );
 
-  const columns: DataTableColumn<PlayerRow>[] = [
-    {
-      id: 'player',
-      header: '玩家',
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <Avatar className="size-7">
-            <AvatarFallback>
-              <UserRound className="size-3.5" />
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium">{row.displayName}</p>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{row.steamId64}</p>
-          </div>
-        </div>
-      ),
-    },
-    { id: 'wr', header: 'WR', cell: (row) => <span className="tabular-nums">{row.worldRecords}</span> },
-    {
-      id: 'points',
-      header: '总积分',
-      cell: (row) => <span className="font-medium tabular-nums">{row.points.toLocaleString('zh-CN')}</span>,
-    },
-    {
-      id: 'lastSeen',
-      header: '最近活动',
-      cell: (row) => <span className="text-muted-foreground">{row.lastSeen}</span>,
-    },
-    {
-      id: 'actions',
-      header: '',
-      headerClassName: 'text-right',
-      className: 'text-right',
-      cell: (row) => (
-        <Button variant="ghost" size="xs" asChild>
-          <Link to={`/players/${row.steamId64}`}>详情</Link>
-        </Button>
-      ),
-    },
-  ];
-
-  const hasFilters = table.search.trim().length > 0 || onlyWithRecords || sortBy !== 'last_seen';
+  const items = query.data?.items ?? [];
+  const total = query.data?.meta.total ?? 0;
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="玩家列表"
-        description="检索 Steam 玩家档案、WR 数量与总积分。当前查询接口尚未接入，页面仅展示结构与空状态。"
-      />
-
-      <Callout
-        variant="info"
-        title="玩家查询接口尚未实现"
-        description="筛选、排序与分页状态已可交互；在玩家查询接口接入前，不会展示任何模拟玩家。"
+        title="玩家"
+        description="已登记的 Steam 玩家及其完成度、世界纪录与成绩总量。数据来自公开只读接口，与门户完全一致。"
+        meta={
+          query.data ? (
+            <span>
+              共 {formatNumber(total)} 名玩家 · 第 {query.data.meta.page} / {query.data.meta.total_pages} 页
+            </span>
+          ) : null
+        }
       />
 
       <ListPanel
@@ -101,10 +121,8 @@ export function PlayersPage() {
                 size="sm"
                 onClick={() => {
                   table.resetFilters();
-                  setSortBy('last_seen');
-                  setOnlyWithRecords(false);
+                  setSort('completion');
                 }}
-                disabled={!hasFilters}
               >
                 <FilterX />
                 重置
@@ -114,33 +132,28 @@ export function PlayersPage() {
             <SearchInput
               value={table.search}
               onChange={table.setSearch}
-              placeholder="搜索昵称或 SteamID64…"
+              placeholder="搜索昵称或 SteamID64"
               className="w-full sm:w-64"
-              aria-label="搜索玩家"
             />
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-40" aria-label="排序方式">
-                <ArrowUpDown className="size-3.5 text-muted-foreground" />
+            <Select value={sort} onValueChange={(value) => setSort(value)}>
+              <SelectTrigger className="w-36" aria-label="排序">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="last_seen">最近活动</SelectItem>
-                <SelectItem value="points">总积分</SelectItem>
-                <SelectItem value="wr">WR 数量</SelectItem>
-                <SelectItem value="steam_id">SteamID64</SelectItem>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Switch checked={onlyWithRecords} onCheckedChange={setOnlyWithRecords} aria-label="仅显示有 WR 的玩家" />
-              仅有 WR
-            </label>
           </FilterBar>
         }
         footer={
           <Pagination
             page={table.page}
             pageSize={table.pageSize}
-            total={0}
+            total={total}
             onPageChange={table.setPage}
             onPageSizeChange={table.setPageSize}
             pageSizeOptions={pageSizeOptions}
@@ -149,27 +162,27 @@ export function PlayersPage() {
       >
         <DataTable
           columns={columns}
-          rows={[]}
-          getRowKey={(row) => row.id}
-          minWidthClass="min-w-[860px]"
+          rows={items}
+          getRowKey={(row) => row.account_id}
+          isLoading={query.isLoading}
+          error={
+            query.isError
+              ? {
+                  title: '玩家列表读取失败',
+                  description: (query.error as Error).message,
+                  onRetry: () => void query.refetch(),
+                }
+              : null
+          }
           empty={
             <EmptyState
-              icon={Users}
-              title={hasFilters ? '没有匹配的玩家' : '暂无玩家数据'}
-              description={
-                hasFilters
-                  ? '当前搜索或筛选条件没有结果。可以重置筛选后再试。'
-                  : '玩家查询接口尚未实现，接入后会展示真实玩家、积分与最近活动。'
-              }
-              hint={hasFilters ? undefined : '玩家查询接口将在阶段 4 接入'}
+              icon={UserRound}
+              title="没有匹配的玩家"
+              description="换个搜索词，或等待游戏服务器上报新的玩家。"
             />
           }
         />
       </ListPanel>
-
-      <p className="text-[11px] text-muted-foreground">
-        提示：<Badge variant="outline">阶段 4</Badge> 将提供玩家分页查询、详情与成绩历史接口。
-      </p>
     </div>
   );
 }

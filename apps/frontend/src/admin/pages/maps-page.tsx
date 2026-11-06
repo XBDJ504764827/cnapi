@@ -1,4 +1,5 @@
-import { ArrowUpDown, FilterX, Map as MapIcon, MapPinned } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { FilterX, Map as MapIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { EmptyState } from '@/admin/components/common/empty-state';
@@ -6,108 +7,112 @@ import { FilterBar, ListPanel } from '@/admin/components/common/list-panel';
 import { PageHeader } from '@/admin/components/common/page-header';
 import { Badge } from '@/admin/components/ui/badge';
 import { Button } from '@/admin/components/ui/button';
-import { Callout } from '@/admin/components/ui/callout';
 import { DataTable, type DataTableColumn } from '@/admin/components/ui/data-table';
 import { Pagination } from '@/admin/components/ui/pagination';
 import { SearchInput } from '@/admin/components/ui/search-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/admin/components/ui/select';
+import { useDebouncedValue } from '@/admin/hooks/use-debounced-value';
 import { useTableState } from '@/admin/hooks/use-table-state';
-import { mapStatuses, pageSizeOptions } from '@/admin/lib/kz-constants';
+import { formatDateTime, formatNumber } from '@/admin/lib/format';
+import { pageSizeOptions, timeTypes } from '@/admin/lib/kz-constants';
+import { directoryQueries } from '@/admin/services/directory-service';
+import type { components } from '@cngokz/shared-types';
 
-interface MapRow {
-  id: number;
-  name: string;
-  workshopId: string | null;
-  status: string;
-  nubTier: number | null;
-  proTier: number | null;
-  records: number;
-}
+type MapRow = components['schemas']['MapSummary'];
 
-const statusMeta: Record<string, { label: string; variant: 'success' | 'warning' | 'outline' }> = {
-  approved: { label: '已上线', variant: 'success' },
-  in_testing: { label: '测试中', variant: 'warning' },
-  disabled: { label: '已停用', variant: 'outline' },
-};
+const sortOptions = [
+  { value: 'completions', label: '完成人数' },
+  { value: 'records', label: '成绩数量' },
+  { value: 'recent', label: '最近提交' },
+  { value: 'name', label: '地图名' },
+];
 
-export function MapsPage() {
-  const table = useTableState({ initialSort: { id: 'updated_at', direction: 'desc' } });
-  const [status, setStatus] = useState('all');
-  const [sortBy, setSortBy] = useState('updated_at');
+const tierOptions = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
-  const columns: DataTableColumn<MapRow>[] = [
-    {
-      id: 'map',
-      header: '地图',
-      cell: (row) => (
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface-elevated text-muted-foreground">
-            <MapIcon className="size-4" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium">{row.name}</p>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{row.workshopId ?? 'CS:GO 地图'}</p>
-          </div>
+const columns: DataTableColumn<MapRow>[] = [
+  {
+    id: 'map',
+    header: '地图',
+    cell: (row) => (
+      <div className="min-w-0">
+        <p className="truncate text-[13px] font-medium">{row.name}</p>
+        <p className="truncate font-mono text-[11px] text-muted-foreground">{row.slug}</p>
+      </div>
+    ),
+  },
+  {
+    id: 'tier',
+    header: '等级',
+    cell: (row) =>
+      row.tier === null ? (
+        <span className="text-xs text-muted-foreground">未评级</span>
+      ) : (
+        <Badge variant="outline">T{row.tier}</Badge>
+      ),
+  },
+  {
+    id: 'courses',
+    header: '课程',
+    cell: (row) => <span className="tabular-nums">{formatNumber(row.courses)}</span>,
+  },
+  {
+    id: 'players',
+    header: '完成人数',
+    cell: (row) => <span className="tabular-nums">{formatNumber(row.completed_players)}</span>,
+  },
+  {
+    id: 'records',
+    header: '成绩',
+    cell: (row) => <span className="tabular-nums">{formatNumber(row.records_count)}</span>,
+  },
+  {
+    id: 'wr',
+    header: '世界纪录',
+    cell: (row) =>
+      row.wr_time_seconds ? (
+        <div className="min-w-0">
+          <p className="font-mono text-xs tabular-nums">{Number(row.wr_time_seconds).toFixed(3)}s</p>
+          <p className="truncate text-[11px] text-muted-foreground">{row.wr_player_name ?? '—'}</p>
         </div>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
       ),
-    },
-    {
-      id: 'workshop',
-      header: 'Workshop ID',
-      cell: (row) => <span className="font-mono text-xs text-muted-foreground">{row.workshopId ?? '—'}</span>,
-    },
-    {
-      id: 'tier',
-      header: '难度 (NUB / PRO)',
-      cell: (row) =>
-        row.nubTier || row.proTier ? (
-          <span className="tabular-nums">
-            {row.nubTier ?? '—'} / {row.proTier ?? '—'}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">未评级</span>
-        ),
-    },
-    {
-      id: 'status',
-      header: '状态',
-      cell: (row) => (
-        <Badge variant={statusMeta[row.status]?.variant ?? 'outline'}>
-          {statusMeta[row.status]?.label ?? row.status}
-        </Badge>
-      ),
-    },
-    {
-      id: 'records',
-      header: '记录数',
-      cell: (row) => <span className="tabular-nums">{row.records.toLocaleString('zh-CN')}</span>,
-    },
-    {
-      id: 'actions',
-      header: '',
-      headerClassName: 'text-right',
-      className: 'text-right',
-      cell: () => (
-        <Button variant="ghost" size="xs" disabled title="地图详情接口尚未实现">
-          详情
-        </Button>
-      ),
-    },
-  ];
+  },
+  {
+    id: 'created',
+    header: '入库时间',
+    cell: (row) => <span className="text-xs text-muted-foreground">{formatDateTime(row.created_at)}</span>,
+  },
+];
 
-  const hasFilters = table.search.trim().length > 0 || status !== 'all' || sortBy !== 'updated_at';
+/** 地图列表：读取 `/api/v1/public/maps`。 */
+export function MapsPage() {
+  const table = useTableState();
+  const [sort, setSort] = useState('completions');
+  const [returnedTier, setTier] = useState('all');
+  const [timeType, setTimeType] = useState('all');
+  const search = useDebouncedValue(table.search);
+
+  const query = useQuery(
+    directoryQueries.maps({
+      search: search || undefined,
+      sort,
+      tier: returnedTier === 'all' ? undefined : Number(returnedTier),
+      time_type: timeType === 'all' ? undefined : timeType,
+      page: table.page,
+      page_size: table.pageSize,
+    }),
+  );
+
+  const items = query.data?.items ?? [];
+  const total = query.data?.meta.total ?? 0;
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="地图管理"
-        description="地图基础信息、Workshop ID、内容版本与 NUB/PRO 难度。列表接口尚未接入。"
-      />
-
-      <Callout
-        variant="info"
-        title="地图查询接口尚未实现"
-        description="地图、关卡与难度数据已在第二阶段建模，但读取接口尚未开发；页面暂不展示模拟地图。"
+        title="地图"
+        description="地图库、课程数量、完成人数与世界纪录。等级按所选时间类型维度展示。"
+        meta={query.data ? <span>共 {formatNumber(total)} 张地图</span> : null}
       />
 
       <ListPanel
@@ -119,10 +124,10 @@ export function MapsPage() {
                 size="sm"
                 onClick={() => {
                   table.resetFilters();
-                  setStatus('all');
-                  setSortBy('updated_at');
+                  setSort('completions');
+                  setTimeType('all');
+                  setTier('all');
                 }}
-                disabled={!hasFilters}
               >
                 <FilterX />
                 重置
@@ -132,34 +137,48 @@ export function MapsPage() {
             <SearchInput
               value={table.search}
               onChange={table.setSearch}
-              placeholder="搜索地图名称或 Workshop ID…"
-              className="w-full sm:w-64"
-              aria-label="搜索地图"
+              placeholder="搜索地图名"
+              className="w-full sm:w-56"
             />
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-32" aria-label="地图状态">
-                <MapPinned className="size-3.5 text-muted-foreground" />
+
+            <Select value={timeType} onValueChange={setTimeType}>
+              <SelectTrigger className="w-28" aria-label="时间类型">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
-                {mapStatuses.map((option) => (
+                <SelectItem value="all">全部类型</SelectItem>
+                {timeTypes.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-36" aria-label="排序方式">
-                <ArrowUpDown className="size-3.5 text-muted-foreground" />
+
+            <Select value={returnedTier} onValueChange={setTier}>
+              <SelectTrigger className="w-24" aria-label="等级">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="updated_at">最近更新</SelectItem>
-                <SelectItem value="name">地图名称</SelectItem>
-                <SelectItem value="tier">难度</SelectItem>
-                <SelectItem value="records">记录数</SelectItem>
+                <SelectItem value="all">全部等级</SelectItem>
+                {tierOptions.map((tier) => (
+                  <SelectItem key={tier} value={tier}>
+                    T{tier}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="w-32" aria-label="排序">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FilterBar>
@@ -168,7 +187,7 @@ export function MapsPage() {
           <Pagination
             page={table.page}
             pageSize={table.pageSize}
-            total={0}
+            total={total}
             onPageChange={table.setPage}
             onPageSizeChange={table.setPageSize}
             pageSizeOptions={pageSizeOptions}
@@ -177,20 +196,19 @@ export function MapsPage() {
       >
         <DataTable
           columns={columns}
-          rows={[]}
+          rows={items}
           getRowKey={(row) => row.id}
-          minWidthClass="min-w-[900px]"
-          empty={
-            <EmptyState
-              icon={MapIcon}
-              title={hasFilters ? '没有匹配的地图' : '暂无地图数据'}
-              description={
-                hasFilters
-                  ? '当前筛选条件没有结果，试试重置筛选。'
-                  : '地图查询接口尚未实现，接入后将展示 Workshop、难度与记录数量。'
-              }
-            />
+          isLoading={query.isLoading}
+          error={
+            query.isError
+              ? {
+                  title: '地图列表读取失败',
+                  description: (query.error as Error).message,
+                  onRetry: () => void query.refetch(),
+                }
+              : null
           }
+          empty={<EmptyState icon={MapIcon} title="没有匹配的地图" description="调整筛选条件或等待地图同步。" />}
         />
       </ListPanel>
     </div>
