@@ -45,8 +45,8 @@ pub const OPENID_IDENTIFIER_SELECT: &str = "http://specs.openid.net/auth/2.0/ide
 pub const LOGIN_CALLBACK_PATH: &str = "/api/v1/auth/steam/callback";
 /// How long a started login may stay unfinished.
 const LOGIN_STATE_TTL_MINUTES: i64 = 10;
-/// Outbound timeout for Steam (verification + profile lookup).
-const HTTP_TIMEOUT: Duration = Duration::from_secs(8);
+/// Outbound timeout for Steam / the relay (verification + profile lookup).
+const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
 /// Where failed logins land when the state nonce is already unusable.
 const LOGIN_ERROR_FALLBACK_PATH: &str = "/";
 
@@ -339,6 +339,10 @@ async fn complete_relay_login(
 
     let identity = match exchange_relay_token(config, token).await {
         Ok(identity) => identity,
+        // 中转不可达是「暂时性故障」，和「断言无效」要给用户不同的提示。
+        Err(error @ AppError::DependencyUnavailable { .. }) => {
+            return Err(reject("verification_failed", error));
+        }
         Err(error) => return Err(reject("invalid_assertion", error)),
     };
 
@@ -390,7 +394,7 @@ async fn exchange_relay_token(config: &AppConfig, token: &str) -> Result<RelayId
     url.query_pairs_mut().append_pair("token", token);
 
     let response = http_client().get(url).send().await.map_err(|error| {
-        warn!(error = %error, relay = %relay, "relay token exchange failed");
+        warn!(error = ?error, relay = %relay, "relay token exchange failed");
         AppError::DependencyUnavailable {
             dependency: "steam_relay",
         }
@@ -407,7 +411,7 @@ async fn exchange_relay_token(config: &AppConfig, token: &str) -> Result<RelayId
     }
 
     let body: RelayVerifyResponse = response.json().await.map_err(|error| {
-        warn!(error = %error, "relay verify response was not JSON");
+        warn!(error = ?error, "relay verify response was not JSON");
         AppError::DependencyUnavailable {
             dependency: "steam_relay",
         }
@@ -838,6 +842,9 @@ fn truncate(value: &str, max: usize) -> String {
 fn http_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
+        // 20 秒是实测值：生产机到 Cloudflare 的往返在 0.7s~4s 之间波动，而且进程
+        // 刚启动后第一次请求还要冷解析 DNS + 冷 TLS 握手。原来 8 秒会在这种抖动下
+        // 直接超时，导致中转换 token 失败、登录看起来「没反应」。
         reqwest::Client::builder()
             .timeout(HTTP_TIMEOUT)
             .user_agent(concat!("CNGOKZAPI/", env!("CARGO_PKG_VERSION")))

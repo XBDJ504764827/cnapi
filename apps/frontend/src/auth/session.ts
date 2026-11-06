@@ -45,7 +45,11 @@ export function useLogout() {
 
 /** Path of the current page, used as the post-login redirect target. */
 export function currentPath(): string {
-  return `${window.location.pathname}${window.location.search}`;
+  // 登录失败后地址栏会带 `?auth_error=…`，它不能进入下一次登录的 redirect，
+  // 否则会一路累积下去。
+  const url = new URL(window.location.href);
+  url.searchParams.delete('auth_error');
+  return `${url.pathname}${url.search}`;
 }
 
 /**

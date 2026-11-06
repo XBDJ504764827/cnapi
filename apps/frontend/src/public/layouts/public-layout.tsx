@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, ScrollRestoration, useLocation } from 'react-router';
 
+import { AuthErrorBanner } from '@/public/components/layout/auth-error-banner';
 import { SearchDialog } from '@/public/components/layout/search-dialog';
 import { SiteFooter } from '@/public/components/layout/site-footer';
 import { SiteHeader } from '@/public/components/layout/site-header';
@@ -31,6 +32,7 @@ export function PublicLayout() {
           跳转到主内容
         </a>
         <SiteHeader onOpenSearch={() => setSearchOpen(true)} />
+        <AuthErrorBanner />
         <main id="main-content" className="flex-1">
           <div key={pathname} className="page-enter">
             <Outlet />
