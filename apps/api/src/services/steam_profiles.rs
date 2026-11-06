@@ -12,7 +12,7 @@
 //! `AVATAR_SYNC_INTERVAL_SECS` 跑一轮，每轮最多 `AVATAR_SYNC_BATCHES × 100` 个
 //! 玩家，优先处理从未同步过的账号，已经同步过的每 `AVATAR_REFRESH_DAYS` 天刷新一次。
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::OnceLock, time::Duration};
 
 use serde::Deserialize;
 use tracing::{info, warn};
@@ -20,11 +20,19 @@ use tracing::{info, warn};
 use crate::config::AppConfig;
 use crate::errors::AppError;
 use crate::repositories::{auth as auth_repo, steam_profiles as repo};
-use crate::services::auth::http_client;
 use crate::state::AppState;
 
 /// Steam `GetPlayerSummaries` 与中转 `/profiles` 的公共上限。
 pub const BATCH_SIZE: usize = 100;
+
+/// 批量拉取单独用一个更宽裕的客户端。
+///
+/// 中转 Worker 收到一次 `/profiles` 后要替我们去请求 Steam，实测 3 个玩家就要
+/// 6.7 秒；100 个玩家时 20 秒（OpenID 校验用的超时）会在读响应体时中断。
+const PROFILE_HTTP_TIMEOUT: Duration = Duration::from_secs(45);
+/// 一轮拉取最多尝试次数：Cloudflare → Steam 这一段偶发抖动很常见。
+const PROFILE_ATTEMPTS: usize = 3;
+const PROFILE_RETRY_DELAY: Duration = Duration::from_secs(8);
 
 #[derive(Debug, Clone)]
 pub struct SteamProfileData {
@@ -47,15 +55,46 @@ pub async fn fetch_profiles(
         return Ok(Vec::new());
     }
     let config = state.config();
-    if config.steam_relay_url.is_some() {
-        fetch_from_relay(config, steam_ids).await
-    } else if config.steam_api_key.is_some() {
-        fetch_from_steam_api(config, steam_ids).await
-    } else {
-        Err(AppError::internal(anyhow::anyhow!(
+    if config.steam_relay_url.is_none() && config.steam_api_key.is_none() {
+        return Err(AppError::internal(anyhow::anyhow!(
             "neither STEAM_RELAY_URL nor STEAM_API_KEY is configured"
-        )))
+        )));
     }
+
+    let mut last_error = None;
+    for attempt in 1..=PROFILE_ATTEMPTS {
+        let result = if config.steam_relay_url.is_some() {
+            fetch_from_relay(config, steam_ids).await
+        } else {
+            fetch_from_steam_api(config, steam_ids).await
+        };
+        match result {
+            Ok(profiles) => return Ok(profiles),
+            Err(error) => {
+                warn!(attempt, "profile batch attempt failed");
+                last_error = Some(error);
+                if attempt < PROFILE_ATTEMPTS {
+                    tokio::time::sleep(PROFILE_RETRY_DELAY).await;
+                }
+            }
+        }
+    }
+    Err(
+        last_error.unwrap_or_else(|| AppError::DependencyUnavailable {
+            dependency: "steam_profile",
+        }),
+    )
+}
+
+fn profile_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(PROFILE_HTTP_TIMEOUT)
+            .user_agent(concat!("CNGOKZAPI/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .unwrap_or_default()
+    })
 }
 
 #[derive(Deserialize)]
@@ -95,7 +134,7 @@ async fn fetch_from_relay(
     url.query_pairs_mut()
         .append_pair("steamids", &steam_ids.join(","));
 
-    let response = http_client().get(url).send().await.map_err(|error| {
+    let response = profile_client().get(url).send().await.map_err(|error| {
         warn!(error = ?error, "relay profile fetch failed");
         AppError::DependencyUnavailable {
             dependency: "steam_relay",
@@ -184,7 +223,7 @@ async fn fetch_from_steam_api(
         .append_pair("key", key)
         .append_pair("steamids", &steam_ids.join(","));
 
-    let response = http_client().get(url).send().await.map_err(|error| {
+    let response = profile_client().get(url).send().await.map_err(|error| {
         warn!(error = ?error, "steam profile fetch failed");
         AppError::DependencyUnavailable {
             dependency: "steam_api",
