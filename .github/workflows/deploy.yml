@@ -1,17 +1,8 @@
 name: Deploy production (manual)
 
+# 手动点击 Run workflow：编译前后端 → 上传到服务器指定目录 → 重启后端服务。
 on:
   workflow_dispatch:
-    inputs:
-      component:
-        description: '选择要部署的内容'
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - frontend
-          - backend
 
 concurrency:
   group: deploy-production
@@ -20,68 +11,77 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "11.28.5"
+
 jobs:
-  preflight:
+  # ===== 分支守卫 =====
+  guard:
     name: Validate branch
     runs-on: ubuntu-latest
     steps:
-      - name: Require main or develop branch
+      - name: Require main or develop
         run: |
           case "${GITHUB_REF}" in
             refs/heads/main|refs/heads/develop) ;;
             *)
-              echo "Production deploy is only allowed from main or develop (current: ${GITHUB_REF})." >&2
+              echo "::error::Production deploy is only allowed from main or develop (current: ${GITHUB_REF})."
               exit 1
               ;;
           esac
 
+  # ===== 前端构建 =====
   build-frontend:
     name: Build frontend
-    needs: [preflight]
-    if: inputs.component == 'frontend' || inputs.component == 'all'
+    needs: [guard]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: 11.28.5
+          version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm -r typecheck
+
       - name: Build unified frontend
         env:
-          VITE_SITE_URL: https://test.cngokz.com
-        run: |
-          pnpm --filter @cngokz/frontend build
-
-      - name: Collect frontend files
-        run: |
-          mkdir -p frontend-out
-          cp -a apps/frontend/dist/. frontend-out/
+          VITE_SITE_URL: ${{ vars.SITE_URL || 'https://test.cngokz.com' }}
+        run: pnpm --filter @cngokz/frontend build
 
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-output
-          path: frontend-out
+          name: frontend-dist
+          path: apps/frontend/dist
           retention-days: 1
 
+  # ===== 后端构建 =====
   build-backend:
     name: Build backend
-    needs: [preflight]
-    if: inputs.component == 'backend' || inputs.component == 'all'
+    needs: [guard]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -100,155 +100,155 @@ jobs:
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-output
+          name: backend-bin
           path: target/release/cngokz-api
           retention-days: 1
 
-  deploy-frontend:
-    name: Deploy frontend
-    needs: [build-frontend]
-    if: inputs.component == 'frontend' || inputs.component == 'all'
+  # ===== 部署 =====
+  # 前端与后端在同一个 job 内顺序执行，保证「上传完成 → 再重启服务」。
+  deploy:
+    name: Upload and restart
+    needs: [build-frontend, build-backend]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+      # 服务器上的站点目录（可被仓库变量 DEPLOY_PATH 覆盖）
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      # systemd 服务名（可被仓库变量 DEPLOY_SERVICE 覆盖）
+      DEPLOY_SERVICE: ${{ vars.DEPLOY_SERVICE }}
+      # 重启后的健康检查地址，留空用默认值
+      DEPLOY_HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
         with:
-          name: frontend-output
-          path: frontend-out
+          name: frontend-dist
+          path: dist
 
-      - name: Setup SSH
-        env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
-          : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
-          PORT="${DEPLOY_PORT:-22}"
-          mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-
-      - name: Upload frontend files
-        env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-        run: |
-          set -euo pipefail
-          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
-          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
-          PORT="${DEPLOY_PORT:-22}"
-          ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
-
-          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
-            "mkdir -p '$ROOT'"
-
-          # Do not use --delete here: the same directory also contains
-          # bin/cngokz-api and .env.
-          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
-            "rm -rf '$ROOT/assets' '$ROOT/public' '$ROOT/admin' '$ROOT/index.html' '$ROOT/robots.txt' '$ROOT/sitemap.xml'"
-          rsync -az -e "ssh $SSH_OPTS" \
-            frontend-out/ "$DEPLOY_USER@$DEPLOY_HOST:$ROOT/"
-
-      - name: Reload Nginx
-        env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
-        run: |
-          set -euo pipefail
-          PORT="${DEPLOY_PORT:-22}"
-          ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
-          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
-            "ROOT='$ROOT' bash -s" <<'REMOTE'
-          set -euo pipefail
-          run_root() {
-            if [ "$(id -u)" -eq 0 ]; then
-              "$@"
-            else
-              sudo -n "$@"
-            fi
-          }
-          run_root chmod -R a+rX "$ROOT"
-          run_root nginx -t
-          run_root systemctl reload nginx
-          REMOTE
-
-  deploy-backend:
-    name: Deploy backend
-    needs: [build-backend]
-    if: inputs.component == 'backend' || inputs.component == 'all'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
         with:
-          name: backend-output
+          name: backend-bin
           path: backend-bin
 
       - name: Setup SSH
         env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
-          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
-          : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
+          : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
+          : "${DEPLOY_USER:?missing repository variable DEPLOY_USER}"
+          : "${DEPLOY_SSH_KEY:?missing repository secret DEPLOY_SSH_KEY}"
           PORT="${DEPLOY_PORT:-22}"
           mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          # 从 Windows 粘贴的 secret 常带 CRLF，OpenSSH 会解析失败并静默退回密码认证。
+          printf '%s\n' "$DEPLOY_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
+            || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
 
-      - name: Upload and install backend
-        env:
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
+               -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
+            echo "::error::SSH authentication failed for $DEPLOY_USER@$DEPLOY_HOST:$PORT"
+            echo "  * 公钥需在 $DEPLOY_USER 的 ~/.ssh/authorized_keys（root 则是 /root/.ssh/authorized_keys）"
+            echo "  * 家目录与 .ssh 不能被 group/other 写（StrictModes），属主必须是该用户或 root"
+            echo "  * secret 需包含完整私钥（含 BEGIN/END 行）"
+            exit 1
+          fi
+
+      - name: Upload frontend
         run: |
           set -euo pipefail
-          : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
-          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
           PORT="${DEPLOY_PORT:-22}"
-          APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
-          SERVICE=cngokz-api
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          APP_DIR="${DEPLOY_PATH:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}"
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
 
-          scp $SSH_OPTS backend-bin/cngokz-api \
-            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/cngokz-api-${{ github.sha }}"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$APP_DIR'"
 
-          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR='$APP_DIR' SERVICE='$SERVICE' FILE='/tmp/cngokz-api-${{ github.sha }}' bash -s" <<'REMOTE'
+          # --delete 清理旧资源，但保留 bin/ 与 .env（它们和静态文件同目录）。
+          rsync -az --delete \
+            --exclude 'bin/' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude '.git*' \
+            -e "$SSH" dist/ "$DEPLOY_USER@$DEPLOY_HOST:$APP_DIR/"
+
+      - name: Upload backend and restart service
+        run: |
+          set -euo pipefail
+          PORT="${DEPLOY_PORT:-22}"
+          APP_DIR="${DEPLOY_PATH:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}"
+          SERVICE="${DEPLOY_SERVICE:-cngokz-api}"
+          HEALTH="${DEPLOY_HEALTH_URL:-http://127.0.0.1:28080/health/ready}"
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
+
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$APP_DIR/bin'"
+
+          # 先落到 bin/cngokz-api.upstream，再原子替换，避免覆盖正在运行的二进制。
+          rsync -az -e "$SSH" backend-bin/cngokz-api \
+            "$DEPLOY_USER@$DEPLOY_HOST:$APP_DIR/bin/cngokz-api.upstream"
+
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR='$APP_DIR' SERVICE='$SERVICE' HEALTH='$HEALTH' bash -s" <<'REMOTE'
           set -euo pipefail
           run_root() {
-            if [ "$(id -u)" -eq 0 ]; then
-              "$@"
-            else
-              sudo -n "$@"
-            fi
+            if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi
           }
-          test -f "$APP_DIR/.env"
-          test -x "$APP_DIR/bin/cngokz-api"
-          run_root cp -a "$APP_DIR/bin/cngokz-api" "$APP_DIR/bin/cngokz-api.prev"
-          run_root install -m 0755 "$FILE" "$APP_DIR/bin/cngokz-api"
+
+          if [ ! -f "$APP_DIR/.env" ]; then
+            echo "::error::$APP_DIR/.env 不存在，服务无法启动。"
+            echo "首次部署请先创建 .env（参考 .env.production.example）后再重跑。"
+            exit 1
+          fi
+
+          # 记录上一次的版本用于失败回滚
+          if [ -x "$APP_DIR/bin/cngokz-api" ]; then
+            run_root cp -a "$APP_DIR/bin/cngokz-api" "$APP_DIR/bin/cngokz-api.prev"
+          fi
+
+          run_root install -m 0755 "$APP_DIR/bin/cngokz-api.upstream" "$APP_DIR/bin/cngokz-api"
+          run_root rm -f "$APP_DIR/bin/cngokz-api.upstream"
+
+          echo "==> systemctl restart $SERVICE"
           run_root systemctl restart "$SERVICE"
 
-          healthy=0
-          for _ in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:28080/health/ready >/dev/null 2>&1; then
-              healthy=1
-              break
+          # 等待健康检查通过（最多 30 秒）
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 2 "$HEALTH" >/dev/null 2>&1; then
+              echo "==> backend healthy after ${i}s"
+              exit 0
             fi
             sleep 1
           done
-          if [ "$healthy" -ne 1 ]; then
-            run_root systemctl status "$SERVICE" --no-pager >&2 || true
-            echo "backend health check failed" >&2
-            exit 1
+
+          echo "::error::$SERVICE 启动后健康检查失败，正在回滚到上一版本"
+          run_root journalctl -u "$SERVICE" -n 50 --no-pager || true
+          if [ -f "$APP_DIR/bin/cngokz-api.prev" ]; then
+            run_root cp -a "$APP_DIR/bin/cngokz-api.prev" "$APP_DIR/bin/cngokz-api"
+            run_root systemctl restart "$SERVICE" || true
           fi
-          echo "backend deployed"
+          exit 1
           REMOTE
+
+      - name: Verify site
+        if: vars.SITE_URL != ''
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 10 "${{ vars.SITE_URL }}/api/v1/system/info" > /dev/null
+          echo "==> ${{ vars.SITE_URL }} is responding"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deploy finished"
+            echo ""
+            echo "| item | value |"
+            echo "| --- | --- |"
+            echo "| commit | \`${GITHUB_SHA::7}\` |"
+            echo "| host | \`$DEPLOY_HOST\` |"
+            echo "| path | \`${DEPLOY_PATH:-/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi}\` |"
+            echo "| service | \`${DEPLOY_SERVICE:-cngokz-api}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
