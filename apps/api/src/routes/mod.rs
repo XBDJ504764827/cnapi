@@ -17,6 +17,7 @@ use crate::state::AppState;
 /// - `/health`, `/health/live`, `/health/ready`
 /// - `/api/v1/system/{info,status,events}`
 /// - `/api/v1/auth/*` (Steam OpenID login, session, logout)
+/// - `/api/v1/admin/sources*` (maintenance-token / admin-session administration)
 /// - `/api/v1/game-servers/*` (server-token ingestion)
 /// - `/api/v1/admin/game-servers/*` (maintenance-token administration)
 /// - `/swagger-ui`, `/api-docs/openapi.json`
@@ -39,6 +40,10 @@ pub fn build_router(state: AppState) -> Router {
             "/api/v1/admin/game-servers",
             handlers::game_servers::admin_router(),
         )
+        // Phase 8 的数据源管理（/sources、/records/{id}/sources、/external-servers）。
+        // 之前只写了 handler 与 OpenAPI 条目，却漏了挂载，导致管理后台「数据源」页
+        // 拿到的是 404 而不是 401/403。
+        .nest("/api/v1/admin", handlers::sources::router())
         .nest("/api/v1/public", handlers::public::router())
         .merge(swagger)
         .fallback(not_found)
