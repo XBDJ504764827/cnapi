@@ -122,6 +122,17 @@ jobs:
       # 重启后的健康检查地址，留空用默认值
       DEPLOY_HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
     steps:
+      # 让每次运行的日志第一屏就能确认跑的是哪个提交，避免「Re-run all jobs」
+      # 悄悄复用旧版本的 workflow。
+      - name: Run context
+        run: |
+          echo "workflow : ${GITHUB_WORKFLOW}"
+          echo "commit   : ${GITHUB_SHA}"
+          echo "ref      : ${GITHUB_REF}"
+          echo "actor    : ${GITHUB_ACTOR}"
+          echo "marker   : deploy-v2 (reachability probe + rollback)"
+          echo "注意：如果本步骤不存在，说明重跑了旧提交，请用 Run workflow 重新触发。"
+
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
@@ -134,12 +145,50 @@ jobs:
           name: backend-bin
           path: backend-bin
 
+      # 先确认 TCP 能通：超时（而不是密钥被拒）说明是网络/防火墙层的问题。
+      - name: Check reachability
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
+          PORT="${DEPLOY_PORT:-22}"
+
+          echo "runner egress IP : $(curl -fsS --max-time 10 https://api.ipify.org || echo unknown)"
+          echo "resolved address : $(getent hosts "$DEPLOY_HOST" | head -1 || echo 'DNS lookup failed')"
+
+          probe() { timeout 10 bash -c "</dev/tcp/${DEPLOY_HOST}/$1" 2>/dev/null; }
+
+          ssh_ok=0
+          for attempt in 1 2 3; do
+            if probe "$PORT"; then ssh_ok=1; break; fi
+            echo "attempt ${attempt}: tcp ${DEPLOY_HOST}:${PORT} failed"
+            [ "$attempt" -lt 3 ] && sleep 3
+          done
+
+          if [ "$ssh_ok" -eq 1 ]; then
+            echo "TCP ${DEPLOY_HOST}:${PORT} reachable"
+            exit 0
+          fi
+
+          echo "::error::Cannot open TCP ${DEPLOY_HOST}:${PORT} from this runner."
+          # 443 通常由同一个 Nginx 提供服务，可用来区分「主机不可达」与「只过滤了 22」。
+          if probe 443; then
+            echo "  * 443 可以连通，但 ${PORT} 不通 → 服务器/安全组针对该端口过滤了本 runner 的出口 IP。"
+            echo "    常见原因：fail2ban 封禁（前几次密钥失败触发）、安全组只放行了部分来源。"
+          else
+            echo "  * 443 也不通 → 这台主机对 GitHub runner 整体不可达（安全组未放行、或路由/防护拦截）。"
+          fi
+          echo "  排查："
+          echo "    1) 服务器：sudo fail2ban-client status sshd  并查看 sudo iptables -S | grep -i f2b"
+          echo "    2) 服务器：sudo ufw status / sudo firewall-cmd --list-all"
+          echo "    3) 云控制台：安全组入方向是否允许 0.0.0.0/0 访问 ${PORT}"
+          echo "    4) 若坚持不开放入站端口：改用 Cloudflare Tunnel 或自托管 runner"
+          exit 1
+
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
-          : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
           : "${DEPLOY_USER:?missing repository variable DEPLOY_USER}"
           : "${DEPLOY_SSH_KEY:?missing repository secret DEPLOY_SSH_KEY}"
           PORT="${DEPLOY_PORT:-22}"
@@ -150,12 +199,14 @@ jobs:
           ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
             || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
 
+          # TCP 已在上一一步验证过，这里失败就是认证/权限问题。
           if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
                -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
-            echo "::error::SSH authentication failed for $DEPLOY_USER@$DEPLOY_HOST:$PORT"
+            echo "::error::SSH 密钥被 $DEPLOY_USER@$DEPLOY_HOST 拒绝（TCP 已连通）"
             echo "  * 公钥需在 $DEPLOY_USER 的 ~/.ssh/authorized_keys（root 则是 /root/.ssh/authorized_keys）"
             echo "  * 家目录与 .ssh 不能被 group/other 写（StrictModes），属主必须是该用户或 root"
             echo "  * secret 需包含完整私钥（含 BEGIN/END 行）"
+            echo "  * 服务器上执行 sshd -T | grep -i authoriz 确认读取的路径"
             exit 1
           fi
 
