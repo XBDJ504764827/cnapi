@@ -118,17 +118,34 @@ jobs:
       - name: Setup SSH
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
           : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
           : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
           PORT="${DEPLOY_PORT:-22}"
           mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          # A secret pasted from Windows can carry CRLF; OpenSSH then fails to
+          # parse the key and silently falls back to password authentication.
+          printf '%s\n' "$DEPLOY_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
+            || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
+
+          # Fail fast instead of retrying an interactive password prompt in CI.
+          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
+               -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
+            echo "::error::SSH authentication failed for $DEPLOY_USER@$DEPLOY_HOST:$PORT"
+            echo "  * the public half of DEPLOY_SSH_KEY must be in authoritative authorized_keys:"
+            echo "      /home/$DEPLOY_USER/.ssh/authorized_keys  (or /root/.ssh/authorized_keys)"
+            echo "  * authorized_keys must be 0600 and .ssh 0700, not writable by group/other"
+            echo "  * the secret must contain the whole OpenSSH private key incl. BEGIN/END lines"
+            echo "  * if the key is RSA, the server must still accept ssh-rsa (OpenSSH 9+ disables it)"
+            exit 1
+          fi
 
       - name: Upload frontend files
         env:
@@ -141,7 +158,7 @@ jobs:
           : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
           PORT="${DEPLOY_PORT:-22}"
           ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes -o BatchMode=yes"
 
           ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
             "mkdir -p '$ROOT'"
@@ -162,7 +179,7 @@ jobs:
           set -euo pipefail
           PORT="${DEPLOY_PORT:-22}"
           ROOT=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes -o BatchMode=yes"
           ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
             "ROOT='$ROOT' bash -s" <<'REMOTE'
           set -euo pipefail
@@ -192,17 +209,34 @@ jobs:
       - name: Setup SSH
         env:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
           : "${DEPLOY_HOST:?missing DEPLOY_HOST variable}"
+          : "${DEPLOY_USER:?missing DEPLOY_USER variable}"
           : "${DEPLOY_SSH_KEY:?missing DEPLOY_SSH_KEY secret}"
           PORT="${DEPLOY_PORT:-22}"
           mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          # A secret pasted from Windows can carry CRLF; OpenSSH then fails to
+          # parse the key and silently falls back to password authentication.
+          printf '%s\n' "$DEPLOY_SSH_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
+            || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
+
+          # Fail fast instead of retrying an interactive password prompt in CI.
+          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
+               -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
+            echo "::error::SSH authentication failed for $DEPLOY_USER@$DEPLOY_HOST:$PORT"
+            echo "  * the public half of DEPLOY_SSH_KEY must be in authoritative authorized_keys:"
+            echo "      /home/$DEPLOY_USER/.ssh/authorized_keys  (or /root/.ssh/authorized_keys)"
+            echo "  * authorized_keys must be 0600 and .ssh 0700, not writable by group/other"
+            echo "  * the secret must contain the whole OpenSSH private key incl. BEGIN/END lines"
+            echo "  * if the key is RSA, the server must still accept ssh-rsa (OpenSSH 9+ disables it)"
+            exit 1
+          fi
 
       - name: Upload and install backend
         env:
@@ -216,9 +250,11 @@ jobs:
           PORT="${DEPLOY_PORT:-22}"
           APP_DIR=/mnt/1panel/apps/openresty/openresty/www/sites/test.cngokz.com/index/cnapi
           SERVICE=cngokz-api
-          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          # ssh/scp take the port differently: `-p` for ssh, `-P` for scp.
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes -o BatchMode=yes"
+          SCP_OPTS="-i $HOME/.ssh/deploy_key -P $PORT -o StrictHostKeyChecking=yes -o BatchMode=yes"
 
-          scp $SSH_OPTS backend-bin/cngokz-api \
+          scp $SCP_OPTS backend-bin/cngokz-api \
             "$DEPLOY_USER@$DEPLOY_HOST:/tmp/cngokz-api-${{ github.sha }}"
 
           ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
