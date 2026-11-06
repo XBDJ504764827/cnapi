@@ -134,22 +134,44 @@ jobs:
           name: backend-bin
           path: backend-bin
 
-      # 先确认 TCP 能通：超时（而不是密码/密钥被拒）说明是安全组或防火墙问题。
+      # 先确认 TCP 能通：超时（而不是密钥被拒）说明是网络/防火墙层的问题。
       - name: Check reachability
         run: |
           set -euo pipefail
           : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
           PORT="${DEPLOY_PORT:-22}"
-          if ! timeout 15 bash -c "</dev/tcp/${DEPLOY_HOST}/${PORT}" 2>/dev/null; then
-            echo "::error::Cannot open TCP ${DEPLOY_HOST}:${PORT} from this runner."
-            echo "这是网络层问题，与密钥无关："
-            echo "  * 云厂商安全组 / 防火墙是否对 0.0.0.0/0 放行了 ${PORT} 端口？"
-            echo "  * 服务器本机 ufw / firewalld / iptables 是否拦截？"
-            echo "  * fail2ban 是否封禁了来源 IP？（fail2ban-client status sshd）"
-            echo "  * 若不允许开放入站端口，请改用 Cloudflare Tunnel 或自托管 runner。"
-            exit 1
+
+          echo "runner egress IP : $(curl -fsS --max-time 10 https://api.ipify.org || echo unknown)"
+          echo "resolved address : $(getent hosts "$DEPLOY_HOST" | head -1 || echo 'DNS lookup failed')"
+
+          probe() { timeout 10 bash -c "</dev/tcp/${DEPLOY_HOST}/$1" 2>/dev/null; }
+
+          ssh_ok=0
+          for attempt in 1 2 3; do
+            if probe "$PORT"; then ssh_ok=1; break; fi
+            echo "attempt ${attempt}: tcp ${DEPLOY_HOST}:${PORT} failed"
+            [ "$attempt" -lt 3 ] && sleep 3
+          done
+
+          if [ "$ssh_ok" -eq 1 ]; then
+            echo "TCP ${DEPLOY_HOST}:${PORT} reachable"
+            exit 0
           fi
-          echo "TCP ${DEPLOY_HOST}:${PORT} reachable"
+
+          echo "::error::Cannot open TCP ${DEPLOY_HOST}:${PORT} from this runner."
+          # 443 通常由同一个 Nginx 提供服务，可用来区分「主机不可达」与「只过滤了 22」。
+          if probe 443; then
+            echo "  * 443 可以连通，但 ${PORT} 不通 → 服务器/安全组针对该端口过滤了本 runner 的出口 IP。"
+            echo "    常见原因：fail2ban 封禁（前几次密钥失败触发）、安全组只放行了部分来源。"
+          else
+            echo "  * 443 也不通 → 这台主机对 GitHub runner 整体不可达（安全组未放行、或路由/防护拦截）。"
+          fi
+          echo "  排查："
+          echo "    1) 服务器：sudo fail2ban-client status sshd  并查看 sudo iptables -S | grep -i f2b"
+          echo "    2) 服务器：sudo ufw status / sudo firewall-cmd --list-all"
+          echo "    3) 云控制台：安全组入方向是否允许 0.0.0.0/0 访问 ${PORT}"
+          echo "    4) 若坚持不开放入站端口：改用 Cloudflare Tunnel 或自托管 runner"
+          exit 1
 
       - name: Setup SSH
         env:
