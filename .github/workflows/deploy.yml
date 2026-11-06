@@ -134,12 +134,28 @@ jobs:
           name: backend-bin
           path: backend-bin
 
+      # 先确认 TCP 能通：超时（而不是密码/密钥被拒）说明是安全组或防火墙问题。
+      - name: Check reachability
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
+          PORT="${DEPLOY_PORT:-22}"
+          if ! timeout 15 bash -c "</dev/tcp/${DEPLOY_HOST}/${PORT}" 2>/dev/null; then
+            echo "::error::Cannot open TCP ${DEPLOY_HOST}:${PORT} from this runner."
+            echo "这是网络层问题，与密钥无关："
+            echo "  * 云厂商安全组 / 防火墙是否对 0.0.0.0/0 放行了 ${PORT} 端口？"
+            echo "  * 服务器本机 ufw / firewalld / iptables 是否拦截？"
+            echo "  * fail2ban 是否封禁了来源 IP？（fail2ban-client status sshd）"
+            echo "  * 若不允许开放入站端口，请改用 Cloudflare Tunnel 或自托管 runner。"
+            exit 1
+          fi
+          echo "TCP ${DEPLOY_HOST}:${PORT} reachable"
+
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
-          : "${DEPLOY_HOST:?missing repository variable DEPLOY_HOST}"
           : "${DEPLOY_USER:?missing repository variable DEPLOY_USER}"
           : "${DEPLOY_SSH_KEY:?missing repository secret DEPLOY_SSH_KEY}"
           PORT="${DEPLOY_PORT:-22}"
@@ -150,12 +166,14 @@ jobs:
           ssh-keyscan -p "$PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
             || echo "::warning::ssh-keyscan failed for $DEPLOY_HOST:$PORT"
 
+          # TCP 已在上一一步验证过，这里失败就是认证/权限问题。
           if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=10 \
                -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" true; then
-            echo "::error::SSH authentication failed for $DEPLOY_USER@$DEPLOY_HOST:$PORT"
+            echo "::error::SSH 密钥被 $DEPLOY_USER@$DEPLOY_HOST 拒绝（TCP 已连通）"
             echo "  * 公钥需在 $DEPLOY_USER 的 ~/.ssh/authorized_keys（root 则是 /root/.ssh/authorized_keys）"
             echo "  * 家目录与 .ssh 不能被 group/other 写（StrictModes），属主必须是该用户或 root"
             echo "  * secret 需包含完整私钥（含 BEGIN/END 行）"
+            echo "  * 服务器上执行 sshd -T | grep -i authoriz 确认读取的路径"
             exit 1
           fi
 
