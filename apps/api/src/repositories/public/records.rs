@@ -55,6 +55,8 @@ pub struct RecordRow {
     pub server_id: Option<i64>,
     pub server_name: Option<String>,
     pub achieved_at: Option<DateTime<Utc>>,
+    /// 该成绩当前作为 PB 所属 Filter 的积分；非 PB 为 0。
+    pub points: i64,
 }
 
 impl RecordRow {
@@ -97,7 +99,7 @@ impl RecordRow {
             rank: self.rank_position,
             is_world_record: self.is_world_record,
             replay_available: self.replay_available,
-            points: None,
+            points: Some(self.points),
             created_at: self.created_at,
         }
     }
@@ -146,6 +148,10 @@ SELECT r.id,
        replay.id AS replay_id,
        sv.id AS server_id,
        COALESCE(sv.name, r.source_server_name) AS server_name,
+       COALESCE(
+           (SELECT pfp.points FROM player_filter_points pfp WHERE pfp.pb_record_id = r.id LIMIT 1),
+           0
+       )::bigint AS points,
        NULL::timestamptz AS achieved_at
 FROM records r
 JOIN accounts a ON a.id = r.account_id AND a.deleted_at IS NULL
@@ -362,6 +368,10 @@ pub async fn recent_world_records(
                replay.id AS replay_id,
                sv.id AS server_id,
                COALESCE(sv.name, r.source_server_name) AS server_name,
+               COALESCE(
+                   (SELECT pfp.points FROM player_filter_points pfp WHERE pfp.pb_record_id = r.id LIMIT 1),
+                   0
+               )::bigint AS points,
                w.achieved_at AS achieved_at
         FROM course_world_records w
         JOIN records r ON r.id = w.record_id

@@ -96,6 +96,16 @@ export function RecordDetailDialog({
                 </dd>
               </div>
               <div>
+                <dt className="text-muted-foreground">积分</dt>
+                <dd className="mt-0.5 tabular-nums">
+                  {query.data.record.points && query.data.record.points > 0 ? (
+                    <span className="font-medium">{query.data.record.points}</span>
+                  ) : (
+                    <span className="text-muted-foreground">0（非 PB 不计分）</span>
+                  )}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-muted-foreground">上传时间</dt>
                 <dd className="mt-0.5">{formatDateTime(query.data.record.created_at)}</dd>
               </div>

@@ -3385,7 +3385,7 @@ export interface components {
             player: components["schemas"]["PlayerRef"];
             /**
              * Format: int64
-             * @description Always `null` until a points algorithm is defined.
+             * @description 每条成绩对应的积分：该成绩是 PB 时取所属 Filter 的积分，否则为 0。
              */
             points?: number | null;
             /**

@@ -45,8 +45,9 @@ export function RecordTable({
   onSelect,
   footer,
 }: RecordTableProps) {
+  // 难度 / 模式 / 类型 / 成绩 / 积分 / WR 是固定列
   const columnCount =
-    4 + (showRank ? 1 : 0) + (showPlayer ? 1 : 0) + (showMap ? 1 : 0) + (showUploaded ? 1 : 0) + (onSelect ? 1 : 0);
+    6 + (showRank ? 1 : 0) + (showPlayer ? 1 : 0) + (showMap ? 1 : 0) + (showUploaded ? 1 : 0) + (onSelect ? 1 : 0);
 
   let content: ReactNode;
 
@@ -76,6 +77,7 @@ export function RecordTable({
             <TableHead>模式</TableHead>
             <TableHead className="w-20">类型</TableHead>
             <TableHead className="text-right">成绩</TableHead>
+            <TableHead className="w-16 text-right">积分</TableHead>
             {showUploaded ? <TableHead className="w-32">上传时间</TableHead> : null}
             <TableHead className="w-16">WR</TableHead>
             {onSelect ? <TableHead className="w-16" /> : null}
@@ -147,6 +149,13 @@ export function RecordTable({
                       {formatSeconds(record.time_seconds)}
                     </span>
                     <span className="ml-0.5 text-[10px] text-muted-foreground">s</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {record.points && record.points > 0 ? (
+                      <span className="font-medium tabular-nums">{record.points}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   {showUploaded ? (
                     <TableCell>

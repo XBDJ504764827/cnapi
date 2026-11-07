@@ -86,7 +86,7 @@ pub struct RecordSummary {
     /// Current world record pointer for this dimension.
     pub is_world_record: bool,
     pub replay_available: bool,
-    /// Always `null` until a points algorithm is defined.
+    /// 每条成绩对应的积分：该成绩是 PB 时取所属 Filter 的积分，否则为 0。
     pub points: Option<i64>,
     /// Upload time (not the run duration).
     pub created_at: DateTime<Utc>,

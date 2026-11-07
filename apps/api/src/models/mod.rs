@@ -48,6 +48,8 @@ pub enum IngestionSource {
     GlobalapiImport,
     Cs2kzImport,
     LegacyImport,
+    /// 一次性从 gokz.top 补录的历史成绩（2026-11 全量补齐后不再使用）。
+    GokzTopImport,
 }
 
 impl IngestionSource {
@@ -58,6 +60,7 @@ impl IngestionSource {
             Self::GlobalapiImport => "globalapi_import",
             Self::Cs2kzImport => "cs2kz_import",
             Self::LegacyImport => "legacy_import",
+            Self::GokzTopImport => "gokz_top_import",
         }
     }
 }
@@ -75,5 +78,6 @@ mod tests {
         );
         assert_eq!(IngestionSource::Cs2kzImport.as_str(), "cs2kz_import");
         assert_eq!(IngestionSource::LegacyImport.as_str(), "legacy_import");
+        assert_eq!(IngestionSource::GokzTopImport.as_str(), "gokz_top_import");
     }
 }

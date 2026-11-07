@@ -96,6 +96,16 @@ const columns: DataTableColumn<RecordRow>[] = [
     cell: (row) => (row.tier === null ? '—' : <Badge variant="outline">T{row.tier}</Badge>),
   },
   {
+    id: 'points',
+    header: '积分',
+    cell: (row) =>
+      row.points && row.points > 0 ? (
+        <span className="font-medium tabular-nums">{formatNumber(row.points)}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
+  },
+  {
     id: 'created',
     header: '上传时间',
     cell: (row) => <span className="text-xs text-muted-foreground">{formatDateTime(row.created_at)}</span>,
