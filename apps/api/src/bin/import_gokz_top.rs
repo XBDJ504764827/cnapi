@@ -38,6 +38,10 @@ struct Args {
     resume: bool,
     /// 重建世界纪录指针时无条件覆盖（用于清掉历史错误数据后重算）。
     rebuild_wrs: bool,
+    /// Per-map cap; the leaderboard is ordered by time, so this is "top N".
+    max_per_map: Option<usize>,
+    /// Rebuild the world-record pointers only, without fetching anything.
+    wrs_only: bool,
 }
 
 impl Args {
@@ -51,6 +55,8 @@ impl Args {
             concurrency: 24,
             resume: true,
             rebuild_wrs: false,
+            max_per_map: None,
+            wrs_only: false,
         };
         for raw in std::env::args().skip(1) {
             if let Some(value) = raw.strip_prefix("--api=") {
@@ -63,6 +69,10 @@ impl Args {
                 args.page = value.parse().unwrap_or(DEFAULT_PAGE).clamp(10, 500);
             } else if let Some(value) = raw.strip_prefix("--concurrency=") {
                 args.concurrency = value.parse().unwrap_or(24).clamp(1, 32);
+            } else if let Some(value) = raw.strip_prefix("--max-per-map=") {
+                args.max_per_map = value.parse().ok();
+            } else if raw == "--wrs-only" {
+                args.wrs_only = true;
             } else if raw == "--rebuild-wrs" {
                 args.rebuild_wrs = true;
             } else if raw == "--no-resume" {
@@ -156,7 +166,9 @@ async fn main() -> Result<()> {
     if args.only == "maps" || args.only == "all" {
         sync_map_metadata(&pool, &maps, args.dry_run).await?;
     }
-    if args.only == "records" || args.only == "all" {
+    if args.wrs_only {
+        refresh_world_records(&pool, true).await?;
+    } else if args.only == "records" || args.only == "all" {
         sync_records(&pool, &client, &maps, &args).await?;
         if !args.dry_run {
             refresh_world_records(&pool, args.rebuild_wrs).await?;
@@ -383,6 +395,7 @@ async fn sync_records(
     let page_size = args.page;
     let dry_run = args.dry_run;
     let resume = args.resume;
+    let max_per_map = args.max_per_map;
 
     let total_maps = maps.len();
     let mut processed = 0usize;
@@ -408,7 +421,15 @@ async fn sync_records(
             let api = api.clone();
             results.spawn(async move {
                 let rows = import_one_map(
-                    &pool, &client, &caches, &map, &api, page_size, dry_run, resume,
+                    &pool,
+                    &client,
+                    &caches,
+                    &map,
+                    &api,
+                    page_size,
+                    dry_run,
+                    resume,
+                    max_per_map,
                 )
                 .await
                 .unwrap_or_else(|error| {
@@ -479,6 +500,7 @@ async fn import_one_map(
     page_size: usize,
     dry_run: bool,
     resume: bool,
+    max_per_map: Option<usize>,
 ) -> Result<usize> {
     let our_map_id = {
         let guard = caches.lock().await;
@@ -493,7 +515,7 @@ async fn import_one_map(
     let mut checked_resume = false;
     let mut buffer: Vec<PendingRecord> = Vec::with_capacity(FLUSH_ROWS * 2);
 
-    loop {
+    'pages: loop {
         let page = fetch_page(client, api, map.id, page_size, offset).await?;
         if page.data.is_empty() {
             break;
@@ -509,13 +531,22 @@ async fn import_one_map(
                 .bind(SOURCE)
                 .fetch_one(pool)
                 .await?;
-                if existing >= page.count {
+                let target = match max_per_map {
+                    Some(max) => page.count.min(max as i64),
+                    None => page.count,
+                };
+                if existing >= target {
                     return Ok(0);
                 }
             }
         }
 
         for item in &page.data {
+            if let Some(max) = max_per_map
+                && written + buffer.len() >= max
+            {
+                break 'pages;
+            }
             with_record(&mut buffer, item, our_map_id, caches, pool, dry_run).await?;
         }
         if buffer.len() >= FLUSH_ROWS {

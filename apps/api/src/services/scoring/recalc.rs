@@ -179,35 +179,40 @@ pub async fn recalc_filter(pool: &PgPool, filter_id: i64) -> Result<i64, anyhow:
     }
 
     if !calculated.is_empty() {
-        let mut builder: sqlx::QueryBuilder<Postgres> = sqlx::QueryBuilder::new(
-            "INSERT INTO player_filter_points
-             (filter_id, account_id, map_id, course_id, mode_id, record_type, pb_record_id,
-              time_ns, rank, tier, wr_time_ns, pb_count, points, is_world_record,
-              scoring_version, base_points, rank_factor, dist_points, calculated_at) ",
-        );
-        builder.push_values(calculated.iter(), |mut b, row| {
-            b.push_bind(filter_id)
-                .push_bind(row.0)
-                .push_bind(map_id)
-                .push_bind(course_id)
-                .push_bind(mode_id)
-                .push_bind(&record_type)
-                .push_bind(row.1)
-                .push_bind(row.2)
-                .push_bind(row.3)
-                .push_bind(row.4)
-                .push_bind(row.5)
-                .push_bind(row.6)
-                .push_bind(row.7)
-                .push_bind(row.8)
-                .push_bind("phase6-v1")
-                .push_bind(row.9)
-                .push_bind(row.10)
-                .push_bind(row.11)
-                .push_bind(chrono::Utc::now());
-        });
+        // 19 个参数/行：热门地图单个 Filter 可能有上万名玩家，一次性 push_values
+        // 会超过 PostgreSQL 的 65535 个参数上限（实测 11 万）并整批失败。
+        const ROWS_PER_INSERT: usize = 1000;
+        for chunk in calculated.chunks(ROWS_PER_INSERT) {
+            let mut builder: sqlx::QueryBuilder<Postgres> = sqlx::QueryBuilder::new(
+                "INSERT INTO player_filter_points
+                 (filter_id, account_id, map_id, course_id, mode_id, record_type, pb_record_id,
+                  time_ns, rank, tier, wr_time_ns, pb_count, points, is_world_record,
+                  scoring_version, base_points, rank_factor, dist_points, calculated_at) ",
+            );
+            builder.push_values(chunk.iter(), |mut b, row| {
+                b.push_bind(filter_id)
+                    .push_bind(row.0)
+                    .push_bind(map_id)
+                    .push_bind(course_id)
+                    .push_bind(mode_id)
+                    .push_bind(&record_type)
+                    .push_bind(row.1)
+                    .push_bind(row.2)
+                    .push_bind(row.3)
+                    .push_bind(row.4)
+                    .push_bind(row.5)
+                    .push_bind(row.6)
+                    .push_bind(row.7)
+                    .push_bind(row.8)
+                    .push_bind("phase6-v1")
+                    .push_bind(row.9)
+                    .push_bind(row.10)
+                    .push_bind(row.11)
+                    .push_bind(chrono::Utc::now());
+            });
 
-        builder.build().execute(&mut *tx).await?;
+            builder.build().execute(&mut *tx).await?;
+        }
     }
 
     rebuild_mode_totals(&mut tx, mode_id).await?;
