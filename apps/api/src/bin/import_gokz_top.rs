@@ -22,6 +22,8 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 const DEFAULT_API: &str = "https://api.gokz.top/v1";
 const DEFAULT_PAGE: usize = 100;
 const SOURCE: &str = "gokz_top_import";
+/// 累积到这么多行再提交一次 INSERT。
+const FLUSH_ROWS: usize = 1000;
 
 #[derive(Debug)]
 struct Args {
@@ -34,6 +36,8 @@ struct Args {
     concurrency: usize,
     /// 跳过已经导入过的地图，便于中断后继续。
     resume: bool,
+    /// 重建世界纪录指针时无条件覆盖（用于清掉历史错误数据后重算）。
+    rebuild_wrs: bool,
 }
 
 impl Args {
@@ -44,8 +48,9 @@ impl Args {
             dry_run: false,
             max_maps: None,
             page: DEFAULT_PAGE,
-            concurrency: 12,
+            concurrency: 24,
             resume: true,
+            rebuild_wrs: false,
         };
         for raw in std::env::args().skip(1) {
             if let Some(value) = raw.strip_prefix("--api=") {
@@ -57,7 +62,9 @@ impl Args {
             } else if let Some(value) = raw.strip_prefix("--page=") {
                 args.page = value.parse().unwrap_or(DEFAULT_PAGE).clamp(10, 500);
             } else if let Some(value) = raw.strip_prefix("--concurrency=") {
-                args.concurrency = value.parse().unwrap_or(12).clamp(1, 32);
+                args.concurrency = value.parse().unwrap_or(24).clamp(1, 32);
+            } else if raw == "--rebuild-wrs" {
+                args.rebuild_wrs = true;
             } else if raw == "--no-resume" {
                 args.resume = false;
             } else if raw == "--dry-run" {
@@ -130,7 +137,7 @@ async fn main() -> Result<()> {
     );
 
     let pool = PgPoolOptions::new()
-        .max_connections(8)
+        .max_connections(32)
         .connect(&database_url)
         .await
         .context("connect database")?;
@@ -152,7 +159,7 @@ async fn main() -> Result<()> {
     if args.only == "records" || args.only == "all" {
         sync_records(&pool, &client, &maps, &args).await?;
         if !args.dry_run {
-            refresh_world_records(&pool).await?;
+            refresh_world_records(&pool, args.rebuild_wrs).await?;
         }
     }
 
@@ -430,7 +437,38 @@ async fn sync_records(
     Ok(())
 }
 
+/// 拉一页排行榜，失败重试 3 次（gokz.top 偶发超时与截断）。
+async fn fetch_page(
+    client: &reqwest::Client,
+    api: &str,
+    map_id: i64,
+    page_size: usize,
+    offset: usize,
+) -> Result<LeaderboardPage> {
+    let url = format!("{api}/maps/{map_id}/leaderboard?limit={page_size}&offset={offset}");
+    let mut last_error = None;
+    for attempt in 1..=3 {
+        match client.get(&url).send().await {
+            Ok(response) if response.status().is_success() => match response.json().await {
+                Ok(page) => return Ok(page),
+                Err(error) => last_error = Some(anyhow::anyhow!("decode {url}: {error}")),
+            },
+            Ok(response) => {
+                last_error = Some(anyhow::anyhow!("{url} -> {}", response.status()));
+            }
+            Err(error) => last_error = Some(anyhow::anyhow!("GET {url}: {error}")),
+        }
+        if attempt < 3 {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+    }
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("unknown error")))
+}
+
 /// 导入单张地图的全部完成记录。返回写入行数。
+///
+/// 先取第一页拿到 `count`，再决定是否跳过：只有「已导入行数 ≥ 上游总数」才算做完，
+/// 这样上次中断在半路的地图会被重新拉一遍（`external_ref` 保证不会重复写入）。
 #[allow(clippy::too_many_arguments)]
 async fn import_one_map(
     pool: &PgPool,
@@ -450,50 +488,55 @@ async fn import_one_map(
         return Ok(0);
     };
 
-    if resume && !dry_run {
-        let existing: i64 =
-            sqlx::query_scalar("SELECT count(*) FROM records WHERE map_id = $1 AND source = $2")
-                .bind(our_map_id)
-                .bind(SOURCE)
-                .fetch_one(pool)
-                .await?;
-        if existing > 0 {
-            return Ok(0);
-        }
-    }
-
     let mut offset = 0usize;
     let mut written = 0usize;
+    let mut checked_resume = false;
+    let mut buffer: Vec<PendingRecord> = Vec::with_capacity(FLUSH_ROWS * 2);
 
     loop {
-        let url = format!(
-            "{api}/maps/{}/leaderboard?limit={page_size}&offset={offset}",
-            map.id
-        );
-        let response = client
-            .get(&url)
-            .send()
-            .await
-            .with_context(|| format!("GET {url}"))?
-            .error_for_status()?;
-        let page: LeaderboardPage = response.json().await.context("decode leaderboard page")?;
+        let page = fetch_page(client, api, map.id, page_size, offset).await?;
         if page.data.is_empty() {
             break;
         }
 
-        let mut pending: Vec<PendingRecord> = Vec::with_capacity(page.data.len());
+        if !checked_resume {
+            checked_resume = true;
+            if resume && !dry_run {
+                let existing: i64 = sqlx::query_scalar(
+                    "SELECT count(*) FROM records WHERE map_id = $1 AND source = $2",
+                )
+                .bind(our_map_id)
+                .bind(SOURCE)
+                .fetch_one(pool)
+                .await?;
+                if existing >= page.count {
+                    return Ok(0);
+                }
+            }
+        }
+
         for item in &page.data {
-            with_record(&mut pending, item, our_map_id, caches, pool, dry_run).await?;
+            with_record(&mut buffer, item, our_map_id, caches, pool, dry_run).await?;
         }
-        if !dry_run && !pending.is_empty() {
-            insert_records(pool, &pending).await?;
+        if buffer.len() >= FLUSH_ROWS {
+            if !dry_run {
+                insert_records(pool, &buffer).await?;
+            }
+            written += buffer.len();
+            buffer.clear();
         }
-        written += pending.len();
 
         offset += page.data.len();
         if offset as i64 >= page.count {
             break;
         }
+    }
+
+    if !buffer.is_empty() {
+        if !dry_run {
+            insert_records(pool, &buffer).await?;
+        }
+        written += buffer.len();
     }
 
     Ok(written)
@@ -656,7 +699,7 @@ async fn insert_records(pool: &PgPool, rows: &[PendingRecord]) -> Result<()> {
 }
 
 /// 用导入后的数据重算世界纪录指针（只会变快，不会变慢）。
-async fn refresh_world_records(pool: &PgPool) -> Result<()> {
+async fn refresh_world_records(pool: &PgPool, rebuild: bool) -> Result<()> {
     let result = sqlx::query(
         r#"
         INSERT INTO course_world_records
@@ -670,9 +713,10 @@ async fn refresh_world_records(pool: &PgPool) -> Result<()> {
            SET record_id = EXCLUDED.record_id,
                time_ns = EXCLUDED.time_ns,
                achieved_at = EXCLUDED.achieved_at
-         WHERE EXCLUDED.time_ns < course_world_records.time_ns
+         WHERE $1 OR EXCLUDED.time_ns < course_world_records.time_ns
         "#,
     )
+    .bind(rebuild)
     .execute(pool)
     .await
     .context("refresh world records")?;

@@ -188,7 +188,8 @@ async fn public_portal_endpoints_work_against_real_schema() {
     assert_eq!(body["data"]["overall"]["total_maps"], 2);
     assert_eq!(body["data"]["overall"]["wr_count"], 4);
     assert_eq!(body["data"]["overall"]["global_rank"], 1);
-    assert!(body["data"]["overall"]["points"].is_null());
+    // 积分已经接入：测试库没有 Filter 积分，因此是 0 而不是 null
+    assert_eq!(body["data"]["overall"]["points"], 0);
     assert_eq!(body["data"]["modes"].as_array().map(Vec::len), Some(4));
     assert_eq!(body["data"]["tiers"].as_array().map(Vec::len), Some(2));
     assert_eq!(body["data"]["tiers"][0]["tier"], 3);

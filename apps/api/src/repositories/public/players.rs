@@ -13,6 +13,8 @@ pub struct OverallRow {
     pub completed_maps: i64,
     pub total_maps: i64,
     pub wr_count: i64,
+    /// 积分合计：未指定模式时为所有模式之和。
+    pub points: i64,
     pub first_record_at: Option<DateTime<Utc>>,
     pub last_record_at: Option<DateTime<Utc>>,
 }
@@ -37,6 +39,8 @@ pub async fn overall(pool: &PgPool, account_id: i64) -> Result<OverallRow, sqlx:
             (SELECT count(*) FROM course_world_records w
               JOIN records wr ON wr.id = w.record_id
               WHERE wr.account_id = $1 AND wr.status = 'approved' AND wr.deleted_at IS NULL) AS wr_count,
+            (SELECT COALESCE(sum(pmp.total_points), 0)::bigint
+               FROM player_mode_points pmp WHERE pmp.account_id = $1) AS points,
             (SELECT min(r.created_at) FROM records r
               WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL) AS first_record_at,
             (SELECT max(r.created_at) FROM records r
@@ -112,6 +116,10 @@ pub async fn scoped_overall(
               JOIN records wr ON wr.id = w.record_id
               WHERE wr.account_id = $1 AND wr.status = 'approved' AND wr.deleted_at IS NULL
                 {wr_mode}{wr_tt}{wr_style}) AS wr_count,
+            (SELECT COALESCE(sum(pmp.total_points), 0)::bigint
+               FROM player_mode_points pmp
+              WHERE pmp.account_id = $1
+                AND ($2::smallint IS NULL OR pmp.mode_id = $2)) AS points,
             (SELECT min(r.created_at) FROM records r
               WHERE r.account_id = $1 AND r.status = 'approved' AND r.deleted_at IS NULL
                 {mode_filter}{tt_filter}{style_filter}) AS first_record_at,
@@ -138,6 +146,8 @@ pub struct ModeStatsRow {
     pub completed_maps: i64,
     pub total_maps: i64,
     pub wr_count: i64,
+    /// 该模式下的 Filter 积分合计（`player_mode_points.total_points`）。
+    pub points: i64,
 }
 
 pub async fn mode_stats(pool: &PgPool, account_id: i64) -> Result<Vec<ModeStatsRow>, sqlx::Error> {
@@ -158,8 +168,10 @@ pub async fn mode_stats(pool: &PgPool, account_id: i64) -> Result<Vec<ModeStatsR
                  JOIN records wr ON wr.id = w.record_id
                 WHERE wr.account_id = $1
                   AND wr.mode_id = mo.id
-                  AND wr.status = 'approved' AND wr.deleted_at IS NULL) AS wr_count
+                  AND wr.status = 'approved' AND wr.deleted_at IS NULL) AS wr_count,
+               COALESCE(max(pmp.total_points), 0)::bigint AS points
         FROM movement_modes mo
+        LEFT JOIN player_mode_points pmp ON pmp.account_id = $1 AND pmp.mode_id = mo.id
         LEFT JOIN records r ON r.mode_id = mo.id
                            AND r.account_id = $1
                            AND r.status = 'approved'
@@ -251,6 +263,8 @@ pub struct MapProgressRow {
     pub last_record_at: Option<DateTime<Utc>>,
     pub bonus_total: i64,
     pub bonus_completed: i64,
+    /// 该玩家在这张图上（当前模式 / 类型）的 Filter 积分合计。
+    pub points: i64,
 }
 
 fn map_base_cte(tier_column: &str, mode_param: &str) -> String {
@@ -331,6 +345,10 @@ pub async fn map_progress(
         None => String::new(),
     };
     let tt_filter_br = tt_filter.replace("r.", "br.");
+    let tt_filter_f = match time_type {
+        Some(value) => format!(" AND f.record_type = '{}'", value.as_str()),
+        None => String::new(),
+    };
     let status_filter = match status {
         "completed" => " AND b.id IS NOT NULL",
         "uncompleted" => " AND b.id IS NULL",
@@ -362,7 +380,15 @@ pub async fn map_progress(
                    AND br.mode_id = $2
                    AND br.style_id = $3
                    AND br.status = 'approved'
-                   AND br.deleted_at IS NULL{tt_filter_br})::bigint AS bonus_completed
+                   AND br.deleted_at IS NULL{tt_filter_br})::bigint AS bonus_completed,
+               COALESCE((
+                   SELECT sum(pfp.points)
+                     FROM player_filter_points pfp
+                     JOIN scoring_filters f ON f.id = pfp.filter_id
+                    WHERE pfp.account_id = $1
+                      AND f.map_id = mb.map_id
+                      AND f.mode_id = $2{tt_filter_f}
+               ), 0)::bigint AS points
           FROM map_base mb
           {best}
          WHERE ($4::text IS NULL OR mb.name ILIKE '%' || $4 || '%')
@@ -374,6 +400,7 @@ pub async fn map_progress(
         base = map_base_cte(tier_column, "$2"),
         best = best_lateral("b", "$1", "$2", "$3", &tt_filter),
         tt_filter_br = tt_filter_br,
+        tt_filter_f = tt_filter_f,
         status_filter = status_filter,
         order = order,
     );

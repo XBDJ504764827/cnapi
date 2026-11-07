@@ -336,7 +336,7 @@ async fn overall_stats(
             pro_count: row.pro_count,
             tp_count: row.tp_count,
             total_records: row.total_records,
-            points: None,
+            points: Some(row.points),
             rating: None,
         },
         row.first_record_at,
@@ -377,7 +377,7 @@ async fn mode_stats_dtos(
             pro_count: row.pro_count,
             tp_count: row.tp_count,
             total_records: row.total_records,
-            points: None,
+            points: Some(row.points),
         });
     }
     Ok(items)
@@ -609,7 +609,7 @@ pub async fn player_maps(
                 last_record_at: row.last_record_at,
                 bonus_total: row.bonus_total,
                 bonus_completed: row.bonus_completed,
-                points: None,
+                points: Some(row.points),
             })
             .collect();
 
