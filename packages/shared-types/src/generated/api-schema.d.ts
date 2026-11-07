@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/api/v1/admin/bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List bans */
+        get: operations["list_bans"];
+        put?: never;
+        /** Create a ban */
+        post: operations["create_ban"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bans/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke a ban */
+        post: operations["revoke_ban"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/external-servers": {
         parameters: {
             query?: never;
@@ -1482,6 +1517,29 @@ export interface components {
             success: boolean;
         };
         /** @description Envelope used by every successful response. */
+        ApiResponse_BanListResponse: {
+            data: {
+                items: components["schemas"]["BanSummary"][];
+                /** Format: int64 */
+                page: number;
+                /** Format: int64 */
+                page_size: number;
+                /** Format: int64 */
+                total: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
+        ApiResponse_BanMutationResponse: {
+            data: {
+                /** Format: int64 */
+                ban_id: number;
+            };
+            message: string;
+            success: boolean;
+        };
+        /** @description Envelope used by every successful response. */
         ApiResponse_CompareResponse: {
             data: {
                 filter: string;
@@ -2238,6 +2296,49 @@ export interface components {
             steam_id64: string;
             steam_profile_url: string;
         };
+        BanListQuery: {
+            /** Format: int64 */
+            page?: number | null;
+            /** Format: int64 */
+            page_size?: number | null;
+            search?: string | null;
+            /** @description active | expired | revoked | all */
+            status?: string | null;
+        };
+        BanListResponse: {
+            items: components["schemas"]["BanSummary"][];
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
+        };
+        BanMutationResponse: {
+            /** Format: int64 */
+            ban_id: number;
+        };
+        BanSummary: {
+            /** Format: int64 */
+            account_id: number;
+            avatar_url?: string | null;
+            ban_type: string;
+            display_name: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            issued_at: string;
+            reason: string;
+            revoke_reason?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            source: string;
+            /** @description `active` | `expired` | `revoked`（expired 由 expires_at 推导）。 */
+            status: string;
+            steam_id64: string;
+        };
         CompareBest: {
             completed: boolean;
             /**
@@ -2384,6 +2485,17 @@ export interface components {
              * @description 0 = main course, >0 = bonus stage.
              */
             stage: number;
+        };
+        CreateBanRequest: {
+            ban_type?: string | null;
+            /**
+             * Format: date-time
+             * @description RFC3339；留空 = 永久封禁。
+             */
+            expires_at?: string | null;
+            reason: string;
+            /** @description SteamID64（17–20 位数字）。 */
+            steam_id64: string;
         };
         CreateServerRequest: {
             ip: string;
@@ -2706,6 +2818,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+            preview_image_url?: string | null;
             /** Format: int64 */
             records_count: number;
             slug: string;
@@ -3443,6 +3556,9 @@ export interface components {
             /** Format: int64 */
             task_id: number;
         };
+        RevokeBanRequest: {
+            reason: string;
+        };
         RotateTokenResponse: {
             /** Format: date-time */
             created_at: string;
@@ -3722,6 +3838,111 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_bans: {
+        parameters: {
+            query?: {
+                search?: string;
+                /** @description active | expired | revoked | all */
+                status?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BanListResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    create_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBanRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BanMutationResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeBanRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_BanMutationResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorBody"];
+                };
+            };
+        };
+    };
     list_external_servers: {
         parameters: {
             query?: never;

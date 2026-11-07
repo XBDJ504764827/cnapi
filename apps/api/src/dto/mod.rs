@@ -3,6 +3,7 @@
 
 pub mod account;
 pub mod auth;
+pub mod ban;
 pub mod game_server;
 pub mod health;
 pub mod jumpstat;

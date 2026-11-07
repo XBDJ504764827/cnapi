@@ -17,6 +17,7 @@ pub struct MapRow {
     pub records_count: i64,
     pub wr_time_ns: Option<i64>,
     pub wr_player_name: Option<String>,
+    pub preview_image_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub approved_at: Option<DateTime<Utc>>,
 }
@@ -68,6 +69,7 @@ fn map_select(tier_column: &str, time_type: Option<TimeType>) -> String {
                    m.description,
                    m.created_at,
                    m.approved_at,
+                   m.preview_image_url,
                    {tier_column} AS tier,
                    (SELECT count(*) FROM map_courses c WHERE c.map_id = m.id)::bigint AS courses,
                    COALESCE(rec.completed_players, 0) AS completed_players,

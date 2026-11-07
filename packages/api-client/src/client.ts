@@ -32,6 +32,20 @@ export function createApiClient({ baseUrl, fetch }: ApiClientOptions) {
       getSession: () => request(http.GET('/api/v1/auth/me')),
       logout: () => request(http.POST('/api/v1/auth/logout')),
     },
+    /** Admin ban console. All calls ride on the HttpOnly session cookie. */
+    bans: {
+      list: (query?: { search?: string; status?: string; page?: number; page_size?: number }) =>
+        request(http.GET('/api/v1/admin/bans', { params: { query: query ?? {} } })),
+      create: (body: { steam_id64: string; ban_type?: string; reason: string; expires_at?: string | null }) =>
+        request(http.POST('/api/v1/admin/bans', { body })),
+      revoke: (id: number, body: { reason: string }) =>
+        request(
+          http.POST('/api/v1/admin/bans/{id}/revoke', {
+            params: { path: { id } },
+            body,
+          }),
+        ),
+    },
     health: {
       getHealth: () => request(http.GET('/health')),
       getLiveness: () => request(http.GET('/health/live')),

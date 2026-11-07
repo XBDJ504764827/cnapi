@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { EmptyState } from '@/public/components/common/empty-state';
+import { MapPreview } from '@/public/components/common/map-preview';
 import { ModeTabs } from '@/public/components/common/mode-tabs';
 import { PageHeader } from '@/public/components/common/page-header';
 import { TierBadge } from '@/public/components/common/tier-badge';
@@ -55,9 +56,7 @@ export function MapsPage() {
       header: '地图',
       cell: (row) => (
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-surface-elevated text-muted-foreground">
-            <MapIcon className="size-4" aria-hidden="true" />
-          </span>
+          <MapPreview name={row.name} url={row.preview_image_url} className="size-10" />
           <div className="min-w-0">
             <Link
               to={`/maps/${row.slug}`}

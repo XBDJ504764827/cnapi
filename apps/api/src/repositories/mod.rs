@@ -2,6 +2,7 @@
 //! [`crate::models`]; business rules live in `services`.
 
 pub mod auth;
+pub mod bans;
 pub mod game_servers;
 pub mod health_repository;
 pub mod points;

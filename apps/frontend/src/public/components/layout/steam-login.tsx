@@ -1,4 +1,4 @@
-import { ExternalLink, LayoutDashboard, Loader2, LogIn, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogIn, LogOut, User } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { currentPath, startSteamLogin, useLogout, useSession, userInitials } from '@/auth/session';
@@ -76,11 +76,10 @@ export function SteamLogin() {
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
-          <a href={user.steam_profile_url} target="_blank" rel="noreferrer">
+          <Link to={`/players/${user.steam_id64}`}>
             <User />
-            Steam 个人资料
-            <ExternalLink className="ml-auto size-3 opacity-60" />
-          </a>
+            我的记录与排名
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

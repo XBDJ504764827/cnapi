@@ -199,7 +199,7 @@ async fn fetch_all_maps(client: &reqwest::Client, args: &Args) -> Result<Vec<Gok
             break;
         }
         offset += received;
-        if offset % 1000 == 0 {
+        if offset.is_multiple_of(1000) {
             println!("  … {offset} maps");
         }
     }
@@ -213,7 +213,6 @@ async fn sync_map_metadata(pool: &PgPool, maps: &[GokzMap], dry_run: bool) -> Re
             .fetch_all(pool)
             .await?
             .into_iter()
-            .map(|(code, id)| (code, id))
             .collect();
 
     let mut created_maps = 0usize;
@@ -356,15 +355,18 @@ async fn sync_records(
     maps: &[GokzMap],
     args: &Args,
 ) -> Result<()> {
-    let mut caches = Caches::default();
-    caches.modes = sqlx::query_as::<_, (String, i16)>("SELECT code, id FROM movement_modes")
-        .fetch_all(pool)
-        .await?
-        .into_iter()
-        .collect();
-    caches.style_id = sqlx::query_scalar("SELECT id FROM movement_styles WHERE code = 'normal'")
-        .fetch_one(pool)
-        .await?;
+    let caches = Caches {
+        modes: sqlx::query_as::<_, (String, i16)>("SELECT code, id FROM movement_modes")
+            .fetch_all(pool)
+            .await?
+            .into_iter()
+            .collect(),
+        style_id: sqlx::query_scalar("SELECT id FROM movement_styles WHERE code = 'normal'")
+            .fetch_one(pool)
+            .await?,
+        ..Default::default()
+    };
+    let mut caches = caches;
     for (steam_id, id) in sqlx::query_as::<_, (String, i64)>(
         "SELECT steam_id64::text, id FROM accounts WHERE deleted_at IS NULL",
     )
@@ -448,7 +450,7 @@ async fn sync_records(
             });
             processed += 1;
             total_rows += rows;
-            if rows > 0 || processed % 50 == 0 {
+            if rows > 0 || processed.is_multiple_of(50) {
                 println!("  [{processed}/{total_maps}] {name} -> {rows} rows (total {total_rows})");
             }
         }

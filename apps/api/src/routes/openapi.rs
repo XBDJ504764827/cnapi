@@ -4,6 +4,7 @@
 use utoipa::OpenApi;
 
 use crate::dto::auth as auth_dto;
+use crate::dto::ban as ban_dto;
 use crate::dto::game_server as server_dto;
 use crate::dto::points as points_dto;
 use crate::dto::public as public_dto;
@@ -40,7 +41,7 @@ use crate::dto::{
         SystemStatusResponse,
     },
 };
-use crate::handlers::{auth, game_servers, health, points, public, sources, system};
+use crate::handlers::{auth, bans, game_servers, health, points, public, sources, system};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -61,6 +62,9 @@ use crate::handlers::{auth, game_servers, health, points, public, sources, syste
         auth::steam_callback,
         auth::me,
         auth::logout,
+        bans::list_bans,
+        bans::create_ban,
+        bans::revoke_ban,
         public::statistics,
         public::modes,
         public::leaderboard,
@@ -142,6 +146,12 @@ use crate::handlers::{auth, game_servers, health, points, public, sources, syste
         auth_dto::AuthUserResponse,
         auth_dto::AuthSessionResponse,
         auth_dto::LogoutResponse,
+        ban_dto::BanSummary,
+        ban_dto::BanListResponse,
+        ban_dto::BanMutationResponse,
+        ban_dto::CreateBanRequest,
+        ban_dto::RevokeBanRequest,
+        ban_dto::BanListQuery,
         // Public portal
         public_dto::PageMeta,
         public_dto::PlayerRef,

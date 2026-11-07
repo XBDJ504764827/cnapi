@@ -44,6 +44,7 @@ pub fn build_router(state: AppState) -> Router {
         // 之前只写了 handler 与 OpenAPI 条目，却漏了挂载，导致管理后台「数据源」页
         // 拿到的是 404 而不是 401/403。
         .nest("/api/v1/admin", handlers::sources::router())
+        .nest("/api/v1/admin", handlers::bans::router())
         .nest("/api/v1/public", handlers::public::router())
         .merge(swagger)
         .fallback(not_found)

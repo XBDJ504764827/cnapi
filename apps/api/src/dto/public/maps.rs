@@ -51,6 +51,7 @@ pub struct MapSummary {
     pub wr_time_ns: Option<i64>,
     pub wr_time_seconds: Option<String>,
     pub wr_player_name: Option<String>,
+    pub preview_image_url: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

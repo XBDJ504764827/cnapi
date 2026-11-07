@@ -1107,6 +1107,7 @@ fn map_summary(row: map_repo::MapRow) -> MapSummary {
         wr_time_ns: row.wr_time_ns,
         wr_time_seconds: row.wr_time_ns.map(seconds_string_3),
         wr_player_name: row.wr_player_name,
+        preview_image_url: row.preview_image_url,
         created_at: row.created_at,
     }
 }
@@ -1143,6 +1144,7 @@ pub async fn map_detail(
                 records_count: 0,
                 wr_time_ns: None,
                 wr_player_name: None,
+                preview_image_url: None,
                 created_at: map.created_at,
                 approved_at: map.approved_at,
             });
@@ -1225,6 +1227,14 @@ pub async fn map_leaderboard(
         .await?
         .ok_or_else(|| AppError::not_found("course"))?;
     let page = query.page_params()?;
+    // 单张地图只公开展示前 100 名：更深的排名对页面没有意义，且热门图
+    // 单课程有上万条成绩，限制深度能避免 rank 计算扫全表。
+    const MAX_VISIBLE_RANKS: i64 = 100;
+    let (limit, offset) = if page.offset >= MAX_VISIBLE_RANKS {
+        (0, MAX_VISIBLE_RANKS)
+    } else {
+        (page.limit.min(MAX_VISIBLE_RANKS - page.offset), page.offset)
+    };
 
     let key = format!(
         "map-leaderboard:{}:{}:{}:{}:{}:{}:{}",
@@ -1246,9 +1256,10 @@ pub async fn map_leaderboard(
             time_type,
             ..Default::default()
         };
-        let rows = record_repo::list_records(state.db(), &filters, "time", page.limit, page.offset)
-            .await?;
-        let total = record_repo::count_records(state.db(), &filters).await?;
+        let rows = record_repo::list_records(state.db(), &filters, "time", limit, offset).await?;
+        let total = record_repo::count_records(state.db(), &filters)
+            .await?
+            .min(MAX_VISIBLE_RANKS);
         Ok(MapLeaderboardResponse {
             map: map.to_ref(),
             course: crate::dto::public::common::CourseRef {

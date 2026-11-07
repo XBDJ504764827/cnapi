@@ -16,3 +16,18 @@ html.theme-switching *::after {
   transition: none !important;
   animation-duration: 0s !important;
 }
+
+/*
+ * 主题切换：View Transition 默认有 cross-fade，仍会看到闪动；关掉它，
+ * 让浏览器直接把新旧两帧原子替换。
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal !important;
+}
+
+/* 预留滚动条位置：color-scheme 变化导致滚动条宽度变化时不会横向跳 1px */
+html {
+  scrollbar-gutter: stable;
+}

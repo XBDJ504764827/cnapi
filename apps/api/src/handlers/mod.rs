@@ -2,6 +2,7 @@
 //! result in the unified response envelope.
 
 pub mod auth;
+pub mod bans;
 pub mod game_servers;
 pub mod health;
 pub mod points;

@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router';
 import { EmptyState } from '@/public/components/common/empty-state';
 import { ErrorState } from '@/public/components/common/error-state';
 import { ModeTabs } from '@/public/components/common/mode-tabs';
+import { MapPreview } from '@/public/components/common/map-preview';
 import { PageHeader } from '@/public/components/common/page-header';
 import { SectionHeader } from '@/public/components/common/section-header';
 import { TierBadge } from '@/public/components/common/tier-badge';
@@ -42,6 +43,8 @@ export function MapDetailPage() {
       page_size: list.pageSize,
     }),
   );
+  // 后端只提供前 100 名，超出部分不展示也不提供翻页入口
+  const visibleTotal = Math.min(leaderboard.data?.meta.total ?? 0, 100);
 
   usePageMeta({
     title: map.data ? `${map.data.map.name} · 地图` : '地图详情',
@@ -87,6 +90,12 @@ export function MapDetailPage() {
         </div>
       ) : detail ? (
         <>
+          <MapPreview
+            name={detail.map.name}
+            url={detail.map.preview_image_url}
+            className="mb-4 h-44 w-full max-w-2xl sm:h-56"
+            rounded="lg"
+          />
           <PageHeader
             title={detail.map.name}
             description={detail.map.description ?? '该地图没有填写简介。'}
@@ -273,13 +282,16 @@ export function MapDetailPage() {
                 emptyDescription="该课程 / 模式 / 成绩类型还没有成绩。"
               />
               <div className="border-t border-border/70 px-4 py-3">
-                <Pagination
-                  page={leaderboard.data?.meta.page ?? list.page}
-                  pageSize={leaderboard.data?.meta.page_size ?? list.pageSize}
-                  total={leaderboard.data?.meta.total ?? 0}
-                  onPageChange={list.setPage}
-                  onPageSizeChange={list.setPageSize}
-                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">仅展示前 100 名</span>
+                  <Pagination
+                    page={leaderboard.data?.meta.page ?? list.page}
+                    pageSize={leaderboard.data?.meta.page_size ?? list.pageSize}
+                    total={visibleTotal}
+                    onPageChange={list.setPage}
+                    onPageSizeChange={list.setPageSize}
+                  />
+                </div>
               </div>
             </Card>
           </section>

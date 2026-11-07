@@ -9,6 +9,168 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/admin/bans": {
+      "get": {
+        "tags": [
+          "bans"
+        ],
+        "summary": "List bans",
+        "operationId": "list_bans",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "active | expired | revoked | all",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BanListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "bans"
+        ],
+        "summary": "Create a ban",
+        "operationId": "create_ban",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BanMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/bans/{id}/revoke": {
+      "post": {
+        "tags": [
+          "bans"
+        ],
+        "summary": "Revoke a ban",
+        "operationId": "revoke_ban",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeBanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BanMutationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/external-servers": {
       "get": {
         "tags": [
@@ -4608,6 +4770,81 @@
           }
         }
       },
+      "ApiResponse_BanListResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "items",
+              "total",
+              "page",
+              "page_size"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/BanSummary"
+                }
+              },
+              "page": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "page_size": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "total": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_BanMutationResponse": {
+        "type": "object",
+        "description": "Envelope used by every successful response.",
+        "required": [
+          "success",
+          "data",
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "ban_id"
+            ],
+            "properties": {
+              "ban_id": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_CompareResponse": {
         "type": "object",
         "description": "Envelope used by every successful response.",
@@ -7198,6 +7435,152 @@
           }
         }
       },
+      "BanListQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "page_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "active | expired | revoked | all"
+          }
+        }
+      },
+      "BanListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BanSummary"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page_size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "BanMutationResponse": {
+        "type": "object",
+        "required": [
+          "ban_id"
+        ],
+        "properties": {
+          "ban_id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "BanSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "account_id",
+          "steam_id64",
+          "display_name",
+          "ban_type",
+          "reason",
+          "issued_at",
+          "status",
+          "source"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ban_type": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "revoke_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "`active` | `expired` | `revoked`（expired 由 expires_at 推导）。"
+          },
+          "steam_id64": {
+            "type": "string"
+          }
+        }
+      },
       "CompareBest": {
         "type": "object",
         "required": [
@@ -7674,6 +8057,36 @@
             "type": "integer",
             "format": "int32",
             "description": "0 = main course, >0 = bonus stage."
+          }
+        }
+      },
+      "CreateBanRequest": {
+        "type": "object",
+        "required": [
+          "steam_id64",
+          "reason"
+        ],
+        "properties": {
+          "ban_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "RFC3339；留空 = 永久封禁。"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "steam_id64": {
+            "type": "string",
+            "description": "SteamID64（17–20 位数字）。"
           }
         }
       },
@@ -8702,6 +9115,12 @@
           },
           "name": {
             "type": "string"
+          },
+          "preview_image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "records_count": {
             "type": "integer",
@@ -10997,6 +11416,17 @@
           "task_id": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "RevokeBanRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
           }
         }
       },
