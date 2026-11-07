@@ -38,43 +38,45 @@ fn time_type_filter(alias: &str, time_type: Option<TimeType>) -> String {
 }
 
 fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
-    let record_mode = mode_filter("r", mode_id);
-    let record_tt = time_type_filter("r", time_type);
-    let wr_mode = mode_filter("wr", mode_id);
-    let wr_tt = time_type_filter("wr", time_type);
+    let board_mode = mode_filter("b", mode_id);
+    let board_tt = time_type_filter("b", time_type);
+    let wr_mode = mode_filter("w", mode_id);
+    let wr_tt = time_type_filter("w", time_type);
 
+    // 读数来自物化视图 mv_player_board / mv_player_wr（每人每模式每类型一行，
+    // 几百行），不再扫 records 的 160 万行。视图由 refresh_board_views 在记录
+    // 变化后刷新（积分重算 worker 队列排空时触发）。
     format!(
         r#"
-        WITH stats AS (
+        WITH rec AS (
+            SELECT b.account_id,
+                   sum(b.total_records)::bigint AS total_records,
+                   sum(b.completed_maps)::bigint AS completed_maps,
+                   max(b.last_activity_at) AS last_activity_at
+              FROM mv_player_board b
+             WHERE TRUE{board_mode}{board_tt}
+             GROUP BY b.account_id
+        ),
+        wr AS (
+            SELECT w.account_id, sum(w.wr_count)::bigint AS wr_count
+              FROM mv_player_wr w
+             WHERE TRUE{wr_mode}{wr_tt}
+             GROUP BY w.account_id
+        ),
+        stats AS (
             SELECT a.id AS account_id,
                    a.steam_id64::text AS steam_id64,
                    COALESCE(p.display_name, 'Unknown player') AS display_name,
                    p.avatar_url,
                    p.country,
-                   (SELECT count(DISTINCT r.map_id)
-                      FROM records r
-                      JOIN map_courses c ON c.id = r.course_id AND c.stage = 0
-                     WHERE r.account_id = a.id
-                       AND r.status = 'approved'
-                       AND r.deleted_at IS NULL{record_mode}{record_tt}) AS completed_maps,
-                   (SELECT count(*)
-                      FROM records r
-                     WHERE r.account_id = a.id
-                       AND r.status = 'approved'
-                       AND r.deleted_at IS NULL{record_mode}{record_tt}) AS total_records,
-                   (SELECT count(*)
-                      FROM course_world_records w
-                      JOIN records wr ON wr.id = w.record_id
-                     WHERE wr.account_id = a.id
-                       AND wr.status = 'approved'
-                       AND wr.deleted_at IS NULL{wr_mode}{wr_tt}) AS wr_count,
-                   (SELECT max(r.created_at)
-                      FROM records r
-                     WHERE r.account_id = a.id
-                       AND r.status = 'approved'
-                       AND r.deleted_at IS NULL{record_mode}{record_tt}) AS last_activity_at
+                   COALESCE(rec.completed_maps, 0) AS completed_maps,
+                   COALESCE(rec.total_records, 0) AS total_records,
+                   COALESCE(wr.wr_count, 0) AS wr_count,
+                   rec.last_activity_at
               FROM accounts a
               LEFT JOIN player_profiles p ON p.account_id = a.id
+              LEFT JOIN rec ON rec.account_id = a.id
+              LEFT JOIN wr ON wr.account_id = a.id
              WHERE a.deleted_at IS NULL
         ),
         ranked AS (
@@ -86,6 +88,17 @@ fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
         )
         "#
     )
+}
+
+/// 刷新排行榜物化视图。只在记录发生变化后调用。
+pub async fn refresh_board_views(pool: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_player_board")
+        .execute(pool)
+        .await?;
+    sqlx::query("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_player_wr")
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 pub async fn leaderboard(

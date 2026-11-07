@@ -334,6 +334,9 @@ pub async fn run_worker(state: AppState, mut shutdown: tokio::sync::watch::Recei
     let worker_id = Uuid::new_v4().simple().to_string();
     info!(worker = %worker_id, "points recalc worker started");
 
+    // 队列排空时顺带刷新排行榜物化视图（记录可能刚被导入或回填改变）。
+    let mut last_board_refresh = std::time::Instant::now();
+
     loop {
         if *shutdown.borrow() {
             break;
@@ -342,6 +345,15 @@ pub async fn run_worker(state: AppState, mut shutdown: tokio::sync::watch::Recei
         let task = match claim_task(state.db(), &worker_id).await {
             Ok(Some(task)) => task,
             Ok(None) => {
+                if last_board_refresh.elapsed() >= Duration::from_secs(300) {
+                    last_board_refresh = std::time::Instant::now();
+                    match crate::repositories::public::leaderboards::refresh_board_views(state.db())
+                        .await
+                    {
+                        Ok(()) => info!("leaderboard views refreshed"),
+                        Err(error) => warn!(error = %error, "failed to refresh leaderboard views"),
+                    }
+                }
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_millis(750)) => continue,
                     _ = shutdown.changed() => break,
