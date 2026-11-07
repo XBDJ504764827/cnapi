@@ -11,7 +11,7 @@ export function ModeStatsCards({ mode, active }: { mode: PlayerModeStatsPayload;
         <p className="text-[13px] font-medium">{mode.mode.display_name}</p>
         {mode.total_records > 0 ? <StatusIndicator tone="up" label={mode.rank ? `#${mode.rank}` : '—'} /> : null}
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+      <div className="mt-2 grid grid-cols-4 gap-2 text-center">
         <div>
           <p className="text-[10px] text-muted-foreground">完成</p>
           <p className="font-mono text-sm tabular-nums">{formatNumber(mode.completed_maps)}</p>
@@ -23,6 +23,10 @@ export function ModeStatsCards({ mode, active }: { mode: PlayerModeStatsPayload;
         <div>
           <p className="text-[10px] text-muted-foreground">成绩</p>
           <p className="font-mono text-sm tabular-nums">{formatNumber(mode.total_records)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-muted-foreground">积分</p>
+          <p className="font-mono text-sm tabular-nums">{formatNumber(mode.points ?? 0)}</p>
         </div>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">

@@ -98,7 +98,12 @@ export function PlayerMapProgress({ steamid, mode, timeType }: { steamid: string
       id: 'points',
       header: '积分',
       className: 'text-right',
-      cell: () => <span className="text-muted-foreground">—</span>,
+      cell: (row) =>
+        row.points && row.points > 0 ? (
+          <span className="font-medium tabular-nums">{formatNumber(row.points)}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       id: 'last',
