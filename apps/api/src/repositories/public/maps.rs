@@ -31,9 +31,37 @@ fn tt(alias: &str, time_type: Option<TimeType>) -> String {
 fn map_select(tier_column: &str, time_type: Option<TimeType>) -> String {
     let r_tt = tt("r", time_type);
     let w_tt = tt("w", time_type);
+    // 之前每张地图各跑 4 个相关子查询（热门地图单张就有 10 万条成绩），
+    // 列表页要 2 秒以上。现在改成一次 GROUP BY + 一次 DISTINCT ON，
+    // 每页仍然只取 20 行地图。
     format!(
         r#"
-        WITH map_stats AS (
+        WITH rec AS (
+            SELECT r.map_id,
+                   count(*)::bigint AS records_count,
+                   count(DISTINCT r.account_id) FILTER (WHERE mc.id IS NOT NULL)::bigint
+                       AS completed_players
+              FROM records r
+              LEFT JOIN map_courses mc ON mc.id = r.course_id AND mc.stage = 0
+             WHERE r.mode_id = $1
+               AND r.status = 'approved'
+               AND r.deleted_at IS NULL{r_tt}
+             GROUP BY r.map_id
+        ),
+        wr AS (
+            SELECT DISTINCT ON (cw.map_id)
+                   cw.map_id,
+                   w.time_ns,
+                   p.display_name
+              FROM course_world_records w
+              JOIN map_courses cw ON cw.id = w.course_id AND cw.stage = 0
+              JOIN records wr2 ON wr2.id = w.record_id
+              JOIN accounts a ON a.id = wr2.account_id
+              LEFT JOIN player_profiles p ON p.account_id = a.id
+             WHERE w.mode_id = $1{w_tt}
+             ORDER BY cw.map_id, w.time_ns ASC
+        ),
+        map_stats AS (
             SELECT m.id,
                    m.name,
                    m.workshop_id,
@@ -42,40 +70,16 @@ fn map_select(tier_column: &str, time_type: Option<TimeType>) -> String {
                    m.approved_at,
                    {tier_column} AS tier,
                    (SELECT count(*) FROM map_courses c WHERE c.map_id = m.id)::bigint AS courses,
-                   (SELECT count(DISTINCT r.account_id)
-                      FROM records r
-                      JOIN map_courses c2 ON c2.id = r.course_id AND c2.stage = 0
-                     WHERE r.map_id = m.id
-                       AND r.mode_id = $1
-                       AND r.status = 'approved'
-                       AND r.deleted_at IS NULL{r_tt}) AS completed_players,
-                   (SELECT count(*)
-                      FROM records r
-                     WHERE r.map_id = m.id
-                       AND r.mode_id = $1
-                       AND r.status = 'approved'
-                       AND r.deleted_at IS NULL{r_tt}) AS records_count,
-                   (SELECT w.time_ns
-                      FROM course_world_records w
-                      JOIN map_courses cw ON cw.id = w.course_id AND cw.stage = 0
-                     WHERE cw.map_id = m.id
-                       AND w.mode_id = $1{w_tt}
-                     ORDER BY w.time_ns ASC
-                     LIMIT 1) AS wr_time_ns,
-                   (SELECT p.display_name
-                      FROM course_world_records w
-                      JOIN map_courses cw ON cw.id = w.course_id AND cw.stage = 0
-                      JOIN records wr ON wr.id = w.record_id
-                      JOIN accounts a ON a.id = wr.account_id
-                      LEFT JOIN player_profiles p ON p.account_id = a.id
-                     WHERE cw.map_id = m.id
-                       AND w.mode_id = $1{w_tt}
-                     ORDER BY w.time_ns ASC
-                     LIMIT 1) AS wr_player_name
+                   COALESCE(rec.completed_players, 0) AS completed_players,
+                   COALESCE(rec.records_count, 0) AS records_count,
+                   wr.time_ns AS wr_time_ns,
+                   wr.display_name AS wr_player_name
               FROM maps m
               JOIN map_modes mm ON mm.map_id = m.id AND mm.mode_id = $1
               JOIN map_courses mc ON mc.map_id = m.id AND mc.stage = 0
               LEFT JOIN course_tiers ct ON ct.course_id = mc.id AND ct.mode_id = $1
+              LEFT JOIN rec ON rec.map_id = m.id
+              LEFT JOIN wr ON wr.map_id = m.id
              WHERE m.status = 'approved' AND m.deleted_at IS NULL
         )
         "#

@@ -135,16 +135,13 @@ pub async fn leaderboard_total(
     mode_id: i16,
     time_type: Option<TimeType>,
 ) -> Result<i64, sqlx::Error> {
+    // 直接数物化视图，避免为了一个总数再扫一遍 160 万行。
     let tt_filter = match time_type {
-        Some(value) => format!(" AND r.time_type = '{}'", value.as_str()),
+        Some(value) => format!(" AND time_type = '{}'", value.as_str()),
         None => String::new(),
     };
     let sql = format!(
-        "SELECT count(DISTINCT r.account_id)
-           FROM records r
-           JOIN accounts a ON a.id = r.account_id AND a.deleted_at IS NULL
-          WHERE r.status = 'approved' AND r.deleted_at IS NULL
-            AND r.mode_id = $1{tt_filter}"
+        "SELECT count(DISTINCT account_id) FROM mv_player_board WHERE mode_id = $1{tt_filter}"
     );
     sqlx::query_scalar::<_, i64>(AssertSqlSafe(sql))
         .bind(mode_id)
