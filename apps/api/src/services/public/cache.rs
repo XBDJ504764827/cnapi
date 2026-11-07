@@ -40,14 +40,14 @@ pub async fn initialize(state: &AppState) {
 
 pub const TTL_STATISTICS: Duration = Duration::from_secs(30);
 pub const TTL_MODES: Duration = Duration::from_secs(300);
-pub const TTL_LEADERBOARD: Duration = Duration::from_secs(60);
-pub const TTL_PLAYER_LIST: Duration = Duration::from_secs(30);
-pub const TTL_PLAYER_DETAIL: Duration = Duration::from_secs(30);
-pub const TTL_RECORD_LIST: Duration = Duration::from_secs(20);
+pub const TTL_LEADERBOARD: Duration = Duration::from_secs(120);
+pub const TTL_PLAYER_LIST: Duration = Duration::from_secs(60);
+pub const TTL_PLAYER_DETAIL: Duration = Duration::from_secs(60);
+pub const TTL_RECORD_LIST: Duration = Duration::from_secs(45);
 pub const TTL_RECENT_RECORDS: Duration = Duration::from_secs(15);
 pub const TTL_WORLD_RECORDS: Duration = Duration::from_secs(30);
 pub const TTL_ACTIVE_PLAYERS: Duration = Duration::from_secs(60);
-pub const TTL_MAP_LIST: Duration = Duration::from_secs(60);
+pub const TTL_MAP_LIST: Duration = Duration::from_secs(90);
 pub const TTL_MAP_DETAIL: Duration = Duration::from_secs(120);
 pub const TTL_SERVER_LIST: Duration = Duration::from_secs(15);
 pub const TTL_SEARCH: Duration = Duration::from_secs(30);

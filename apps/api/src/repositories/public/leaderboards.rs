@@ -37,15 +37,15 @@ fn time_type_filter(alias: &str, time_type: Option<TimeType>) -> String {
     }
 }
 
+/// 排行榜公共 CTE：只对「有成绩的账号」聚合与排名，且窗口函数只携带窄字段
+/// （account_id + 三个计数）。昵称、头像、SteamID 在排名之后才 JOIN，避免把
+/// 19 万个宽行带进窗口排序。
 fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
     let board_mode = mode_filter("b", mode_id);
     let board_tt = time_type_filter("b", time_type);
     let wr_mode = mode_filter("w", mode_id);
     let wr_tt = time_type_filter("w", time_type);
 
-    // 读数来自物化视图 mv_player_board / mv_player_wr（每人每模式每类型一行，
-    // 几百行），不再扫 records 的 160 万行。视图由 refresh_board_views 在记录
-    // 变化后刷新（积分重算 worker 队列排空时触发）。
     format!(
         r#"
         WITH rec AS (
@@ -64,20 +64,13 @@ fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
              GROUP BY w.account_id
         ),
         stats AS (
-            SELECT a.id AS account_id,
-                   a.steam_id64::text AS steam_id64,
-                   COALESCE(p.display_name, 'Unknown player') AS display_name,
-                   p.avatar_url,
-                   p.country,
-                   COALESCE(rec.completed_maps, 0) AS completed_maps,
-                   COALESCE(rec.total_records, 0) AS total_records,
+            SELECT rec.account_id,
+                   rec.completed_maps,
+                   rec.total_records,
                    COALESCE(wr.wr_count, 0) AS wr_count,
                    rec.last_activity_at
-              FROM accounts a
-              LEFT JOIN player_profiles p ON p.account_id = a.id
-              LEFT JOIN rec ON rec.account_id = a.id
-              LEFT JOIN wr ON wr.account_id = a.id
-             WHERE a.deleted_at IS NULL
+              FROM rec
+              LEFT JOIN wr ON wr.account_id = rec.account_id
         ),
         ranked AS (
             SELECT *,
@@ -89,6 +82,23 @@ fn stats_cte(mode_id: Option<i16>, time_type: Option<TimeType>) -> String {
         "#
     )
 }
+
+/// 把排名结果拼回账号信息（昵称、头像、SteamID）。
+const RANKED_SELECT: &str = r#"
+    SELECT a.id AS account_id,
+           a.steam_id64::text AS steam_id64,
+           COALESCE(p.display_name, 'Unknown player') AS display_name,
+           p.avatar_url,
+           p.country,
+           r.completed_maps,
+           r.total_records,
+           r.wr_count,
+           r.last_activity_at,
+           r.rank_position
+      FROM ranked r
+      JOIN accounts a ON a.id = r.account_id AND a.deleted_at IS NULL
+      LEFT JOIN player_profiles p ON p.account_id = a.id
+"#;
 
 /// 刷新排行榜物化视图。只在记录发生变化后调用。
 pub async fn refresh_board_views(pool: &PgPool) -> Result<(), sqlx::Error> {
@@ -109,8 +119,9 @@ pub async fn leaderboard(
     offset: i64,
 ) -> Result<Vec<LeaderboardRow>, sqlx::Error> {
     let sql = format!(
-        "{} SELECT * FROM ranked WHERE total_records > 0 ORDER BY rank_position, account_id LIMIT $1 OFFSET $2",
-        stats_cte(Some(mode_id), time_type)
+        "{}{} WHERE r.total_records > 0 ORDER BY r.rank_position, r.account_id LIMIT $1 OFFSET $2",
+        stats_cte(Some(mode_id), time_type),
+        RANKED_SELECT
     );
     sqlx::query_as::<_, LeaderboardRow>(AssertSqlSafe(sql))
         .bind(limit)
@@ -158,12 +169,13 @@ pub async fn player_directory(
         _ => "rank_position ASC, account_id ASC",
     };
     let sql = format!(
-        "{} SELECT * FROM ranked
+        "{}{}
          WHERE ($1::text IS NULL
-                OR display_name ILIKE '%' || $1 || '%'
-                OR steam_id64 LIKE $1 || '%')
+                OR p.display_name ILIKE '%' || $1 || '%'
+                OR a.steam_id64::text LIKE $1 || '%')
          ORDER BY {order} LIMIT $2 OFFSET $3",
-        stats_cte(mode_id, time_type)
+        stats_cte(mode_id, time_type),
+        RANKED_SELECT
     );
     sqlx::query_as::<_, LeaderboardRow>(AssertSqlSafe(sql))
         .bind(search)
@@ -183,6 +195,7 @@ pub async fn player_directory_total(
         FROM accounts a
         LEFT JOIN player_profiles p ON p.account_id = a.id
         WHERE a.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM mv_player_board b WHERE b.account_id = a.id)
           AND ($1::text IS NULL
                OR p.display_name ILIKE '%' || $1 || '%'
                OR a.steam_id64::text LIKE $1 || '%')

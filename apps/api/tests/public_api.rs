@@ -99,6 +99,15 @@ async fn create_fixture_database() -> Option<(PgPool, PgPool, String, String)> {
         .await
         .expect("fixtures");
 
+    // 排行榜读取的是物化视图，装载 fixture 后需要刷新一次。
+    sqlx::raw_sql(AssertSqlSafe(
+        "REFRESH MATERIALIZED VIEW mv_player_board; REFRESH MATERIALIZED VIEW mv_player_wr;"
+            .to_owned(),
+    ))
+    .execute(&pool)
+    .await
+    .expect("refresh board views");
+
     let database_url = match base_url.rsplit_once('/') {
         Some((prefix, _)) => format!("{prefix}/{database_name}"),
         None => base_url.clone(),
